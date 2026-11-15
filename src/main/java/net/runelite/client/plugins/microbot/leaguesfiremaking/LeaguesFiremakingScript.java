@@ -45,6 +45,7 @@ public class LeaguesFiremakingScript extends Script {
 
                 if (startPosition == null) {
                     startPosition = Rs2Player.getWorldLocation();
+                    if (startPosition == null) return;
                 }
 
                 activeLogType = config.progressiveMode() ? LogType.getBestForLevel() : config.logType();
@@ -107,7 +108,10 @@ public class LeaguesFiremakingScript extends Script {
         WorldPoint eastEnd = currentLine.getEastEnd();
         status = "Walking to east end of line";
 
-        if (Rs2Player.getWorldLocation().distanceTo(eastEnd) <= 1) {
+        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        if (playerLocation == null) return;
+
+        if (playerLocation.distanceTo(eastEnd) <= 1) {
             state = State.BURNING;
             return;
         }
@@ -142,6 +146,7 @@ public class LeaguesFiremakingScript extends Script {
 
         // Check if we're standing on a fire — need to step west first
         WorldPoint playerPos = Rs2Player.getWorldLocation();
+        if (playerPos == null) return;
         boolean standingOnFire = TileScanner.hasFire(playerPos);
 
         if (standingOnFire) {
@@ -154,7 +159,7 @@ public class LeaguesFiremakingScript extends Script {
                 return;
             }
             Rs2Walker.walkTo(westTile, 0);
-            sleepUntil(() -> Rs2Player.getWorldLocation().distanceTo(westTile) <= 0, 3000);
+            sleepUntil(() -> westTile.equals(Rs2Player.getWorldLocation()), 3000);
             return;
         }
 
@@ -166,11 +171,15 @@ public class LeaguesFiremakingScript extends Script {
 
         status = "Lighting " + activeLogType.getLogName();
         WorldPoint beforeLight = Rs2Player.getWorldLocation();
+        if (beforeLight == null) return;
         Rs2Inventory.combine(TINDERBOX_NAME, activeLogType.getLogName());
 
         // Wait for XP drop (fire lit) then wait for auto-walk west
         if (Rs2Player.waitForXpDrop(Skill.FIREMAKING, 10000)) {
-            sleepUntil(() -> !Rs2Player.getWorldLocation().equals(beforeLight), 3000);
+            sleepUntil(() -> {
+                WorldPoint afterLight = Rs2Player.getWorldLocation();
+                return afterLight != null && !afterLight.equals(beforeLight);
+            }, 3000);
             sleep(200, 400);
         }
 
@@ -232,7 +241,10 @@ public class LeaguesFiremakingScript extends Script {
     private void handleWalkingBack(LeaguesFiremakingConfig config) {
         status = "Walking back to fire area";
 
-        if (Rs2Player.getWorldLocation().distanceTo(startPosition) <= config.scanRadius()) {
+        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        if (playerLocation == null) return;
+
+        if (playerLocation.distanceTo(startPosition) <= config.scanRadius()) {
             state = State.SCANNING;
             return;
         }

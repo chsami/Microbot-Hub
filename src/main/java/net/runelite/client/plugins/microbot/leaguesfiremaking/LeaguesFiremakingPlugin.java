@@ -21,7 +21,7 @@ import javax.inject.Inject;
 )
 @Slf4j
 public class LeaguesFiremakingPlugin extends Plugin {
-    public static final String version = "1.0.0";
+    public static final String version = "1.0.1";
 
     @Inject
     private LeaguesFiremakingConfig config;
