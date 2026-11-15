@@ -3,6 +3,8 @@ package net.runelite.client.plugins.microbot.slayer;
 import net.runelite.api.Client;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.slayer.profile.SlayerTaskProfileJson;
+import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
+import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
@@ -206,6 +208,51 @@ class SlayerAntifireUpkeepTest {
         items.clear();
         microbot.when(() -> Microbot.getVarbitValue(ANTIFIRE_VARBIT)).thenReturn(3);
         assertFalse((boolean) invoke(script, "shouldRetreatFromDragonfire"));
+    }
+
+    @Test
+    void retreatWithoutAnInventorySetupWalksToTheBankBeforeStopping() throws Exception {
+        slayer.when(Rs2Slayer::getSlayerTask).thenReturn("Black Dragons");
+        script.onDragonfireBurnMessage();
+        assertTrue((boolean) invoke(script, "shouldRetreatFromDragonfire"));
+
+        try (MockedStatic<Rs2Dialogue> dialogue = mockStatic(Rs2Dialogue.class);
+             MockedStatic<Rs2Bank> bank = mockStatic(Rs2Bank.class)) {
+            invoke(script, "handleBankingState");
+
+            bank.verify(Rs2Bank::walkToBank, times(1));
+            microbot.verify(() -> Microbot.stopPlugin(SlayerPlugin.class), never());
+            microbot.verify(() -> Microbot.showMessage(anyString()), never());
+
+            bank.when(Rs2Bank::isOpen).thenReturn(true);
+            invoke(script, "handleBankingState");
+
+            bank.verify(Rs2Bank::walkToBank, times(1));
+            microbot.verify(() -> Microbot.stopPlugin(SlayerPlugin.class), times(1));
+            microbot.verify(() -> Microbot.showMessage(ArgumentMatchers.contains("no inventory setup")), times(1));
+            assertEquals(SlayerState.IDLE, SlayerPlugin.getState());
+        }
+    }
+
+    @Test
+    void retreatStopsWhenTheBankHasNoAntifireEither() throws Exception {
+        slayer.when(Rs2Slayer::getSlayerTask).thenReturn("Black Dragons");
+
+        try (MockedStatic<Rs2Bank> bank = mockStatic(Rs2Bank.class)) {
+            assertFalse((boolean) invoke(script, "stopIfBankHasNoAntifire"));
+
+            script.onDragonfireBurnMessage();
+            assertTrue((boolean) invoke(script, "shouldRetreatFromDragonfire"));
+
+            bank.when(() -> Rs2Bank.hasItem("antifire")).thenReturn(true);
+            assertFalse((boolean) invoke(script, "stopIfBankHasNoAntifire"));
+            microbot.verify(() -> Microbot.stopPlugin(SlayerPlugin.class), never());
+
+            bank.when(() -> Rs2Bank.hasItem("antifire")).thenReturn(false);
+            assertTrue((boolean) invoke(script, "stopIfBankHasNoAntifire"));
+            microbot.verify(() -> Microbot.stopPlugin(SlayerPlugin.class), times(1));
+            microbot.verify(() -> Microbot.showMessage(ArgumentMatchers.contains("no antifire potions either")), times(1));
+        }
     }
 
     private Rs2ItemModel item(String name) {

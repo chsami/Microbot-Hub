@@ -131,6 +131,13 @@ public class SlayerScript extends Script {
     private boolean takenWaitAnnounced = false;
 
     private static final int DRAGONFIRE_BURN_WINDOW_MS = 10000;
+    private static final String DRAGONFIRE_STOP_ADVICE_SETUP =
+            "Add antifire potions (or an anti-dragon / dragonfire shield) to the inventory setup for this task, then start the plugin again.";
+    private static final String DRAGONFIRE_STOP_ADVICE_NO_SETUP =
+            "You are at the bank. This task has no inventory setup, so the plugin cannot restock: "
+                    + "create one with antifire potions (or an anti-dragon / dragonfire shield), then start the plugin again.";
+    private static final String DRAGONFIRE_STOP_ADVICE_BANK_EMPTY =
+            "You are at the bank, but it has no antifire potions either: buy some, then start the plugin again.";
     private volatile long lastDragonfireBurnAt = 0;
     private boolean retreatedFromDragonfire = false;
 
@@ -1506,8 +1513,15 @@ public class SlayerScript extends Script {
         // Get the active inventory setup (cannon or regular)
         var activeSetup = getActiveInventorySetup();
         if (activeSetup == null) {
+            if (retreatedFromDragonfire && !Rs2Bank.isOpen()) {
+                openOrWalkToBank();
+                return;
+            }
             log.warn("No inventory setup configured, skipping banking");
-            if (stopIfStillUnprotectedFromDragonfire()) {
+            if (retreatedFromDragonfire) {
+                Rs2Bank.closeBank();
+            }
+            if (stopIfStillUnprotectedFromDragonfire(DRAGONFIRE_STOP_ADVICE_NO_SETUP)) {
                 return;
             }
             if (config.enableAutoTravel()) {
@@ -1520,15 +1534,7 @@ public class SlayerScript extends Script {
 
         // If bank is not open, walk to bank and open it
         if (!Rs2Bank.isOpen()) {
-            if (!Rs2Player.isMoving()) {
-                // Try to open bank if we're near one
-                if (Rs2Bank.openBank()) {
-                    sleepUntil(Rs2Bank::isOpen, 3000);
-                } else {
-                    log.info("Walking to nearest bank");
-                    Rs2Bank.walkToBank();
-                }
-            }
+            openOrWalkToBank();
             return;
         }
 
@@ -1584,7 +1590,29 @@ public class SlayerScript extends Script {
             }
         } else {
             log.warn("Failed to load inventory setup completely");
+            stopIfBankHasNoAntifire();
         }
+    }
+
+    private void openOrWalkToBank() {
+        if (Rs2Player.isMoving()) {
+            return;
+        }
+        if (Rs2Bank.openBank()) {
+            sleepUntil(Rs2Bank::isOpen, 3000);
+        } else {
+            log.info("Walking to nearest bank");
+            Rs2Bank.walkToBank();
+        }
+    }
+
+    private boolean stopIfBankHasNoAntifire() {
+        if (!retreatedFromDragonfire || hasAntifireDose()
+                || Rs2Bank.hasItem("antifire") || Rs2Bank.hasItem("anti-fire")) {
+            return false;
+        }
+        Rs2Bank.closeBank();
+        return stopIfStillUnprotectedFromDragonfire(DRAGONFIRE_STOP_ADVICE_BANK_EMPTY);
     }
 
     private void withdrawFinishingItems() {
@@ -2454,6 +2482,10 @@ public class SlayerScript extends Script {
     }
 
     private boolean stopIfStillUnprotectedFromDragonfire() {
+        return stopIfStillUnprotectedFromDragonfire(DRAGONFIRE_STOP_ADVICE_SETUP);
+    }
+
+    private boolean stopIfStillUnprotectedFromDragonfire(String advice) {
         if (!retreatedFromDragonfire) {
             return false;
         }
@@ -2462,8 +2494,7 @@ public class SlayerScript extends Script {
         if (!isDragonfireTask(Rs2Slayer.getSlayerTask(), null) || hasAntifireDose()) {
             return false;
         }
-        String reason = "you were burnt by dragonfire and have no antifire potions left. "
-                + "Add antifire potions (or an anti-dragon / dragonfire shield) to the inventory setup for this task, then start the plugin again.";
+        String reason = "you were burnt by dragonfire and have no antifire potions left. " + advice;
         log.warn("Slayer stopped: {}", reason);
         Microbot.log("Slayer stopped: " + reason);
         SlayerPlugin.setState(SlayerState.IDLE);
