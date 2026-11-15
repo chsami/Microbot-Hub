@@ -94,7 +94,7 @@
             "skills",
             "minigame"
         ],
-        "version": "1.1.19",
+        "version": "1.1.20",
         "minClientVersion": "1.9.8.8",
         "authors": [
             "Mocrosoft"
@@ -103,8 +103,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/TitheFarmingPlugin/assets/card.png",
         "disable": false,
         "addedAt": "2025-08-27T15:09:05Z",
-        "sha256": "b21dae108df596396d969bd180ee452f57657627ff144a065c1195705d6acb83",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/tithefarmingplugin-1.1.19.jar"
+        "sha256": "1cf7d7ed880df17387c9fa621f57dfaec8b3c34c5f4cbbc725ac33645bde236b",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/tithefarmingplugin-1.1.20.jar"
     },
     {
         "internalName": "VarrockCleanerPlugin",
