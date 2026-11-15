@@ -144,6 +144,7 @@ class SlayerAntifireUpkeepTest {
 
     @Test
     void unprotectedBurnWithoutDosesRetreatsAndStopsWhenTheBankHasNoAntifire() throws Exception {
+        slayer.when(Rs2Slayer::getSlayerTask).thenReturn("Black Dragons");
         assertFalse((boolean) invoke(script, "shouldRetreatFromDragonfire"));
 
         script.onDragonfireBurnMessage();
@@ -156,7 +157,35 @@ class SlayerAntifireUpkeepTest {
     }
 
     @Test
+    void retreatIsDroppedWhenTheTaskIsNoLongerADragonTask() throws Exception {
+        slayer.when(Rs2Slayer::getSlayerTask).thenReturn("Black Dragons");
+        script.onDragonfireBurnMessage();
+        assertTrue((boolean) invoke(script, "shouldRetreatFromDragonfire"));
+
+        slayer.when(Rs2Slayer::getSlayerTask).thenReturn("Abyssal Demons");
+
+        assertFalse((boolean) invoke(script, "stopIfStillUnprotectedFromDragonfire"));
+        assertFalse((boolean) invoke(script, "shouldRetreatFromDragonfire"));
+        microbot.verify(() -> Microbot.stopPlugin(SlayerPlugin.class), never());
+    }
+
+    @Test
+    void stickyRetreatIsClearedInTheFightLoopOfAnotherTask() throws Exception {
+        slayer.when(Rs2Slayer::getSlayerTask).thenReturn("Black Dragons");
+        script.onDragonfireBurnMessage();
+        assertTrue((boolean) invoke(script, "shouldRetreatFromDragonfire"));
+
+        slayer.when(Rs2Slayer::getSlayerTask).thenReturn("Abyssal Demons");
+        assertFalse((boolean) invoke(script, "shouldRetreatFromDragonfire"));
+
+        slayer.when(Rs2Slayer::getSlayerTask).thenReturn("Black Dragons");
+        setField(script, "lastDragonfireBurnAt", 0L);
+        assertFalse((boolean) invoke(script, "shouldRetreatFromDragonfire"));
+    }
+
+    @Test
     void retreatContinuesAfterRestockingAntifire() throws Exception {
+        slayer.when(Rs2Slayer::getSlayerTask).thenReturn("Black Dragons");
         script.onDragonfireBurnMessage();
         assertTrue((boolean) invoke(script, "shouldRetreatFromDragonfire"));
 
@@ -169,6 +198,7 @@ class SlayerAntifireUpkeepTest {
 
     @Test
     void burnWithDosesOrProtectionDoesNotRetreat() throws Exception {
+        slayer.when(Rs2Slayer::getSlayerTask).thenReturn("Black Dragons");
         item("Antifire potion(1)");
         script.onDragonfireBurnMessage();
         assertFalse((boolean) invoke(script, "shouldRetreatFromDragonfire"));

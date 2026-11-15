@@ -2238,7 +2238,8 @@ public class SlayerScript extends Script {
         }
 
         // Check if we need to bank
-        if (shouldRetreatFromDragonfire() || (config.enableAutoBanking() && needsBanking())) {
+        boolean dragonfireRetreat = shouldRetreatFromDragonfire();
+        if (dragonfireRetreat || (config.enableAutoBanking() && needsBanking())) {
             // Pick up cannon before leaving - it can't be picked up from the bank
             if (cannonPlaced) {
                 log.info("Picking up cannon before banking");
@@ -2251,11 +2252,15 @@ public class SlayerScript extends Script {
             deactivateProfilePrayer();
             // Go to POH first to heal before banking (saves supplies)
             if (config.usePohPool() && shouldUsePoh()) {
-                log.info("Low on supplies - healing at POH before banking");
+                if (!dragonfireRetreat) {
+                    log.info("Low on supplies - healing at POH before banking");
+                }
                 stateAfterPoh = SlayerState.BANKING;
                 SlayerPlugin.setState(SlayerState.RESTORING_AT_POH);
             } else {
-                log.info("Low on supplies, transitioning to BANKING");
+                if (!dragonfireRetreat) {
+                    log.info("Low on supplies, transitioning to BANKING");
+                }
                 SlayerPlugin.setState(SlayerState.BANKING);
             }
             return;
@@ -2424,6 +2429,10 @@ public class SlayerScript extends Script {
     }
 
     private boolean shouldRetreatFromDragonfire() {
+        if (!isDragonfireTask(Rs2Slayer.getSlayerTask(), null)) {
+            retreatedFromDragonfire = false;
+            return false;
+        }
         if (retreatedFromDragonfire) {
             return true;
         }
@@ -2436,7 +2445,10 @@ public class SlayerScript extends Script {
         if (hasAntifireDose()) {
             return false;
         }
-        log.warn("Burnt by dragonfire with no antifire protection and no antifire doses left, leaving to restock");
+        String retreatReason = "Out of antifire and taking dragonfire damage: going to the bank to restock"
+                + (config.enableAutoBanking() ? "." : " (auto banking is off, this is a safety retreat).");
+        log.warn(retreatReason);
+        Microbot.log(retreatReason);
         retreatedFromDragonfire = true;
         return true;
     }
@@ -2447,11 +2459,11 @@ public class SlayerScript extends Script {
         }
         retreatedFromDragonfire = false;
         lastDragonfireBurnAt = 0;
-        if (hasAntifireDose()) {
+        if (!isDragonfireTask(Rs2Slayer.getSlayerTask(), null) || hasAntifireDose()) {
             return false;
         }
-        String reason = "you were burnt by dragonfire with no antifire protection and your inventory setup has no antifire potions. "
-                + "Add antifire potions or a dragonfire shield to the inventory setup for this task, then start the plugin again.";
+        String reason = "you were burnt by dragonfire and have no antifire potions left. "
+                + "Add antifire potions (or an anti-dragon / dragonfire shield) to the inventory setup for this task, then start the plugin again.";
         log.warn("Slayer stopped: {}", reason);
         Microbot.log("Slayer stopped: " + reason);
         SlayerPlugin.setState(SlayerState.IDLE);
