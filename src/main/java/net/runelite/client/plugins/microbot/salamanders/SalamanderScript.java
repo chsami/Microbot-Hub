@@ -154,20 +154,29 @@ public class SalamanderScript extends Script {
 
     private boolean handleExistingTraps(SalamanderPlugin plugin, SalamanderConfig config) {
         var trapToHandle = plugin.getTraps().entrySet().stream()
-                .filter(entry -> entry.getValue().getState() == HunterTrap.State.FULL)
+                .filter(entry -> needsReset(entry.getValue().getState()))
                 .sorted((a, b) -> Double.compare(b.getValue().getTrapTimeRelative(), a.getValue().getTrapTimeRelative())).collect(Collectors.toList()).stream().findFirst().orElse(null);
         if (trapToHandle == null) return false;
         WorldPoint location = trapToHandle.getKey();
+        boolean failed = trapToHandle.getValue().getState() == HunterTrap.State.EMPTY;
         if (!Rs2Player.isAnimating() && !Rs2Player.isMoving()) {
-            var gameObject = Microbot.getRs2TileObjectCache().query().within(location, 0).first();
+            var gameObject = failed
+                    ? Microbot.getRs2TileObjectCache().query().within(location, 1).withAction("Reset").nearest(location, 1)
+                    : Microbot.getRs2TileObjectCache().query().within(location, 0).first();
             if (gameObject != null) {
                 gameObject.click("Reset");
-                SalamandersCaught++;
+                if (!failed) {
+                    SalamandersCaught++;
+                }
                 sleep(config.minSleepAfterCatch(), config.maxSleepAfterCatch());
                 return true;
             }
         }
         return false;
+    }
+
+    static boolean needsReset(HunterTrap.State state) {
+        return state == HunterTrap.State.FULL || state == HunterTrap.State.EMPTY;
     }
 
     private void setNewTrap(SalamanderHunting salamanderType, SalamanderConfig config) {

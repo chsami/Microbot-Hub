@@ -41,7 +41,7 @@ import java.util.Map;
 )
 public class SalamanderPlugin extends Plugin {
 
-    public final static String version = "1.1.0";
+    public final static String version = "1.1.1";
 
     @Getter
     private final Map<WorldPoint, HunterTrap> traps = new HashMap<>();
@@ -101,22 +101,24 @@ public class SalamanderPlugin extends Plugin {
             case ObjectID.HUNTING_SAPLING_NET_SET_RED: // Net trap placed at Red salamanders
             case ObjectID.HUNTING_SAPLING_NET_SET_BLACK: // Net trap placed at Black salamanders
             case ObjectID.HUNTING_SAPLING_NET_SET_MOUNTAIN: // Net trap placed at Tecu salamanders
-                if (lastTickLocalPlayerLocation != null
-                        && trapLocation.distanceTo(lastTickLocalPlayerLocation) == 0) {
-                    // Net traps facing to the north and east must have their tile translated.
-                    // As otherwise, the wrong tile is stored.
-                    Direction trapOrientation = new Angle(gameObject.getOrientation()).getNearestDirection();
-                    WorldPoint translatedTrapLocation = trapLocation;
+                // Net traps facing to the north and east must have their tile translated.
+                // As otherwise, the wrong tile is stored.
+                Direction trapOrientation = new Angle(gameObject.getOrientation()).getNearestDirection();
+                WorldPoint translatedTrapLocation = trapLocation;
 
-                    switch (trapOrientation) {
-                        case SOUTH:
-                            translatedTrapLocation = trapLocation.dy(-1);
-                            break;
-                        case WEST:
-                            translatedTrapLocation = trapLocation.dx(-1);
-                            break;
-                    }
+                switch (trapOrientation) {
+                    case SOUTH:
+                        translatedTrapLocation = trapLocation.dy(-1);
+                        break;
+                    case WEST:
+                        translatedTrapLocation = trapLocation.dx(-1);
+                        break;
+                }
 
+                final HunterTrap previousTrap = traps.get(translatedTrapLocation);
+                final boolean resetOwnFailedTrap = previousTrap != null && previousTrap.getState() == HunterTrap.State.EMPTY;
+                if (resetOwnFailedTrap || (lastTickLocalPlayerLocation != null
+                        && trapLocation.distanceTo(lastTickLocalPlayerLocation) == 0)) {
                     log.debug("Trap placed by \"{}\" on {} facing {}", localPlayer.getName(), translatedTrapLocation, trapOrientation);
                     traps.put(translatedTrapLocation, new HunterTrap(gameObject));
                 }
@@ -137,7 +139,21 @@ public class SalamanderPlugin extends Plugin {
                 }
 
                 break;
+            case ObjectID.HUNTING_SAPLING_FAILED_SWAMP:
+            case ObjectID.HUNTING_SAPLING_FAILED_ORANGE:
+            case ObjectID.HUNTING_SAPLING_FAILED_RED:
+            case ObjectID.HUNTING_SAPLING_FAILED_BLACK:
             case ObjectID.HUNTING_SAPLING_FAILED_MOUNTAIN: //Empty net trap
+            case ObjectID.HUNTING_SAPLING_NET_RESET_SWAMP:
+            case ObjectID.HUNTING_SAPLING_NET_RESET_ORANGE:
+            case ObjectID.HUNTING_SAPLING_NET_RESET_RED:
+            case ObjectID.HUNTING_SAPLING_NET_RESET_BLACK:
+            case ObjectID.HUNTING_SAPLING_NET_RESET_MOUNTAIN:
+            case ObjectID.HUNTING_SAPLING_UP_RESET_SWAMP:
+            case ObjectID.HUNTING_SAPLING_UP_RESET_ORANGE:
+            case ObjectID.HUNTING_SAPLING_UP_RESET_RED:
+            case ObjectID.HUNTING_SAPLING_UP_RESET_BLACK:
+            case ObjectID.HUNTING_SAPLING_UP_RESET_MOUNTAIN:
                 if (myTrap != null) {
                     myTrap.setState(HunterTrap.State.EMPTY);
                     myTrap.resetTimer();
