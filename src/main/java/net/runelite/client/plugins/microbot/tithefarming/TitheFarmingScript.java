@@ -344,8 +344,7 @@ public class TitheFarmingScript extends Script {
             if (!finalPlant.isValidToWater()) {
                 return;
             }
-            Rs2Inventory.interact(TitheFarmMaterial.getWateringCan(), "Use");
-            clickPatch(plant);
+            clickPatch(plant, "water");
             sleepUntil(finalPlant::isWatered, config.sleepAfterWateringSeed());
         }
 
