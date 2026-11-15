@@ -53,6 +53,9 @@ class BlastoiseFurnaceConveyorPromptTest {
     private final AtomicInteger answers = new AtomicInteger();
     private final List<Widget> options = new ArrayList<>();
     private boolean beltPrompts = true;
+    private boolean beltIgnoresClick;
+    private boolean answerDeposits = true;
+    private String question = "Put the ore on the belt?";
 
     @BeforeEach
     void setUp() {
@@ -69,6 +72,9 @@ class BlastoiseFurnaceConveyorPromptTest {
         microbot.when(Microbot::getRs2TileObjectCache).thenReturn(cache);
 
         when(query.interact(BLAST_FURNACE_CONVEYER_BELT_CLICKABLE, "Put-ore-on")).thenAnswer(invocation -> {
+            if (beltIgnoresClick) {
+                return true;
+            }
             if (beltPrompts) {
                 promptOpen.set(true);
             } else {
@@ -79,7 +85,7 @@ class BlastoiseFurnaceConveyorPromptTest {
         inventory.when(() -> Rs2Inventory.count("ore")).thenAnswer(invocation -> ore.get());
         dialogue.when(Rs2Dialogue::isInDialogue).thenAnswer(invocation -> promptOpen.get());
         dialogue.when(Rs2Dialogue::hasSelectAnOption).thenAnswer(invocation -> promptOpen.get());
-        dialogue.when(Rs2Dialogue::getQuestion).thenReturn("Put the ore on the belt?");
+        dialogue.when(Rs2Dialogue::getQuestion).thenAnswer(invocation -> question);
         dialogue.when(Rs2Dialogue::getDialogueOptions).thenReturn(options);
         dialogue.when(() -> Rs2Dialogue.clickOption("Yes")).thenAnswer(invocation -> {
             if (options.stream().noneMatch(option -> option.getText().contains("Yes"))) {
@@ -87,7 +93,9 @@ class BlastoiseFurnaceConveyorPromptTest {
             }
             answers.incrementAndGet();
             promptOpen.set(false);
-            ore.set(0);
+            if (answerDeposits) {
+                ore.set(0);
+            }
             return true;
         });
         global.when(() -> Global.sleepUntilTrue(any(BooleanSupplier.class), any(BooleanSupplier.class), anyInt(), anyInt()))
@@ -128,8 +136,72 @@ class BlastoiseFurnaceConveyorPromptTest {
 
         assertEquals(0, answers.get());
         assertEquals(27, ore.get());
-        assertEquals("Ore didn't go on the belt, retrying", Microbot.status);
+        assertEquals("Belt asked a question the script can't answer, retrying", Microbot.status);
         microbot.verify(() -> Microbot.stopPlugin(nullable(Plugin.class)), never());
+    }
+
+    @Test
+    void logsTheQuestionAndTheFullTextOfTheOptionItClicked() {
+        options.add(option("No"));
+        options.add(option("<col=ff0000>Yes, and don't ask again</col>"));
+
+        assertTrue(script().depositOre());
+
+        microbot.verify(() -> Microbot.log("The conveyor belt asked \"Put the ore on the belt?\". Chose \"Yes, and don't ask again\"."), times(1));
+    }
+
+    @Test
+    void keepsThePlainRetryStatusWhenNoPromptWasSeen() {
+        beltPrompts = false;
+        beltIgnoresClick = true;
+
+        assertFalse(script().depositOre());
+
+        assertEquals(27, ore.get());
+        assertEquals("Ore didn't go on the belt, retrying", Microbot.status);
+    }
+
+    @Test
+    void stopMessageSaysTheScriptCouldNotPickAnAnswer() {
+        options.add(option("<col=ff0000>Deposit</col>"));
+        options.add(option("Cancel"));
+
+        assertEquals("Ore did not go onto the conveyor belt 3 trips in a row. The belt asked \"Put the ore on the belt?\" (Deposit, Cancel)"
+                + " and the script does not know which answer to pick. Put the ore on the belt by hand and start the script again."
+                + " If it stops here again, report this message.", stopMessage());
+    }
+
+    @Test
+    void stopMessageSaysWhichAnswerWasChosenWhenTheOreStayed() {
+        options.add(option("Yes"));
+        options.add(option("No"));
+        answerDeposits = false;
+
+        assertEquals("Ore did not go onto the conveyor belt 3 trips in a row. The belt asked \"Put the ore on the belt?\""
+                + " and the script answered \"Yes\", but the ore stayed in your inventory. Put the ore on the belt by hand and start the script again."
+                + " If it stops here again, report this message.", stopMessage());
+        assertEquals(BlastoiseFurnaceScript.MAX_FAILED_BELT_TRIPS, answers.get());
+    }
+
+    @Test
+    void stopMessageLeavesOutAMissingQuestion() {
+        options.add(option("Deposit"));
+        options.add(option("Cancel"));
+        question = null;
+
+        String message = stopMessage();
+
+        assertTrue(message.contains("The belt showed a prompt (Deposit, Cancel) and the script does not know which answer to pick."));
+        assertFalse(message.contains("null"));
+    }
+
+    @Test
+    void stopMessageKeepsThePlainTextWhenNoPromptWasSeen() {
+        beltPrompts = false;
+        beltIgnoresClick = true;
+
+        assertEquals("Ore did not go onto the conveyor belt 3 trips in a row. Put the ore on the belt by hand, then start the script again.",
+                stopMessage());
     }
 
     @Test
@@ -184,6 +256,17 @@ class BlastoiseFurnaceConveyorPromptTest {
         }
 
         microbot.verify(() -> Microbot.stopPlugin(nullable(Plugin.class)), never());
+    }
+
+    private String stopMessage() {
+        BlastoiseFurnaceScript script = script();
+        for (int trip = 0; trip < BlastoiseFurnaceScript.MAX_FAILED_BELT_TRIPS; trip++) {
+            promptOpen.set(false);
+            assertFalse(script.depositOre());
+        }
+        ArgumentCaptor<String> message = ArgumentCaptor.forClass(String.class);
+        microbot.verify(() -> Microbot.showMessage(message.capture()), times(1));
+        return message.getValue();
     }
 
     private static Widget option(String text) {
