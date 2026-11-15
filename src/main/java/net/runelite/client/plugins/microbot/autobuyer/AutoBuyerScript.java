@@ -36,13 +36,16 @@ public class AutoBuyerScript extends Script {
                 long startTime = System.currentTimeMillis();
 
                 String listOfItemsToBuy;
-                if (config.buyQuest()) {
-                    QuestHelperPlugin questHelperPlugin = getQuestHelperPlugin();
-                    if (questHelperPlugin == null || questHelperPlugin.getSelectedQuest() == null) {
+                QuestHelperPlugin questHelperPlugin = config.buyQuest() ? getQuestHelperPlugin() : null;
+                boolean questSelected = questHelperPlugin != null && questHelperPlugin.getSelectedQuest() != null;
+                if (config.buyQuest() && !questSelected) {
+                    if (!initialized) {
                         Microbot.log("Buy Quest Items is enabled but no quest is selected in Quest Helper.");
                         shutdown();
                         return;
                     }
+                    listOfItemsToBuy = "";
+                } else if (config.buyQuest()) {
                     final List<Integer> idsList = Microbot.getClientThread().runOnClientThreadOptional(getQuestHelperPlugin()::itemsToTag).orElse(new ArrayList<>());
 
                     final Set<Integer> ids = idsList.stream()
@@ -82,6 +85,8 @@ public class AutoBuyerScript extends Script {
                 }
 
                 if (!Rs2GrandExchange.isOpen() && !Rs2GrandExchange.openExchange()) {
+                    if (!isRunning())
+                        return;
                     failedOpens++;
                     if (failedOpens >= 5) {
                         Microbot.log("Could not open the Grand Exchange. Stopping.");

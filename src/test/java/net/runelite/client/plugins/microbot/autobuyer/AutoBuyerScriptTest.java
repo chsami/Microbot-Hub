@@ -15,7 +15,9 @@ import org.mockito.MockedStatic;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Delayed;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -107,6 +109,44 @@ class AutoBuyerScriptTest {
         assertTrue(script.future.cancelled, "the script must stop when no quest is selected");
         verify(config, never()).listOfItemsToBuy();
         grandExchange.verify(() -> Rs2GrandExchange.processOffer(any(GrandExchangeRequest.class)), never());
+    }
+
+    @Test
+    void questDeselectedAfterTheListWasBuiltKeepsBuyingTheRemainingItems() throws Exception {
+        when(config.buyQuest()).thenReturn(true);
+        QuestHelperPlugin questHelper = mock(QuestHelperPlugin.class);
+        when(questHelper.getSelectedQuest()).thenReturn(null);
+        plugins.add(questHelper);
+        Map<String, Integer> remaining = new HashMap<>();
+        remaining.put("bucket", 1);
+
+        script.run(config);
+        setStatic("itemsList", remaining);
+        setStatic("initialCount", 2);
+        setStatic("totalBought", 1);
+        setStatic("initialized", true);
+        script.tick();
+
+        assertFalse(script.future.cancelled, "a run that is already buying must survive the quest selection being cleared");
+        assertTrue(getBoolean("initialized"));
+        assertEquals(1, remaining.size(), "the deferred item must stay queued");
+        verify(config, never()).listOfItemsToBuy();
+    }
+
+    @Test
+    void stopDuringAFailedOpenDoesNotCountOrWalk() throws Exception {
+        grandExchange.when(Rs2GrandExchange::isOpen).thenReturn(false);
+        grandExchange.when(Rs2GrandExchange::openExchange).thenAnswer(invocation -> {
+            script.future.cancel(true);
+            setStatic("failedOpens", 0);
+            return false;
+        });
+
+        script.run(config);
+        script.tick();
+
+        assertEquals(0, getInt("failedOpens"), "a cancelled pass must not count a failed open");
+        grandExchange.verify(Rs2GrandExchange::walkToGrandExchange, never());
     }
 
     @Test
