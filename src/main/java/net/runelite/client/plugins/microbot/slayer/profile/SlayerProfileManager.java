@@ -148,6 +148,7 @@ public class SlayerProfileManager {
         blackDragons.setSetup("dragon");
         blackDragons.setStyle("melee");
         blackDragons.setPrayer("none");
+        blackDragons.setSuperAntifire(true);
         blackDragons.setLocation("taverley baby black dragons");
         profiles.put("black dragons", blackDragons);
 

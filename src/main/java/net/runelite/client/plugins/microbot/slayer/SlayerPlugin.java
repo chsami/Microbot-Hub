@@ -44,7 +44,7 @@ import java.awt.*;
 @Slf4j
 public class SlayerPlugin extends Plugin {
 
-    static final String version = "1.1.9";
+    static final String version = "1.1.10";
 
     @Inject
     private SlayerConfig config;
@@ -175,6 +175,17 @@ public class SlayerPlugin extends Plugin {
         if (isTargetTakenMessage(event.getMessage())) {
             slayerScript.onTargetTakenMessage();
         }
+        if (isDragonfireBurnMessage(event.getMessage())) {
+            slayerScript.onDragonfireBurnMessage();
+        }
+    }
+
+    static boolean isDragonfireBurnMessage(String message) {
+        if (message == null) {
+            return false;
+        }
+        String lower = message.toLowerCase();
+        return lower.contains("horribly burnt") && lower.contains("dragon");
     }
 
     static boolean isTargetTakenMessage(String message) {
