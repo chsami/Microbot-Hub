@@ -1,5 +1,6 @@
 package net.runelite.client.plugins.microbot.tithefarming.models;
 
+import net.runelite.api.Client;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.ObjectID;
 import net.runelite.client.plugins.microbot.Microbot;
@@ -12,17 +13,63 @@ import org.mockito.MockedStatic;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class TitheFarmPlantTest {
 
     private static final WorldPoint PATCH = new WorldPoint(1792 + 35, 3520 + 25, 0);
+    private static final WorldPoint OTHER_PATCH = new WorldPoint(1792 + 40, 3520 + 25, 0);
+    private static final AtomicInteger TICK = new AtomicInteger(1_000_000);
+
+    @Test
+    void lookupsInTheSameTickScanTheSceneOnceAndNewTicksRescan() {
+        Rs2TileObjectModel first = patchModel(ObjectID.HOSIDIUS_TITHE_A_2_DRY, PATCH);
+        Rs2TileObjectModel second = patchModel(ObjectID.HOSIDIUS_TITHE_EMPTY, OTHER_PATCH);
+        Rs2TileObjectQueryable query = mock(Rs2TileObjectQueryable.class);
+        when(query.where(any())).thenReturn(query);
+        when(query.toList()).thenReturn(List.of(first, second));
+        Rs2TileObjectCache cache = mock(Rs2TileObjectCache.class);
+        when(cache.query()).thenReturn(query);
+        Client client = mock(Client.class);
+        int tick = TICK.incrementAndGet();
+        when(client.getTickCount()).thenReturn(tick);
+
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class)) {
+            microbot.when(Microbot::getRs2TileObjectCache).thenReturn(cache);
+            microbot.when(Microbot::getClient).thenReturn(client);
+            TitheFarmPlant a = new TitheFarmPlant(35, 25, 1);
+            TitheFarmPlant b = new TitheFarmPlant(40, 25, 2);
+
+            assertTrue(a.isStage1());
+            assertFalse(a.isStage2());
+            assertTrue(b.isEmptyPatch());
+            assertEquals(second, b.getGameObject());
+            verify(cache, times(1)).query();
+
+            when(client.getTickCount()).thenReturn(TICK.incrementAndGet());
+            assertTrue(a.isStage1());
+            verify(cache, times(2)).query();
+        }
+    }
+
+    private static Rs2TileObjectModel patchModel(int id, WorldPoint location) {
+        Rs2TileObjectModel model = mock(Rs2TileObjectModel.class);
+        when(model.getId()).thenReturn(id);
+        when(model.getWorldLocation()).thenReturn(location);
+        return model;
+    }
 
     @Test
     void blightedPlantsAreFoundAsPatchesAndReportedDead() {
@@ -80,18 +127,20 @@ class TitheFarmPlantTest {
 
     @SuppressWarnings("unchecked")
     private static Lookup lookUp(int id) {
-        Rs2TileObjectModel model = mock(Rs2TileObjectModel.class);
-        when(model.getId()).thenReturn(id);
-        when(model.getWorldLocation()).thenReturn(PATCH);
+        Rs2TileObjectModel model = patchModel(id, PATCH);
         Rs2TileObjectQueryable query = mock(Rs2TileObjectQueryable.class);
         ArgumentCaptor<Predicate<Rs2TileObjectModel>> filter = ArgumentCaptor.forClass(Predicate.class);
         when(query.where(filter.capture())).thenReturn(query);
-        when(query.first()).thenAnswer(call -> filter.getValue().test(model) ? model : null);
+        when(query.toList()).thenAnswer(call -> filter.getValue().test(model) ? List.of(model) : List.of());
         Rs2TileObjectCache cache = mock(Rs2TileObjectCache.class);
         when(cache.query()).thenReturn(query);
+        Client client = mock(Client.class);
+        int tick = TICK.incrementAndGet();
+        when(client.getTickCount()).thenReturn(tick);
 
         try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class)) {
             microbot.when(Microbot::getRs2TileObjectCache).thenReturn(cache);
+            microbot.when(Microbot::getClient).thenReturn(client);
             TitheFarmPlant plant = new TitheFarmPlant(35, 25, 1);
             return new Lookup(plant.getGameObject() != null, plant.isDead());
         }
