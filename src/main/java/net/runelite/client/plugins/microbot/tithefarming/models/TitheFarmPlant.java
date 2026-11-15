@@ -194,12 +194,21 @@ public class TitheFarmPlant {
         Rs2TileObjectModel obj = getGameObject();
         if (obj == null) return false;
         int objId = obj.getId();
-        return Arrays.stream(expectedWateredObject()).anyMatch(id -> id == objId) || isStage1() || isStage2();
+        return Arrays.stream(expectedWateredObject()).anyMatch(id -> id == objId) || isSeedling() || isStage1() || isStage2();
     }
 
     public boolean isValidToHarvest() {
         Rs2TileObjectModel obj = getGameObject();
         return obj != null && obj.getId() == expectedHarvestObject();
+    }
+
+    public boolean isSeedling() {
+        Rs2TileObjectModel obj = getGameObject();
+        if (obj == null) return false;
+        int id = obj.getId();
+        return id == ObjectID.HOSIDIUS_TITHE_A_1_DRY
+                || id == ObjectID.HOSIDIUS_TITHE_B_1_DRY
+                || id == ObjectID.HOSIDIUS_TITHE_C_1_DRY;
     }
 
     public boolean isStage1() {
@@ -241,7 +250,7 @@ public class TitheFarmPlant {
     }
 
     public boolean growsWithin(Duration margin) {
-        return growsWithin(isStage2() ? 3 : 2, margin, Instant.now());
+        return growsWithin(isSeedling() ? 1 : isStage2() ? 3 : 2, margin, Instant.now());
     }
 
     public boolean growsWithin(int nextStage, Duration margin, Instant now) {
