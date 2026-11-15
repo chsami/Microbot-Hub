@@ -7,10 +7,15 @@ import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.GameObjectSpawned;
 import net.runelite.api.gameval.ObjectID;
 import net.runelite.client.plugins.hunter.HunterTrap;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -18,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class SalamanderFailedTrapTest {
@@ -25,6 +31,7 @@ class SalamanderFailedTrapTest {
     private static final int FACING_NORTH = 1024;
     private static final WorldPoint TRAP = new WorldPoint(3551, 3450, 0);
     private static final WorldPoint OTHER = new WorldPoint(3555, 3454, 0);
+    private static final WorldPoint NEXT_TO_TRAP = new WorldPoint(3551, 3451, 0);
 
     private SalamanderPlugin plugin;
 
@@ -108,6 +115,127 @@ class SalamanderFailedTrapTest {
         assertTrue(SalamanderScript.needsReset(HunterTrap.State.EMPTY));
         assertFalse(SalamanderScript.needsReset(HunterTrap.State.OPEN));
         assertFalse(SalamanderScript.needsReset(HunterTrap.State.TRANSITION));
+    }
+
+    @Test
+    void resetObjectOnNeighbouringTileMarksTransitioningTrapEmpty() {
+        HunterTrap trap = track(TRAP);
+        trap.setState(HunterTrap.State.TRANSITION);
+
+        spawn(ObjectID.HUNTING_SAPLING_UP_RESET_SWAMP, NEXT_TO_TRAP);
+
+        assertEquals(HunterTrap.State.EMPTY, trap.getState());
+    }
+
+    @Test
+    void resetObjectOnNeighbouringTileLeavesOpenTrapAlone() {
+        HunterTrap trap = track(TRAP);
+
+        spawn(ObjectID.HUNTING_SAPLING_NET_RESET_SWAMP, NEXT_TO_TRAP);
+
+        assertEquals(HunterTrap.State.OPEN, trap.getState());
+    }
+
+    @Test
+    void fullTrapsAreHandledBeforeOlderFailedTraps() throws Exception {
+        HunterTrap failed = track(TRAP);
+        failed.setState(HunterTrap.State.EMPTY);
+        placedSecondsAgo(failed, 120);
+        HunterTrap full = track(OTHER);
+        full.setState(HunterTrap.State.FULL);
+
+        List<HunterTrap> order = SalamanderScript.resetOrder(plugin.getTraps()).stream()
+                .map(Map.Entry::getValue).collect(Collectors.toList());
+
+        assertEquals(List.of(full, failed), order);
+    }
+
+    @Test
+    void failedTrapWithoutResetObjectDoesNotBlockFullTrap() throws Exception {
+        HunterTrap failed = track(TRAP);
+        failed.setState(HunterTrap.State.EMPTY);
+        placedSecondsAgo(failed, 120);
+        track(OTHER).setState(HunterTrap.State.FULL);
+        Rs2TileObjectModel fullObject = mock(Rs2TileObjectModel.class);
+        SalamanderScript.SalamandersCaught = 0;
+
+        boolean handled = new SalamanderScript().handleTraps(plugin,
+                entry -> entry.getKey().equals(OTHER) ? fullObject : null);
+
+        assertTrue(handled);
+        verify(fullObject).click("Reset");
+        assertEquals(1, SalamanderScript.SalamandersCaught);
+    }
+
+    @Test
+    void resettingFailedTrapIsNotCountedAsCatch() {
+        track(TRAP).setState(HunterTrap.State.EMPTY);
+        Rs2TileObjectModel resetObject = mock(Rs2TileObjectModel.class);
+        SalamanderScript.SalamandersCaught = 0;
+
+        boolean handled = new SalamanderScript().handleTraps(plugin, entry -> resetObject);
+
+        assertTrue(handled);
+        verify(resetObject).click("Reset");
+        assertEquals(0, SalamanderScript.SalamandersCaught);
+        assertEquals(1, plugin.getActiveTrapCount());
+    }
+
+    @Test
+    void recentlyFailedTrapWithoutResetObjectStaysActive() {
+        track(TRAP).setState(HunterTrap.State.EMPTY);
+
+        boolean handled = new SalamanderScript().handleTraps(plugin, entry -> null);
+
+        assertFalse(handled);
+        assertEquals(1, plugin.getActiveTrapCount());
+    }
+
+    @Test
+    void failedTrapWithoutResetObjectStopsCountingAfterThirtySeconds() throws Exception {
+        HunterTrap failed = track(TRAP);
+        failed.setState(HunterTrap.State.EMPTY);
+        placedSecondsAgo(failed, 31);
+        track(OTHER);
+        SalamanderScript script = new SalamanderScript();
+
+        boolean handled = script.handleTraps(plugin, entry -> null);
+
+        assertFalse(handled);
+        assertEquals(1, plugin.getActiveTrapCount());
+        assertFalse(plugin.abandonTrap(TRAP));
+        assertEquals(2, plugin.getTraps().size());
+    }
+
+    @Test
+    void abandonedTrapCountsAgainOnceItIsSetAgain() throws Exception {
+        HunterTrap failed = track(TRAP);
+        failed.setState(HunterTrap.State.EMPTY);
+        placedSecondsAgo(failed, 31);
+        new SalamanderScript().handleTraps(plugin, entry -> null);
+        assertEquals(0, plugin.getActiveTrapCount());
+
+        spawn(ObjectID.HUNTING_SAPLING_NET_SET_SWAMP, TRAP);
+
+        assertEquals(1, plugin.getActiveTrapCount());
+    }
+
+    @Test
+    void fullTrapWithoutObjectIsNeverAbandoned() throws Exception {
+        HunterTrap full = track(TRAP);
+        full.setState(HunterTrap.State.FULL);
+        placedSecondsAgo(full, 120);
+
+        boolean handled = new SalamanderScript().handleTraps(plugin, entry -> null);
+
+        assertFalse(handled);
+        assertEquals(1, plugin.getActiveTrapCount());
+    }
+
+    private void placedSecondsAgo(HunterTrap trap, int seconds) throws Exception {
+        Field field = HunterTrap.class.getDeclaredField("placedOn");
+        field.setAccessible(true);
+        field.set(trap, Instant.now().minusSeconds(seconds));
     }
 
     private HunterTrap track(WorldPoint location) {

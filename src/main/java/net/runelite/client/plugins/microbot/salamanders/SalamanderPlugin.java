@@ -26,6 +26,8 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @PluginDescriptor(
@@ -45,6 +47,7 @@ public class SalamanderPlugin extends Plugin {
 
     @Getter
     private final Map<WorldPoint, HunterTrap> traps = new HashMap<>();
+    private final Set<WorldPoint> abandonedTraps = ConcurrentHashMap.newKeySet();
     @Inject
     private Client client;
     @Inject
@@ -89,6 +92,23 @@ public class SalamanderPlugin extends Plugin {
         return scriptStartTime != null ? TimeUtils.getFormattedDurationBetween(scriptStartTime, Instant.now()) : "";
     }
 
+    boolean abandonTrap(WorldPoint location) {
+        return abandonedTraps.add(location);
+    }
+
+    int getActiveTrapCount() {
+        return traps.size() - (int) abandonedTraps.stream().filter(traps::containsKey).count();
+    }
+
+    private HunterTrap transitioningTrapNextTo(WorldPoint location) {
+        for (Map.Entry<WorldPoint, HunterTrap> entry : traps.entrySet()) {
+            if (entry.getValue().getState() == HunterTrap.State.TRANSITION && entry.getKey().distanceTo(location) <= 1) {
+                return entry.getValue();
+            }
+        }
+        return null;
+    }
+
     @Subscribe
     public void onGameObjectSpawned(GameObjectSpawned event) {
         final GameObject gameObject = event.getGameObject();
@@ -121,6 +141,7 @@ public class SalamanderPlugin extends Plugin {
                         && trapLocation.distanceTo(lastTickLocalPlayerLocation) == 0)) {
                     log.debug("Trap placed by \"{}\" on {} facing {}", localPlayer.getName(), translatedTrapLocation, trapOrientation);
                     traps.put(translatedTrapLocation, new HunterTrap(gameObject));
+                    abandonedTraps.remove(translatedTrapLocation);
                 }
                 break;
 
@@ -154,9 +175,10 @@ public class SalamanderPlugin extends Plugin {
             case ObjectID.HUNTING_SAPLING_UP_RESET_RED:
             case ObjectID.HUNTING_SAPLING_UP_RESET_BLACK:
             case ObjectID.HUNTING_SAPLING_UP_RESET_MOUNTAIN:
-                if (myTrap != null) {
-                    myTrap.setState(HunterTrap.State.EMPTY);
-                    myTrap.resetTimer();
+                final HunterTrap failedTrap = myTrap != null ? myTrap : transitioningTrapNextTo(trapLocation);
+                if (failedTrap != null) {
+                    failedTrap.setState(HunterTrap.State.EMPTY);
+                    failedTrap.resetTimer();
                 }
 
                 break;
@@ -249,6 +271,7 @@ public class SalamanderPlugin extends Plugin {
             }
         }
 
+        abandonedTraps.retainAll(traps.keySet());
         lastTickLocalPlayerLocation = client.getLocalPlayer().getWorldLocation();
     }
 }
