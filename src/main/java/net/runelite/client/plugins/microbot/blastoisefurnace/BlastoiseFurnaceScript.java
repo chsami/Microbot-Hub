@@ -35,6 +35,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static net.runelite.api.gameval.ItemID.*;
 import static net.runelite.api.gameval.ObjectID.*;
@@ -73,6 +74,7 @@ public class BlastoiseFurnaceScript extends Script {
     private String lastBeltQuestion;
     private String lastBeltOptions;
     private String lastBeltAnswer;
+    private String lastBeltUnclicked;
     static boolean coalBagEmpty;
     static boolean primaryOreEmpty;
     static boolean secondaryOreEmpty;
@@ -103,7 +105,7 @@ public class BlastoiseFurnaceScript extends Script {
         failedLootCycles = 0;
         dispenserWaitMs = 0;
         failedBeltTrips = 0;
-        lastBeltPrompt = null;
+        clearBeltPrompt();
         primaryOreEmpty = !Rs2Inventory.hasItem(config.getBars().getPrimaryOre());
         secondaryOreEmpty = !Rs2Inventory.hasItem(config.getBars().getSecondaryOre());
         Rs2Antiban.resetAntibanSettings();
@@ -660,13 +662,20 @@ public class BlastoiseFurnaceScript extends Script {
         final List<String> rawOptions = Rs2Dialogue.getDialogueOptions().stream().map(Widget::getText).collect(Collectors.toList());
         final List<String> options = rawOptions.stream().map(BlastoiseFurnaceScript::cleanPromptText).collect(Collectors.toList());
         final String question = cleanPromptText(rawQuestion);
-        final String chosen = options.stream().filter(option -> option.toLowerCase().contains("yes")).findFirst().orElse(null);
+        final int chosenIndex = IntStream.range(0, options.size())
+                .filter(index -> options.get(index).toLowerCase().contains("yes")).findFirst().orElse(-1);
+        clearBeltPrompt();
         lastBeltPrompt = String.format("\"%s\" with options %s", rawQuestion, rawOptions);
         lastBeltQuestion = question;
         lastBeltOptions = String.join(", ", options);
-        lastBeltAnswer = null;
-        if (chosen == null || !Rs2Dialogue.clickOption("Yes")) {
+        if (chosenIndex < 0) {
             log.warn("Conveyor belt asked {} and there is no Yes option to choose, leaving it unanswered", lastBeltPrompt);
+            return false;
+        }
+        final String chosen = options.get(chosenIndex);
+        if (!Rs2Dialogue.keyPressForDialogueOption(chosenIndex + 1)) {
+            lastBeltUnclicked = chosen;
+            log.warn("Conveyor belt asked {} but the \"{}\" option could not be clicked", lastBeltPrompt, chosen);
             return false;
         }
         lastBeltAnswer = chosen;
@@ -681,19 +690,34 @@ public class BlastoiseFurnaceScript extends Script {
         return text == null ? "" : Text.removeTags(text.replace("<br>", " ")).replace(' ', ' ').trim();
     }
 
-    static String beltStopMessage(boolean promptSeen, String question, String options, String answer) {
+    private void clearBeltPrompt() {
+        lastBeltPrompt = null;
+        lastBeltQuestion = null;
+        lastBeltOptions = null;
+        lastBeltAnswer = null;
+        lastBeltUnclicked = null;
+    }
+
+    static String beltStopMessage(boolean promptSeen, String question, String options, String answer, String unclicked) {
         final String start = "Ore did not go onto the conveyor belt " + MAX_FAILED_BELT_TRIPS + " trips in a row.";
         if (!promptSeen) {
             return start + " Put the ore on the belt by hand, then start the script again.";
         }
         final boolean hasQuestion = question != null && !question.isEmpty();
         final boolean hasOptions = options != null && !options.isEmpty();
-        final String asked = hasQuestion ? " The belt asked \"" + question + "\"" : " The belt showed a prompt";
-        final String outcome = answer == null
-                ? (hasOptions ? " (" + options + ")" : "") + " and the script does not know which answer to pick."
-                : " and the script answered \"" + answer + "\", but the ore stayed in your inventory.";
-        return start + asked + outcome
-                + " Put the ore on the belt by hand and start the script again. If it stops here again, report this message.";
+        final String asked = (hasQuestion ? "The belt asked \"" + question + "\"" : "The belt showed a prompt")
+                + (answer == null && hasOptions ? " (" + options + ")" : "");
+        final String outcome;
+        if (answer != null) {
+            outcome = " and the script answered \"" + answer + "\", but the ore stayed in your inventory.";
+        } else if (unclicked != null) {
+            outcome = " but the script could not click \"" + unclicked + "\".";
+        } else {
+            outcome = " and the script does not know which answer to pick.";
+        }
+        return start + "\n" + asked + outcome
+                + "\nPut the ore on the belt by hand and start the script again."
+                + "\nIf it stops here again, report it on the Microbot Discord and include the log.";
     }
 
     boolean recordFailedBeltTrip() {
@@ -701,11 +725,11 @@ public class BlastoiseFurnaceScript extends Script {
         if (failedBeltTrips < MAX_FAILED_BELT_TRIPS) {
             return false;
         }
-        log.warn("Ore did not go onto the conveyor belt {} trips in a row, stopping (last prompt: {}, answered: {})", failedBeltTrips, lastBeltPrompt, lastBeltAnswer);
+        log.warn("Ore did not go onto the conveyor belt {} trips in a row, stopping (last prompt: {}, answered: {}, could not click: {})", failedBeltTrips, lastBeltPrompt, lastBeltAnswer, lastBeltUnclicked);
         failedBeltTrips = 0;
         Microbot.status = "Ore didn't go on the belt, stopped";
-        Microbot.showMessage(beltStopMessage(lastBeltPrompt != null, lastBeltQuestion, lastBeltOptions, lastBeltAnswer));
         Rs2Player.logout();
+        Microbot.showMessage(beltStopMessage(lastBeltPrompt != null, lastBeltQuestion, lastBeltOptions, lastBeltAnswer, lastBeltUnclicked));
         Microbot.stopPlugin(plugin);
         return true;
     }
@@ -735,7 +759,7 @@ public class BlastoiseFurnaceScript extends Script {
 
     boolean depositOre() {
         final boolean usesCoalBag = config.getBars().isRequiresCoalBag();
-        lastBeltPrompt = null;
+        clearBeltPrompt();
         if (!putOreOnConveyorBelt()) {
             if (getInventoryOreCount() > 0 && recordFailedBeltTrip()) {
                 return false;
@@ -743,9 +767,13 @@ public class BlastoiseFurnaceScript extends Script {
             log.warn(usesCoalBag
                     ? "Ore did not go onto the conveyor belt. Leaving the coal bag full and trying again next trip."
                     : "Ore did not go onto the conveyor belt. Trying again next trip.");
-            Microbot.status = lastBeltPrompt != null && lastBeltAnswer == null
-                    ? "Belt asked a question the script can't answer, retrying"
-                    : "Ore didn't go on the belt, retrying";
+            if (lastBeltUnclicked != null) {
+                Microbot.status = "Couldn't click the belt prompt answer, retrying";
+            } else {
+                Microbot.status = lastBeltPrompt != null && lastBeltAnswer == null
+                        ? "Belt asked a question the script can't answer, retrying"
+                        : "Ore didn't go on the belt, retrying";
+            }
             return false;
         }
         failedBeltTrips = 0;
@@ -837,7 +865,7 @@ public class BlastoiseFurnaceScript extends Script {
         failedLootCycles = 0;
         dispenserWaitMs = 0;
         failedBeltTrips = 0;
-        lastBeltPrompt = null;
+        clearBeltPrompt();
         primaryOreEmpty = false;
         secondaryOreEmpty = false;
         super.shutdown();
