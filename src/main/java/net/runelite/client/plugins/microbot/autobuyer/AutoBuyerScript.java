@@ -21,11 +21,13 @@ public class AutoBuyerScript extends Script {
     private static int initialCount = 0;
     private static int totalBought = 0;
     private static Map<String, Integer> itemsList;
+    private static int failedOpens = 0;
     private Integer percent = null;
 
     public boolean run(AutoBuyerConfig config) {
 
         Microbot.enableAutoRunOn = false;
+        failedOpens = 0;
 
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
@@ -34,7 +36,13 @@ public class AutoBuyerScript extends Script {
                 long startTime = System.currentTimeMillis();
 
                 String listOfItemsToBuy;
-                if (getQuestHelperPlugin().getSelectedQuest() != null && config.buyQuest()) {
+                if (config.buyQuest()) {
+                    QuestHelperPlugin questHelperPlugin = getQuestHelperPlugin();
+                    if (questHelperPlugin == null || questHelperPlugin.getSelectedQuest() == null) {
+                        Microbot.log("Buy Quest Items is enabled but no quest is selected in Quest Helper.");
+                        shutdown();
+                        return;
+                    }
                     final List<Integer> idsList = Microbot.getClientThread().runOnClientThreadOptional(getQuestHelperPlugin()::itemsToTag).orElse(new ArrayList<>());
 
                     final Set<Integer> ids = idsList.stream()
@@ -61,20 +69,29 @@ public class AutoBuyerScript extends Script {
                     if (listOfItemsToBuy.length() <= 0) {
                         Microbot.log("No items found.");
                         shutdown();
+                        return;
                     }
                     itemsList = mapItems(splitItemsByCommas(listOfItemsToBuy));
+                    if (!isRunning())
+                        return;
                     initialCount = itemsList.size();
+                    totalBought = 0;
                     initialized = true;
 
                     percent = config.pricePerItem().getValue();
+                }
 
-                    if (!isRunning())
+                if (!Rs2GrandExchange.isOpen() && !Rs2GrandExchange.openExchange()) {
+                    failedOpens++;
+                    if (failedOpens >= 5) {
+                        Microbot.log("Could not open the Grand Exchange. Stopping.");
+                        shutdown();
                         return;
+                    }
+                    Rs2GrandExchange.walkToGrandExchange();
+                    return;
                 }
-
-                if (!Rs2GrandExchange.isOpen()) {
-                    Rs2GrandExchange.openExchange();
-                }
+                failedOpens = 0;
 
                 itemsList.forEach((itemName, quantity) -> {
                     if (!isRunning())
@@ -98,6 +115,9 @@ public class AutoBuyerScript extends Script {
                             .build();
 
                     boolean result = Rs2GrandExchange.processOffer(request);
+
+                    if (!isRunning())
+                        return;
 
                     if (!result) {
                         Microbot.log("Could not buy '" + itemName + "'. Skipping it.");
@@ -169,9 +189,10 @@ public class AutoBuyerScript extends Script {
                     // If quantity is missing, default it to 1
                     itemMap.put(item.trim(), 1);
                 }
-            } catch (NumberFormatException e) {
+            } catch (NumberFormatException | ArrayIndexOutOfBoundsException e) {
                 Microbot.log(item + " has an invalid quantity. Quantity must be a number.");
                 shutdown();
+                return itemMap;
             }
         }
 
@@ -183,7 +204,8 @@ public class AutoBuyerScript extends Script {
         initialized = false;
         initialCount = 0;
         totalBought = 0;
-        itemsList.clear();
+        if (itemsList != null) itemsList.clear();
+        failedOpens = 0;
         percent = null;
         super.shutdown();
     }
