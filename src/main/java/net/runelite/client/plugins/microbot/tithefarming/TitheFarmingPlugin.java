@@ -40,7 +40,7 @@ import java.util.regex.Pattern;
 @Slf4j
 public class TitheFarmingPlugin extends Plugin {
 
-    final static String version = "1.1.20";
+    final static String version = "1.1.21";
 
     @Inject
     public TitheFarmingConfig config;

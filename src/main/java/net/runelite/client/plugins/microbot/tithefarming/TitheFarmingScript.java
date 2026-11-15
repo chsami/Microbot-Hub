@@ -404,7 +404,7 @@ public class TitheFarmingScript extends Script {
 
 
     private TitheFarmPlant nextPlant() {
-        TitheFarmPlant urgent = nextInPassOf(p -> needsWater(p) && p.growsWithin(DRY_PLANT_MARGIN));
+        TitheFarmPlant urgent = nextInPassOf(p -> needsWater(p) && p.growsWithin(DRY_PLANT_MARGIN), true);
         if (urgent != null) {
             wateringPass = true;
             return visit(urgent);
@@ -427,17 +427,10 @@ public class TitheFarmingScript extends Script {
     }
 
     private TitheFarmPlant nextInPass(boolean wrap) {
-        List<TitheFarmPlant> due = plants.stream()
-                .filter(p -> needsWater(p) || p.isValidToHarvest())
-                .sorted(Comparator.comparingInt(TitheFarmPlant::getIndex))
-                .collect(Collectors.toList());
-        return due.stream()
-                .filter(p -> p.getIndex() >= passIndex)
-                .findFirst()
-                .orElse(wrap && !due.isEmpty() ? due.get(0) : null);
+        return nextInPassOf(p -> needsWater(p) || p.isValidToHarvest(), wrap);
     }
 
-    private TitheFarmPlant nextInPassOf(Predicate<TitheFarmPlant> needsAction) {
+    private TitheFarmPlant nextInPassOf(Predicate<TitheFarmPlant> needsAction, boolean wrap) {
         List<TitheFarmPlant> due = plants.stream()
                 .filter(needsAction)
                 .sorted(Comparator.comparingInt(TitheFarmPlant::getIndex))
@@ -445,7 +438,7 @@ public class TitheFarmingScript extends Script {
         return due.stream()
                 .filter(p -> p.getIndex() >= passIndex)
                 .findFirst()
-                .orElse(due.isEmpty() ? null : due.get(0));
+                .orElse(wrap && !due.isEmpty() ? due.get(0) : null);
     }
 
     private static boolean isUnplanted(TitheFarmPlant plant) {
