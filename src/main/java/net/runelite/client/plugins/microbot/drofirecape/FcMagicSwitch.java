@@ -2,6 +2,7 @@
 package net.runelite.client.plugins.microbot.drofirecape;
 
 import java.util.*;
+import java.util.function.Predicate;
 import net.runelite.api.*;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.plugins.microbot.Microbot;
@@ -43,11 +44,12 @@ final class FcMagicSwitch {
         Map<Integer,Integer> wornIds(){Map<Integer,Integer> ids=new TreeMap<>();worn.forEach((slot,p)->ids.put(slot,p.id));return ids;}
         boolean wearing(int id){for(Piece p:worn.values())if(p.id==id)return true;return false;}
     }
-    /** Highest Ice and Blood tier castable now (3 Barrage, 2 Blitz, 1 Burst, 0 none). */
+    /** Highest Ice and Blood tier castable now at the boosted Magic level (3 Barrage, 2 Blitz, 1 Burst, 0 none); level is the Magic level that keeps every carried element castable. */
     static final class Spells {
         static final Spells NONE=new Spells(0,0);
-        final int ice,blood;
-        Spells(int ice,int blood){this.ice=ice;this.blood=blood;}
+        final int ice,blood,level;
+        Spells(int ice,int blood){this(ice,blood,0);}
+        Spells(int ice,int blood,int level){this.ice=ice;this.blood=blood;this.level=level;}
         boolean any(){return ice>0||blood>0;}
         Rs2CombatSpells spell(Element element) {
             int tier=tier(element);
@@ -311,13 +313,23 @@ final class FcMagicSwitch {
         ItemStats stats=Microbot.getItemManager().getItemStats(id);
         return stats==null||!stats.isEquipable()?null:stats.getEquipment();
     }
-    /** Client thread: the Ancient Ice and Blood tiers the current level and runes allow. */
+    /** Client thread: the Ancient Ice and Blood tiers the boosted level and runes allow. */
     static Spells spells(Client client) {
         if(client.getVarbitValue(VarbitID.SPELLBOOK)!=1)return Spells.NONE;
-        return new Spells(tier(ICE),tier(BLOOD));
+        return spells(client.getBoostedSkillLevel(Skill.MAGIC),spell->Rs2Magic.canCast(spell));
     }
-    private static int tier(Rs2CombatSpells[] order) {
-        for(int i=0;i<order.length;i++)if(Rs2Magic.canCast(order[i]))return 3-i;
+    static Spells spells(int magic,Predicate<Rs2CombatSpells> castable) {
+        return new Spells(tier(ICE,magic,castable),tier(BLOOD,magic,castable),Math.max(level(ICE,castable),level(BLOOD,castable)));
+    }
+    static boolean restoreNow(int magic,int level,boolean restoreCarried,boolean criticalHealth) {
+        return magic<level&&restoreCarried&&!criticalHealth;
+    }
+    private static int tier(Rs2CombatSpells[] order,int magic,Predicate<Rs2CombatSpells> castable) {
+        for(int i=0;i<order.length;i++)if(magic>=order[i].getRequiredLevel()&&castable.test(order[i]))return 3-i;
+        return 0;
+    }
+    private static int level(Rs2CombatSpells[] order,Predicate<Rs2CombatSpells> castable) {
+        for(int i=order.length-1;i>=0;i--)if(castable.test(order[i]))return order[i].getRequiredLevel();
         return 0;
     }
 }
