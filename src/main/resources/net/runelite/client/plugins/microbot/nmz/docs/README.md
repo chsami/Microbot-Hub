@@ -25,16 +25,6 @@ with a reason. Other failed lobby operations retry at most three times. Prayer
 potions must be carried; bank restocking is not added by this update. One prayer
 worker runs during dreams and stops with the plugin.
 
-Isolated regression build:
-
-```sh
-./gradlew test NmzPluginJar -PpluginList=NmzPlugin \
-  -PmicrobotClientPath=/path/to/client.jar -I scripts/nmz-test.init.gradle
-```
-
-The tests simulate lobby transitions and transaction acknowledgements; they do
-not establish live game validation.
-
 ## Purpose
 NmzScript automates the Nightmare Zone (NMZ) minigame in Old School RuneScape using the Microbot framework. It manages inventory, potion usage, combat, prayer, and in-game interactions to maximize efficiency and survivability during NMZ runs.
 
