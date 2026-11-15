@@ -67,19 +67,35 @@ public class TitheFarmingScript extends Script {
 
     public static boolean init = true;
 
-    private boolean allPlanted = false;
+    static final int ROUTE_PASSES = 4;
 
-    private static final Duration DRY_PLANT_MARGIN = Duration.ofSeconds(30);
+    static final int HARVEST_PASS = 3;
 
-    private boolean wateringPass = false;
+    static final Duration TIME_PER_ROUTE_STEP = Duration.ofSeconds(4);
 
-    private int passIndex = Integer.MIN_VALUE;
+    static final Duration RESCUE_SAFETY = Duration.ofSeconds(4);
+
+    static final Duration RESCUE_WINDOW = Duration.ofSeconds(10);
+
+    enum RouteStep { ACT, WAIT, SKIP }
+
+    int routePosition = 0;
+
+    int routePass = 0;
+
+    private TitheFarmLanes randomLane = null;
 
     public void init(TitheFarmingConfig config) {
         TitheFarmLanes lane = config.Lanes();
 
         if (lane == TitheFarmLanes.Randomize) {
-            lane = TitheFarmLanes.values()[Rs2Random.betweenInclusive(0, TitheFarmLanes.values().length - 1)];
+            if (randomLane == null) {
+                TitheFarmLanes[] lanes = Arrays.stream(TitheFarmLanes.values())
+                        .filter(l -> l != TitheFarmLanes.Randomize)
+                        .toArray(TitheFarmLanes[]::new);
+                randomLane = lanes[Rs2Random.betweenInclusive(0, lanes.length - 1)];
+            }
+            lane = randomLane;
         }
 
         switch (lane) {
@@ -184,9 +200,9 @@ public class TitheFarmingScript extends Script {
         init = true;
         plants = new ArrayList<>();
         state = STARTING;
-        allPlanted = false;
-        wateringPass = false;
-        passIndex = Integer.MIN_VALUE;
+        routePosition = 0;
+        routePass = 0;
+        randomLane = null;
         Microbot.log("Tithe farming script started");
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
@@ -224,7 +240,8 @@ public class TitheFarmingScript extends Script {
                     state = TitheFarmState.LEAVE;
                 }
 
-                if (Rs2Inventory.hasItemAmount(TitheFarmMaterial.getSeedForLevel().getFruitId(), config.storeFruitThreshold())) {
+                if (state != PLANTING_SEEDS && state != HARVEST
+                        && Rs2Inventory.hasItemAmount(TitheFarmMaterial.getSeedForLevel().getFruitId(), config.storeFruitThreshold())) {
                     depositSack();
                     return;
                 }
@@ -296,31 +313,30 @@ public class TitheFarmingScript extends Script {
         if (Rs2Player.isMoving()) return;
         WorldPoint corePlayerLoc = playerLocation();
         if (corePlayerLoc == null) return;
-        TitheFarmPlant plant = nextPlant();
-
-        if ((state == TitheFarmState.HARVEST || allPlanted) && hasAllEmptyPatches()) {
-            state = STARTING;
-            allPlanted = false;
-            wateringPass = false;
-            passIndex = Integer.MIN_VALUE;
+        if ((routePass > 0 || state == TitheFarmState.HARVEST) && hasAllEmptyPatches()) {
+            startNextRound();
             return;
         }
 
-        // if we finished planting all patches, don't plant anything until we finish harvesting
-        // otherwise if we lag/miss a plant, and it dies, we will keep trying to plant seeds and mess up the loop
-        // require data for every patch before flipping allPlanted: when the cache hasn't loaded
-        // the patches yet, isEmptyPatch() returns false for all of them and noneMatch would
-        // erroneously trip even though we have planted nothing.
-        if (plants.stream().allMatch(p -> p.getGameObject() != null)
-                && plants.stream().noneMatch(TitheFarmPlant::isEmptyPatch)
-                && !hasAllEmptyPatches())
-            allPlanted = true;
+        if (plants.stream().allMatch(p -> p.getGameObject() == null)) return;
+
+        List<TitheFarmPlant> route = route();
+        TitheFarmPlant plant = nextOnRoute(route);
+        boolean waiting = plant != null && routeStep(plant, routePass) == RouteStep.WAIT;
+        if (routePass >= ROUTE_PASSES) {
+            plant = lowestIndex(TitheFarmingScript::needsAction);
+            waiting = false;
+        }
+
+        TitheFarmPlant rescue = plantToRescue(route, Instant.now());
+        if (rescue != null) {
+            plant = rescue;
+            waiting = false;
+        }
 
         if (plant == null) return;
 
-        if (plant.isValidToHarvest() && (allPlanted || plants.stream().noneMatch(TitheFarmingScript::needsWater))) {
-            state = TitheFarmState.HARVEST;
-        }
+        state = routePass >= HARVEST_PASS ? HARVEST : PLANTING_SEEDS;
 
         final TitheFarmPlant finalPlant = plant;
 
@@ -338,7 +354,9 @@ public class TitheFarmingScript extends Script {
             return;
         }
 
-        if (plant.isEmptyPatch() && !allPlanted) { //start planting seeds
+        if (waiting) return;
+
+        if (plant.isEmptyPatch() && routePass == 0 && !plant.isHarvested()) {
             Rs2Inventory.interact(TitheFarmMaterial.getSeedForLevel().getName(), "Use");
             clickPatch(plant);
             plant.setPlanted(Instant.now());
@@ -347,8 +365,7 @@ public class TitheFarmingScript extends Script {
             if (!finalPlant.isValidToWater()) {
                 return;
             }
-            Rs2Inventory.interact(TitheFarmMaterial.getWateringCan(), "Use");
-            clickPatch(plant);
+            clickPatch(plant, "water");
             sleepUntil(finalPlant::isWatered, config.sleepAfterWateringSeed());
         }
 
@@ -403,51 +420,57 @@ public class TitheFarmingScript extends Script {
 
 
 
-    private TitheFarmPlant nextPlant() {
-        TitheFarmPlant urgent = nextInPassOf(p -> needsWater(p) && p.growsWithin(DRY_PLANT_MARGIN), true);
-        if (urgent != null) {
-            wateringPass = true;
-            return visit(urgent);
-        }
-        if (plants.stream().noneMatch(TitheFarmingScript::needsWater)) {
-            wateringPass = false;
-        }
-        if (state != HARVEST && !allPlanted) {
-            TitheFarmPlant empty = lowestIndex(TitheFarmingScript::isUnplanted);
-            if (empty != null) {
-                if (wateringPass) {
-                    TitheFarmPlant next = nextInPass(false);
-                    if (next != null) return visit(next);
-                    wateringPass = false;
-                }
-                return visit(empty);
-            }
-        }
-        return visit(nextInPass(true));
+    private void startNextRound() {
+        state = STARTING;
+        routePosition = 0;
+        routePass = 0;
     }
 
-    private TitheFarmPlant nextInPass(boolean wrap) {
-        return nextInPassOf(p -> needsWater(p) || p.isValidToHarvest(), wrap);
-    }
-
-    private TitheFarmPlant nextInPassOf(Predicate<TitheFarmPlant> needsAction, boolean wrap) {
-        List<TitheFarmPlant> due = plants.stream()
-                .filter(needsAction)
+    private static List<TitheFarmPlant> route() {
+        return plants.stream()
                 .sorted(Comparator.comparingInt(TitheFarmPlant::getIndex))
                 .collect(Collectors.toList());
-        return due.stream()
-                .filter(p -> p.getIndex() >= passIndex)
-                .findFirst()
-                .orElse(wrap && !due.isEmpty() ? due.get(0) : null);
     }
 
-    private static boolean isUnplanted(TitheFarmPlant plant) {
-        return plant.isEmptyPatchOrSeedling() && !plant.isHarvested();
+    private TitheFarmPlant nextOnRoute(List<TitheFarmPlant> route) {
+        for (int checked = 0; checked < route.size() && routePass < ROUTE_PASSES; checked++) {
+            if (routePosition >= route.size()) routePosition = 0;
+            TitheFarmPlant plant = route.get(routePosition);
+            if (routeStep(plant, routePass) != RouteStep.SKIP) return plant;
+            routePosition++;
+            if (routePosition >= route.size()) {
+                routePosition = 0;
+                routePass++;
+            }
+        }
+        return null;
     }
 
-    private TitheFarmPlant visit(TitheFarmPlant plant) {
-        if (plant != null) passIndex = plant.getIndex();
-        return plant;
+    static RouteStep routeStep(TitheFarmPlant plant, int pass) {
+        if (needsAction(plant)) return RouteStep.ACT;
+        if (plant.isEmptyPatch()) {
+            return pass == 0 && !plant.isHarvested() ? RouteStep.ACT : RouteStep.SKIP;
+        }
+        int watered = plant.wateredStage();
+        return watered > 0 && watered == pass ? RouteStep.WAIT : RouteStep.SKIP;
+    }
+
+    private TitheFarmPlant plantToRescue(List<TitheFarmPlant> route, Instant now) {
+        TitheFarmPlant rescue = null;
+        Duration mostUrgent = null;
+        for (int steps = 1; steps < route.size(); steps++) {
+            TitheFarmPlant plant = route.get((routePosition + steps) % route.size());
+            if (!needsWater(plant)) continue;
+            Duration left = plant.timeUntilGrowth(now);
+            if (left == null) continue;
+            Duration reach = TIME_PER_ROUTE_STEP.multipliedBy(steps).plus(RESCUE_SAFETY);
+            if (left.compareTo(reach) < 0 && left.compareTo(RESCUE_WINDOW) < 0
+                    && (mostUrgent == null || left.compareTo(mostUrgent) < 0)) {
+                rescue = plant;
+                mostUrgent = left;
+            }
+        }
+        return rescue;
     }
 
     private static TitheFarmPlant lowestIndex(Predicate<TitheFarmPlant> needsAction) {
@@ -455,6 +478,10 @@ public class TitheFarmingScript extends Script {
                 .filter(needsAction)
                 .min(Comparator.comparingInt(TitheFarmPlant::getIndex))
                 .orElse(null);
+    }
+
+    private static boolean needsAction(TitheFarmPlant plant) {
+        return needsWater(plant) || plant.isValidToHarvest();
     }
 
     private static boolean needsWater(TitheFarmPlant plant) {
