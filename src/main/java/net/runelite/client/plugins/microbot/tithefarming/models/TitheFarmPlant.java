@@ -38,10 +38,13 @@ import net.runelite.client.plugins.tithefarm.TitheFarmPlantState;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 
 public class TitheFarmPlant {
     private static final Duration PLANT_TIME = Duration.ofMinutes(1);
+
+    private static volatile PatchSnapshot snapshot;
 
     @Getter
     @Setter
@@ -75,16 +78,35 @@ public class TitheFarmPlant {
         // tolerance match so the lookup is robust to this without rewriting all four
         // lane lists. Patches are 3 tiles apart so the tolerance can't match the
         // wrong neighbour.
-        return Microbot.getRs2TileObjectCache().query()
-                .where(o -> {
-                    if (!isTithePatchId(o.getId())) return false;
-                    WorldPoint wp = o.getWorldLocation();
-                    if (wp == null) return false;
-                    int dx = Math.abs(wp.getRegionX() - regionX);
-                    int dy = Math.abs(wp.getRegionY() - regionY);
-                    return dx <= 1 && dy <= 1;
-                })
-                .first();
+        for (Rs2TileObjectModel o : tithePatches()) {
+            WorldPoint wp = o.getWorldLocation();
+            if (wp == null) continue;
+            int dx = Math.abs(wp.getRegionX() - regionX);
+            int dy = Math.abs(wp.getRegionY() - regionY);
+            if (dx <= 1 && dy <= 1) return o;
+        }
+        return null;
+    }
+
+    private static List<Rs2TileObjectModel> tithePatches() {
+        int tick = Microbot.getClient().getTickCount();
+        PatchSnapshot current = snapshot;
+        if (current != null && current.tick == tick) return current.patches;
+        List<Rs2TileObjectModel> patches = Microbot.getRs2TileObjectCache().query()
+                .where(o -> isTithePatchId(o.getId()))
+                .toList();
+        snapshot = new PatchSnapshot(tick, patches);
+        return patches;
+    }
+
+    private static final class PatchSnapshot {
+        final int tick;
+        final List<Rs2TileObjectModel> patches;
+
+        PatchSnapshot(int tick, List<Rs2TileObjectModel> patches) {
+            this.tick = tick;
+            this.patches = patches;
+        }
     }
 
     private static boolean isTithePatchId(int id) {
