@@ -63,7 +63,7 @@ public interface SalamanderConfig extends Config {
     @ConfigItem(
             position = 4,
             keyName = "MinSleepAfterCatch",
-            name = "Min. Sleep After Catch - Recommended minimum 7500ms",
+            name = "Min. Sleep After Trap Reset - Recommended minimum 7500ms",
             description = "Min sleep after resetting a trap (caught or failed)"
     )
     default int minSleepAfterCatch() {
@@ -73,7 +73,7 @@ public interface SalamanderConfig extends Config {
     @ConfigItem(
             position = 5,
             keyName = "MaxSleepAfterCatch",
-            name = "Max. Sleep After Catch",
+            name = "Max. Sleep After Trap Reset",
             description = "Max sleep after resetting a trap (caught or failed)"
     )
     default int maxSleepAfterCatch() {

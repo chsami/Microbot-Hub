@@ -54,7 +54,7 @@ public class SalamanderScript extends Script {
                 if (config.salamanderHunting().getName().equals("Black salamander") && hasDied) {
                     Microbot.log("We died - Restocking supplies");
                     handleBanking(config);
-                } else if (Rs2Inventory.count(NET_TRAP) < 1 && plugin.getTraps().isEmpty()) {
+                } else if (needsRestock(Rs2Inventory.count(NET_TRAP), plugin.getActiveTrapCount())) {
                     Microbot.log("Not enough supplies, need net traps");
                     handleBanking(config);
                     return;
@@ -184,7 +184,7 @@ public class SalamanderScript extends Script {
             Rs2TileObjectModel gameObject = finder.apply(entry);
             if (gameObject == null) {
                 if (failed && entry.getValue().getTrapTimeRelative() >= FAILED_TRAP_GIVE_UP_TIME && plugin.abandonTrap(entry.getKey())) {
-                    Microbot.log("Could not reset the failed net trap, setting a new trap instead");
+                    Microbot.log("Could not reset the failed net trap at this spot, it no longer counts toward your traps");
                 }
                 continue;
             }
@@ -211,6 +211,10 @@ public class SalamanderScript extends Script {
                 .sorted(Comparator.comparing((Map.Entry<WorldPoint, HunterTrap> entry) -> entry.getValue().getState() != HunterTrap.State.FULL)
                         .thenComparing(entry -> -entry.getValue().getTrapTimeRelative()))
                 .collect(Collectors.toList());
+    }
+
+    static boolean needsRestock(int netTrapsInInventory, int activeTrapCount) {
+        return netTrapsInInventory < 1 && activeTrapCount == 0;
     }
 
     static boolean needsReset(HunterTrap.State state) {

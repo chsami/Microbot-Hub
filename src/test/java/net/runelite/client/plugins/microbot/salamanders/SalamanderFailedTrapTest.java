@@ -221,6 +221,20 @@ class SalamanderFailedTrapTest {
     }
 
     @Test
+    void restocksWhenOnlyAbandonedTrapsAreLeftAndNoNetTrapsInInventory() throws Exception {
+        HunterTrap failed = track(TRAP);
+        failed.setState(HunterTrap.State.EMPTY);
+        placedSecondsAgo(failed, 31);
+        assertFalse(SalamanderScript.needsRestock(0, plugin.getActiveTrapCount()));
+
+        new SalamanderScript().handleTraps(plugin, entry -> null);
+
+        assertFalse(plugin.getTraps().isEmpty());
+        assertTrue(SalamanderScript.needsRestock(0, plugin.getActiveTrapCount()));
+        assertFalse(SalamanderScript.needsRestock(1, plugin.getActiveTrapCount()));
+    }
+
+    @Test
     void fullTrapWithoutObjectIsNeverAbandoned() throws Exception {
         HunterTrap full = track(TRAP);
         full.setState(HunterTrap.State.FULL);
