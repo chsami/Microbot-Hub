@@ -64,11 +64,13 @@ public class AutoMiningScript extends Script {
     private LocationOption activeLocation;
     private boolean minedAtAnchor;
     private long noRockSince;
+    private boolean noRocksInRange;
 
     public boolean run(AutoMiningConfig config) {
         initialPlayerLocation = null;
         minedAtAnchor = false;
         noRockSince = 0;
+        noRocksInRange = false;
         activeRock = null;
         activeLocation = null;
         Rs2Antiban.resetAntibanSettings();
@@ -137,6 +139,7 @@ public class AutoMiningScript extends Script {
 
                         if (rock != null) {
                             noRockSince = 0;
+                            noRocksInRange = false;
                         } else if (noRockSince == 0) {
                             noRockSince = System.currentTimeMillis();
                         }
@@ -147,6 +150,12 @@ public class AutoMiningScript extends Script {
                             noRockSince = 0;
                             Rs2Walker.walkTo(initialPlayerLocation, PROGRESSIVE_ARRIVAL_DISTANCE);
                             return;
+                        }
+
+                        if (!noRocksInRange && shouldWarnNoRocksInRange(config.progressiveMode(), rock != null, minedAtAnchor, noRockMillis)) {
+                            noRocksInRange = true;
+                            warnNoRocksInRange(config.distanceToStray());
+                            updateStatus(config.progressiveMode());
                         }
 
                         if (rock != null) {
@@ -357,12 +366,13 @@ public class AutoMiningScript extends Script {
             activeLocation = MiningRockLocations.getBestAccessibleLocation(rock);
             minedAtAnchor = false;
             noRockSince = 0;
+            noRocksInRange = false;
             if (config.progressiveMode()) {
                 warnIfWildernessLocation(rock, activeLocation);
             }
         }
 
-        updateStatus();
+        updateStatus(config.progressiveMode());
     }
 
     static String wildernessWarning(Rocks rock, LocationOption location, boolean membersWorld, boolean membersAccount) {
@@ -435,12 +445,40 @@ public class AutoMiningScript extends Script {
                 && distanceFromAnchor > PROGRESSIVE_ARRIVAL_DISTANCE;
     }
 
-    private void updateStatus() {
+    static boolean shouldWarnNoRocksInRange(boolean progressiveMode, boolean rockFound, boolean minedAtAnchor, long noRockMillis) {
+        return !progressiveMode
+                && !rockFound
+                && !minedAtAnchor
+                && noRockMillis >= NO_ROCK_GRACE_MILLIS;
+    }
+
+    static String noRocksInRangeMessage(String oreName, int distanceToStray) {
+        String range = distanceToStray <= 0
+                ? "next to the tile you started on"
+                : "within " + distanceToStray + " tiles of where you started";
+        return "Auto Mining: no " + oreName + " " + range
+                + ". Stop the script, stand next to the rocks and start it again, or turn on Progressive mode to let it walk to a mine for your Mining level.";
+    }
+
+    static String statusText(String oreName, String locationName, boolean progressiveMode, boolean noRocksInRange) {
+        if (!progressiveMode && noRocksInRange) {
+            return "No " + oreName + " in range - stand at the rocks or turn on Progressive mode";
+        }
+        String place = progressiveMode && locationName != null ? locationName : "current area";
+        return "Mining " + oreName + " @ " + place;
+    }
+
+    private void warnNoRocksInRange(int distanceToStray) {
+        String warning = noRocksInRangeMessage(activeRock.getName(), distanceToStray);
+        Microbot.log(warning, Level.WARN);
+        Microbot.getClientThread().invokeLater(() ->
+                Microbot.getClient().addChatMessage(ChatMessageType.GAMEMESSAGE, "", "<col=ff0000>" + warning + "</col>", null));
+    }
+
+    private void updateStatus(boolean progressiveMode) {
         String oreName = activeRock != null ? activeRock.getName() : "Unknown";
-        String locationName = (activeLocation != null && activeLocation.getName() != null)
-                ? activeLocation.getName()
-                : "current area";
-        Microbot.status = "Mining " + oreName + " @ " + locationName;
+        String locationName = activeLocation != null ? activeLocation.getName() : null;
+        Microbot.status = statusText(oreName, locationName, progressiveMode, noRocksInRange);
     }
 
     private static List<GameObject> gameObjectsNear(WorldPoint anchor, int distance, Predicate<GameObject> predicate) {
