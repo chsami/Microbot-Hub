@@ -31,6 +31,7 @@ import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.security.Login;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
+import org.slf4j.event.Level;
 
 import java.awt.event.KeyEvent;
 import java.util.Comparator;
@@ -70,6 +71,8 @@ public class TheMessScript extends Script {
     public boolean run(TheMessConfig config, TheMessOverlay overlay) {
         this.config = config;
         this.overlay = overlay;
+        surplusItemId = -1;
+        surplusDropAttempts = 0;
         Microbot.enableAutoRunOn = false;
 
         Rs2Antiban.setActivity(Activity.GENERAL_COOKING);
@@ -146,7 +149,7 @@ public class TheMessScript extends Script {
         withdrawFromUtensil(ItemID.BOWL_EMPTY, needed);
     }
 
-    private void meatPieTick() {
+    void meatPieTick() {
         // Consume-to-zero phases (cooking) take priority over any combine that uses their output.
         // Withdrawal targets size to predecessor counts so burn-induced leftovers (extra shells)
         // carry into the next loop and the chain tops up rather than over-fetching.
@@ -500,18 +503,19 @@ public class TheMessScript extends Script {
             int c = count(id);
             if (c <= max) continue;
 
+            Rs2ItemModel item = Rs2Inventory.get(id);
+            String name = item != null && item.getName() != null ? item.getName() : "item " + id;
+
             if (id != surplusItemId) { surplusItemId = id; surplusDropAttempts = 0; }
             if (++surplusDropAttempts > MAX_SURPLUS_DROP_ATTEMPTS) {
-                Rs2ItemModel item = Rs2Inventory.get(id);
-                String name = item != null ? item.getName() : "item " + id;
-                log.error("[mess] surplus not dropped: itemId={} count={} > max={} for dish={}", id, c, max, dish);
-                setStatus("Stopped: " + c + " " + name + ", max " + max);
+                Microbot.log(surplusStopMessage(name, c, max), Level.WARN);
+                setStatus("Stopped: drop failed");
                 shutdown();
                 return true;
             }
 
-            log.warn("[mess] dropping surplus: itemId={} count={} > max={} for dish={}", id, c, max, dish);
-            setStatus("Dropping surplus");
+            log.warn("[mess] dropping {} extra {} ({} in inventory, {} allowed)", c - max, name, c, max);
+            setStatus("Dropping extra items");
             Rs2Inventory.dropAmount(id, c - max, InteractOrder.STANDARD);
             sleepUntil(() -> count(id) <= max, 3000);
             return true;
@@ -519,6 +523,15 @@ public class TheMessScript extends Script {
         surplusItemId = -1;
         surplusDropAttempts = 0;
         return false;
+    }
+
+    static String surplusStopMessage(String name, int count, int max) {
+        if (max == 0) {
+            return "The Mess stopped: could not drop " + name + ", which is not used for pizza."
+                    + " Drop it yourself or empty your inventory, then turn the plugin on again.";
+        }
+        return "The Mess stopped: could not drop the extra " + name + " (" + count + " in inventory, " + max + " allowed)."
+                + " Drop them yourself or empty your inventory, then turn the plugin on again.";
     }
 
     static int batchLimit(Dish dish, int itemId) {

@@ -1,14 +1,20 @@
 package net.runelite.client.plugins.microbot.mess;
 
 import net.runelite.api.gameval.ItemID;
+import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.util.Global;
+import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
+import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
+import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
 import net.runelite.client.plugins.microbot.util.inventory.InteractOrder;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
+import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 
 import java.lang.reflect.Field;
 import java.util.Map;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -121,6 +127,61 @@ class TheMessBatchSurplusTest {
             inventory.verify(() -> Rs2Inventory.dropAmount(ItemID.BOWL_EMPTY, 6, InteractOrder.STANDARD), times(5));
         }
         verify(script).shutdown();
+    }
+
+    @Test
+    void aFreshRunAfterATerminalStopTriesToDropAgain() throws Exception {
+        TheMessScript script = script(TheMessScript.Dish.STEW);
+        Field executor = Script.class.getDeclaredField("scheduledExecutorService");
+        executor.setAccessible(true);
+        executor.set(script, mock(ScheduledExecutorService.class));
+        Field config = TheMessScript.class.getDeclaredField("config");
+        config.setAccessible(true);
+        boolean naturalMouse = Rs2AntibanSettings.naturalMouse;
+
+        try (MockedStatic<Rs2Inventory> inventory = mockStatic(Rs2Inventory.class);
+             MockedStatic<Global> global = mockStatic(Global.class);
+             MockedStatic<Rs2Antiban> antiban = mockStatic(Rs2Antiban.class);
+             MockedStatic<Rs2Camera> camera = mockStatic(Rs2Camera.class);
+             MockedStatic<Rs2Random> random = mockStatic(Rs2Random.class)) {
+            stub(inventory, Map.of(ItemID.BOWL_EMPTY, 20));
+
+            for (int attempt = 0; attempt < 6; attempt++) {
+                assertTrue(script.dropBatchSurplus());
+            }
+            verify(script).shutdown();
+
+            assertTrue(script.run((TheMessConfig) config.get(script), null));
+            assertTrue(script.dropBatchSurplus());
+
+            inventory.verify(() -> Rs2Inventory.dropAmount(ItemID.BOWL_EMPTY, 6, InteractOrder.STANDARD), times(6));
+        } finally {
+            Rs2AntibanSettings.naturalMouse = naturalMouse;
+        }
+        verify(script).shutdown();
+    }
+
+    @Test
+    void stopMessageNamesTheItemAndTellsThePlayerWhatToDo() {
+        assertEquals("The Mess stopped: could not drop the extra Bowl of water (20 in inventory, 14 allowed)."
+                        + " Drop them yourself or empty your inventory, then turn the plugin on again.",
+                TheMessScript.surplusStopMessage("Bowl of water", 20, 14));
+        assertEquals("The Mess stopped: could not drop Pastry dough, which is not used for pizza."
+                        + " Drop it yourself or empty your inventory, then turn the plugin on again.",
+                TheMessScript.surplusStopMessage("Pastry dough", 14, 0));
+    }
+
+    @Test
+    void meatPieWithdrawsFlourForLeftoverBowlsOfWater() throws Exception {
+        TheMessScript script = script(TheMessScript.Dish.MEAT_PIE);
+
+        try (MockedStatic<Rs2Inventory> inventory = mockStatic(Rs2Inventory.class)) {
+            stub(inventory, Map.of(ItemID.BOWL_WATER, 14));
+
+            script.meatPieTick();
+        }
+
+        verify(script).withdrawFromFood(ItemID.HOSIDIUS_SERVERY_POT_FLOUR, 14);
     }
 
     @Test
