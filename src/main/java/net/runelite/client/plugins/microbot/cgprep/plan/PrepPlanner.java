@@ -471,11 +471,15 @@ public final class PrepPlanner
 		{
 			return PrepGoal.dropTool(Resource.RAW_FISH, "done fishing");
 		}
-		// The pestle and mortar (user, 0.4.7): once no more dust will be crushed (every brew still to
-		// make already has its dust, no spike to crush) it goes when a fish needs its slot.
-		if (pestleDone(l, n) && l.freeSlots == 0 && n.get(Resource.RAW_FISH) > 0 && !in.droppedRecently.contains(Resource.SHARDS))
+		// The pestle and mortar: once no more dust will be crushed (every brew still to make already
+		// has its dust, no spike to crush) it goes straight away (1.8.5, player feedback: it was
+		// kept until a fish needed the slot, often only after a teleport home).
+		// (Not at home on the final trip: nothing needs the slot there any more, the click is wasted.)
+		boolean finalAtHome = finishedSeed == in.runSeed && in.runSeed != 0 && maze(in) != null && maze(in).inStartRoom();
+		if (pestleDone(l, n) && !finalAtHome && !in.droppedRecently.contains(Resource.SHARDS))
 		{
-			return PrepGoal.dropTool(Resource.SHARDS, "pestle and mortar not needed any more: room for a fish");
+			return PrepGoal.dropTool(Resource.SHARDS, "pestle and mortar not needed any more (" + l.dust + " dust for "
+				+ n.potionsToMake + " brew(s))");
 		}
 		// Leftover material nothing still to be made needs: drop it once everything that uses it
 		// is made (user, 0.3.26: 9 linum gathered for 7). One stack / item per chore.
@@ -558,8 +562,11 @@ public final class PrepPlanner
 		// the linum and the dust all needed room, and it froze). Fish never free their slot (cooking
 		// keeps it), so they only get the slots left over after everything else still to come.
 		int fishRoom = fishRoom(l, n);
-		// Fish in proper batches: don't start a spot for fewer than 3 (or what's left to get).
-		int fishCap = fishRoom >= Math.min(3, n.get(Resource.RAW_FISH)) ? fishRoom : 0;
+		// Fish in proper batches: don't start a spot for fewer than 3 (or what's left to get). With
+		// only fish left to get, any room is worth filling (1.8.5, player feedback: 2-3 free slots
+		// and 4 fish short teleported home and walked back out for them).
+		boolean fishAlone = onlyFishLeft(n, n.requiredPotionsToMake == 0 && n.potionsToMake > 0);
+		int fishCap = fishRoom >= (fishAlone ? 1 : Math.min(3, n.get(Resource.RAW_FISH))) ? fishRoom : 0;
 		// An easy spot (right by us / on the way) doesn't wait for the loot reserve (user, 0.3.29:
 		// "if unsure, just pick them up"): a mob drop that needs the slot later gets it by dropping
 		// a raw paddlefish (LootAction). Never fish just to drop, so the planned non-loot items
@@ -678,6 +685,15 @@ public final class PrepPlanner
 		if (timeUp || n.gatheringDone() || doneExceptOptional(n, grymOptional, fishOptional))
 		{
 			return finish(in, timeUp ? "timer " + in.secondsLeft + "s <= reserve" : "everything gathered");
+		}
+
+		// Raw paddlefish lying close by (a monster's or a demi-boss's drop, 1.8.5 player feedback):
+		// a few steps for a fish beats fishing it, while it's still wanted and has a slot.
+		if (in.groundFishAt != null && in.groundFishCount > 0 && in.groundFishTiles <= GROUND_FISH_TILES
+			&& n.get(Resource.RAW_FISH) > 0 && easyRoom > 0 && !fishOptional && in.demiOnUs == null)
+		{
+			return PrepGoal.pickUpFish(in.groundFishAt, in.groundFishCount + " raw paddlefish on the floor "
+				+ in.groundFishTiles + " tiles away (" + n.get(Resource.RAW_FISH) + " fish still wanted)");
 		}
 
 		// Inventory. 28 slots: tools, vials, grym and fish don't stack (ore/bark/linum/shards do).
@@ -2073,10 +2089,123 @@ public final class PrepPlanner
 		}
 		if (!in.maze.inStartRoom())
 		{
-			return PrepGoal.finalTripHome(why);
+			PrepGoal f = fieldTopUp(in, why);
+			return f != null ? f : PrepGoal.finalTripHome(why);
 		}
 		return process(in, why, true);
 	}
+
+	/** Raw paddlefish on the floor within this many tiles are picked up mid-prep. */
+	static final int GROUND_FISH_TILES = 10;
+
+	/**
+	 * What the loot step picks up (1.8.5): the gathering caps, except raw paddlefish a monster
+	 * dropped are wanted while we're below the fish target and a slot isn't spoken for. The fish
+	 * cap is for walking to spots; a fish at our feet costs nothing (and is dropped again for a
+	 * drop we need, see LootAction).
+	 */
+	public static Needs lootNeeds(Inputs in)
+	{
+		Needs n = in.needs;
+		Needs base = in.gather != null ? in.gather : n;
+		if (n == null || in.ledger == null)
+		{
+			return base;
+		}
+		int fish = n.get(Resource.RAW_FISH);
+		if (fish > base.get(Resource.RAW_FISH) && in.ledger.freeSlots > reservedSlots(in.ledger, n, false))
+		{
+			return base.withDeficit(Resource.RAW_FISH, fish);
+		}
+		return base;
+	}
+
+	/** Spots further than this (walking tiles) aren't fished on the way out. */
+	static final int FIELD_TOP_UP_TILES = 60;
+
+	/**
+	 * Seconds for {@code fish} more from a spot or floor pile {@code tiles} away out in the maze,
+	 * then the whole final trip (home, crafts, brews, cooking those fish too) and the reserve.
+	 */
+	static double fieldTopUpNeed(Inputs in, int tiles, int fish, boolean ground)
+	{
+		double gather = ground ? fish * PICKUP_SECONDS : fish * 3 * 0.6;
+		return (tiles / 2.0 + 2) * 0.6 + gather + estimateFinishSeconds(in) + fish * COOK_SECONDS_PER_FISH
+			+ TOP_UP_MARGIN + endReserve(in);
+	}
+
+	private static int fitFieldFish(Inputs in, int tiles, int max, boolean ground)
+	{
+		int best = 0;
+		for (int k = 1; k <= max; k++)
+		{
+			if (fieldTopUpNeed(in, tiles, k, ground) <= in.secondsLeft - 3)
+			{
+				best = k;
+			}
+		}
+		return best;
+	}
+
+	/**
+	 * Everything else done, out in the maze and below the paddlefish target (1.8.5, player
+	 * feedback): fish here first, until the target is met or the bag is full, whichever comes
+	 * first, rather than teleporting home and walking back out for them. A floor pile (monster
+	 * drops) or the nearest live spot, while the fish, the trip home and the cooking fit the clock.
+	 */
+	private PrepGoal fieldTopUp(Inputs in, String why)
+	{
+		Ledger l = in.ledger;
+		GauntletMaze m = in.maze;
+		if (in.projection || m == null || m.inStartRoom() || in.secondsLeft < 0 || in.flee || in.hpPct < 40
+			|| (topUpSeed == in.runSeed && in.runSeed != 0))
+		{
+			return null;
+		}
+		int have = l.cookedFish + l.get(Resource.RAW_FISH);
+		int goal = fishGoal(in);
+		int room = Math.min(Math.min(l.freeSlots + freeingSlots(l, in.needs), TOP_UP_CAP - have), goal - have);
+		if (room <= 0)
+		{
+			return null;
+		}
+		PrepGoal best = null;
+		int bestFish = 0;
+		net.runelite.api.coords.WorldPoint bestSpot = null;
+		if (in.groundFishAt != null && in.groundFishCount > 0 && in.groundFishTiles <= FIELD_TOP_UP_TILES)
+		{
+			int fish = fitFieldFish(in, in.groundFishTiles, Math.min(room, in.groundFishCount), true);
+			if (fish >= 1)
+			{
+				best = PrepGoal.pickUpFish(in.groundFishAt, why + ": " + have + "/" + goal + " fish, " + fish
+					+ " raw paddlefish on the floor " + in.groundFishTiles + " tiles away before going home (" + in.secondsLeft + " s left)");
+				bestFish = fish;
+			}
+		}
+		GauntletMaze.Node spot = l.harpoon ? m.nearestLiveNode(Resource.RAW_FISH) : null;
+		int t = spot == null ? -1 : m.walkTiles(spot);
+		if (t >= 0 && t <= FIELD_TOP_UP_TILES)
+		{
+			int fish = fitFieldFish(in, t, Math.min(room, ExplorePlanner.yieldPerNode(Resource.RAW_FISH)), false);
+			if (fish >= 1 && fish > bestFish)
+			{
+				best = PrepGoal.gatherAt(Resource.RAW_FISH, spot.raw, why + ": " + have + "/" + goal + " fish, fishing the spot "
+					+ t + " tiles away before going home (" + in.secondsLeft + " s left, ~" + fish + " fit)");
+				bestSpot = spot.raw;
+			}
+		}
+		if (best == null)
+		{
+			return null;
+		}
+		topUpSeed = in.runSeed;
+		topUpField = true;
+		topUpSpot = bestSpot;
+		return best;
+	}
+
+	/** The top-up under way started out in the maze (fieldTopUp), not from the start room. */
+	private boolean topUpField;
 
 	// ------------------------------------------------------------------ end-of-prep fish top-up
 
@@ -2219,6 +2348,7 @@ public final class PrepPlanner
 				return null;
 			}
 			topUpSeed = in.runSeed;
+			topUpField = false;
 			topUpSpot = bestSpot;
 			return best;
 		}
@@ -2228,6 +2358,10 @@ public final class PrepPlanner
 			return null;
 		}
 		boolean met = have >= goal;
+		if (topUpField)
+		{
+			return fieldTopUpStep(in, have, goal, met, groundTiles);
+		}
 		// The spot we're working: finish it, target met or not, while the clock allows a fish.
 		GauntletMaze.Node cur = topUpSpot == null ? null : m.nodeAt(topUpSpot);
 		if (cur != null && !cur.depleted && l.harpoon)
@@ -2256,6 +2390,41 @@ public final class PrepPlanner
 			return PrepGoal.gatherAt(Resource.RAW_FISH, spot.raw, "top-up: " + have + "/" + goal + " fish, next spot (" + in.secondsLeft + " s left)");
 		}
 		topUpSeed = Integer.MIN_VALUE; // out of time (or the fish are gone): home to cook
+		return null;
+	}
+
+	/** A field top-up under way: the target or a full bag ends it, then the final trip home. */
+	private PrepGoal fieldTopUpStep(Inputs in, int have, int goal, boolean met, int groundTiles)
+	{
+		GauntletMaze m = in.maze;
+		Ledger l = in.ledger;
+		if (met)
+		{
+			topUpSeed = Integer.MIN_VALUE;
+			return null;
+		}
+		GauntletMaze.Node cur = topUpSpot == null ? null : m.nodeAt(topUpSpot);
+		if (cur != null && !cur.depleted && l.harpoon)
+		{
+			int t = m.walkTiles(cur);
+			if (t >= 0 && t != Integer.MAX_VALUE && fieldTopUpNeed(in, t, 1, false) <= in.secondsLeft)
+			{
+				return PrepGoal.gatherAt(Resource.RAW_FISH, cur.raw, "field top-up: " + have + "/" + goal + " fish (" + in.secondsLeft + " s left)");
+			}
+		}
+		if (groundTiles >= 0 && groundTiles <= FIELD_TOP_UP_TILES && fieldTopUpNeed(in, groundTiles, 1, true) <= in.secondsLeft)
+		{
+			topUpSpot = null;
+			return PrepGoal.pickUpFish(in.groundFishAt, "field top-up: " + have + "/" + goal + " fish, from the floor (" + in.secondsLeft + " s left)");
+		}
+		GauntletMaze.Node spot = l.harpoon ? m.nearestLiveNode(Resource.RAW_FISH) : null;
+		int t = spot == null ? -1 : m.walkTiles(spot);
+		if (t >= 0 && t <= FIELD_TOP_UP_TILES && fieldTopUpNeed(in, t, 1, false) <= in.secondsLeft)
+		{
+			topUpSpot = spot.raw;
+			return PrepGoal.gatherAt(Resource.RAW_FISH, spot.raw, "field top-up: " + have + "/" + goal + " fish, next spot (" + in.secondsLeft + " s left)");
+		}
+		topUpSeed = Integer.MIN_VALUE; // out of time (or the fish are gone): home
 		return null;
 	}
 
@@ -2300,7 +2469,39 @@ public final class PrepPlanner
 	 */
 	static int fishRoom(Ledger l, Needs n)
 	{
-		return Math.max(0, l.freeSlots - reservedSlots(l, n));
+		return Math.max(0, l.freeSlots + freeingSlots(l, n) - reservedSlots(l, n));
+	}
+
+	/**
+	 * Slots the chores are about to free on the move (1.8.5): the pestle and mortar once its dust
+	 * is made, and each grym leaf going into a water vial (2 items -> 1). Only counted with a slot
+	 * free already, so a full bag never walks to a spot before the room is really there.
+	 */
+	static int freeingSlots(Ledger l, Needs n)
+	{
+		if (l.freeSlots <= 0)
+		{
+			return 0;
+		}
+		int herb = Math.max(0, Math.min(Math.min(l.waterVials, l.get(Resource.GRYM)), n.potionsToMake - l.unfinishedPotions));
+		return (pestleDone(l, n) ? 1 : 0) + herb;
+	}
+
+	/** Only fish are left to gather (the optional herb aside): a spot is worth it for a single fish. */
+	static boolean onlyFishLeft(Needs n, boolean grymOptional)
+	{
+		if (n.get(Resource.RAW_FISH) <= 0)
+		{
+			return false;
+		}
+		for (Resource r : Resource.values())
+		{
+			if (r != Resource.RAW_FISH && !(grymOptional && r == Resource.GRYM) && n.get(r) > 0)
+			{
+				return false;
+			}
+		}
+		return true;
 	}
 
 	static int reservedSlots(Ledger l, Needs n)
@@ -2467,7 +2668,9 @@ public final class PrepPlanner
 		}
 		if (!roomToCraft && finalTrip && craftsLeft)
 		{
-			if (pestleDone(l, n) && !in.droppedRecently.contains(Resource.SHARDS))
+			// (Not at home on the final trip: nothing needs the slot there any more, the click is wasted.)
+		boolean finalAtHome = finishedSeed == in.runSeed && in.runSeed != 0 && maze(in) != null && maze(in).inStartRoom();
+		if (pestleDone(l, n) && !finalAtHome && !in.droppedRecently.contains(Resource.SHARDS))
 			{
 				return PrepGoal.dropTool(Resource.SHARDS, why + ": room for the last crafts (pestle and mortar, no more dust needed)");
 			}

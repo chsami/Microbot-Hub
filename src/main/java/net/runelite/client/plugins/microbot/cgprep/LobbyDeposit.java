@@ -28,12 +28,24 @@ final class LobbyDeposit
 			|| type == net.runelite.api.ChatMessageType.DIALOG;
 	}
 
-	static boolean needed(boolean reward, int free, int bankBelowFreeSlots, int chestFails, int carried, boolean wearing)
+	/**
+	 * Use the deposit box now? With a reward waiting: only to make room for it (the 1.8.3 rule).
+	 * Otherwise only after the game actually refused entry because of what's carried or worn
+	 * (1.8.5, user: banking everything, gear included, before every single run looked scripted, and
+	 * runs with loot in the bag were getting in fine).
+	 */
+	static boolean needed(boolean reward, int free, int bankBelowFreeSlots, int chestFails, int carried, boolean wearing, boolean refused)
 	{
 		if (reward)
 		{
 			return free < bankBelowFreeSlots || (chestFails >= 2 && free < 8);
 		}
-		return carried > 0 || wearing;
+		return refused && (carried > 0 || wearing);
+	}
+
+	/** Worn items only go in the box after a refusal; making room for loot never touches your gear. */
+	static boolean depositWorn(boolean refused, boolean wearing)
+	{
+		return refused && wearing;
 	}
 }
