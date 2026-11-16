@@ -6603,12 +6603,17 @@ public class DroSlayerScript extends Script {
         boolean usesPrayer = isWildernessSlayer() || config.useOffensivePrayers()
                 || (config.prayerFlickStyle() != PrayerFlickStyle.OFF
                     && getActiveProtectionPrayer() != DroSlayerPrayer.NONE);
-        int potionThreshold = DroSlayerBankSupplies.prayerRestockThreshold(
-                isWildernessSlayer() ? Math.max(1, config.potionThreshold()) : config.potionThreshold(), bankedPrayerDoses);
+        int configuredPotionThreshold = configuredPrayerPotionThreshold();
+        int potionThreshold = DroSlayerBankSupplies.prayerRestockThreshold(configuredPotionThreshold, bankedPrayerDoses);
         if (!finishingTask && usesPrayer && potionThreshold > 0) {
             int prayerDoses = getPrayerPotionDoses();
             if (prayerDoses < potionThreshold) {
-                log.info("Prayer potion doses ({}) below threshold ({})", prayerDoses, potionThreshold);
+                if (potionThreshold < configuredPotionThreshold) {
+                    log.info("Prayer potion doses ({}) below what your inventory setup carries ({}); banking to restock",
+                            prayerDoses, potionThreshold);
+                } else {
+                    log.info("Prayer potion doses ({}) below threshold ({})", prayerDoses, potionThreshold);
+                }
                 return true;
             }
         }
@@ -6629,18 +6634,21 @@ public class DroSlayerScript extends Script {
     /**
      * Gets total prayer potion doses in inventory (prayer potions and super restores)
      */
-    private void recordBankedPrayerDoses() {
-        bankedPrayerDoses = getPrayerPotionDoses();
-        int configured = isWildernessSlayer() ? Math.max(1, config.potionThreshold()) : config.potionThreshold();
-        if (bankedPrayerDoses < configured) {
-            log.info("Bank loadout supplied {} prayer potion doses, below the Prayer Potion Threshold ({}); banking for prayer only below {} doses",
-                    bankedPrayerDoses, configured, bankedPrayerDoses);
-        }
-    }
-
     private int getPrayerPotionDoses() {
         return Rs2Inventory.items().mapToInt(item ->
                 DroSlayerWildernessSupplies.prayerDoses(item.getName(), isWildernessSlayer()) * item.getQuantity()).sum();
+    }
+
+    private int configuredPrayerPotionThreshold() {
+        return isWildernessSlayer() ? Math.max(1, config.potionThreshold()) : config.potionThreshold();
+    }
+
+    private void recordBankedPrayerDoses() {
+        bankedPrayerDoses = getPrayerPotionDoses();
+        String notice = DroSlayerBankSupplies.prayerLoadoutNotice(configuredPrayerPotionThreshold(), bankedPrayerDoses);
+        if (notice != null) {
+            log.warn(notice);
+        }
     }
 
     // BaseProfileDro owns smart breaks/login recovery; legacy BreakHandler locking was intentionally removed.
