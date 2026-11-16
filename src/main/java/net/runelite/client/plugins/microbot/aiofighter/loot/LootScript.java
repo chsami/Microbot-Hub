@@ -148,7 +148,7 @@ public class LootScript extends Script {
     }
 
     static int lootRange(int attackRadius, WorldPoint center, WorldPoint player) {
-        final int range = attackRadius + 1;
+        final int range = AIOFighterConfig.boundedAttackRadius(attackRadius) + 1;
         if (!isCenterSet(center) || player == null || player.getPlane() != center.getPlane()) return range;
         return range + player.distanceTo(center);
     }

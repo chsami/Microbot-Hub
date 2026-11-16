@@ -23,6 +23,11 @@ import net.runelite.client.plugins.microbot.util.skills.slayer.enums.SlayerMaste
 public interface AIOFighterConfig extends Config {
 
     String GROUP = "playerassist";
+    int MAX_ATTACK_RADIUS = 104;
+
+    static int boundedAttackRadius(int attackRadius) {
+        return Math.max(0, Math.min(attackRadius, MAX_ATTACK_RADIUS));
+    }
 
     @ConfigSection(
             name = "Combat",
@@ -115,6 +120,7 @@ public interface AIOFighterConfig extends Config {
         return "";
     }
 
+    @Range(max = MAX_ATTACK_RADIUS)
     @ConfigItem(
             keyName = "Attack Radius",
             name = "Attack Radius",
