@@ -55,4 +55,27 @@ public final class LootScriptRangeTest {
         assertEquals(2, LootScript.lootRange(1, CENTER, null));
         assertEquals(2, LootScript.lootRange(1, CENTER, new WorldPoint(2460, 9165, 0)));
     }
+
+    @Test
+    void largestRadiusStillReachesEveryTileInTheScene() {
+        WorldPoint player = CENTER.dx(103).dy(103);
+
+        for (int radius : new int[]{Integer.MAX_VALUE, Integer.MAX_VALUE - 1, 1_000_000}) {
+            int withoutCenter = LootScript.lootRange(radius, UNSET, player);
+            int withCenter = LootScript.lootRange(radius, CENTER, player);
+
+            assertEquals(105, withoutCenter);
+            assertEquals(208, withCenter);
+            assertTrue(engineAccepts(CENTER, player, withoutCenter));
+            assertTrue(engineAccepts(CENTER, player, withCenter));
+        }
+    }
+
+    @Test
+    void negativeRadiusOnlyReachesThePlayerTile() {
+        int range = LootScript.lootRange(Integer.MIN_VALUE, UNSET, CENTER);
+
+        assertEquals(1, range);
+        assertTrue(engineAccepts(CENTER, CENTER, range));
+    }
 }
