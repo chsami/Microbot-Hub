@@ -57,13 +57,18 @@ public class AutoMiningScript extends Script {
 
     private static final int GEM_MINE_UNDERGROUND = 11410;
     private static final int PROGRESSIVE_ARRIVAL_DISTANCE = 3;
+    static final long NO_ROCK_GRACE_MILLIS = 5000;
     State state = State.MINING;
     private static final List<Rocks> PROGRESSIVE_ROCKS = buildProgressiveRocks();
     private Rocks activeRock;
     private LocationOption activeLocation;
+    private boolean minedAtAnchor;
+    private long noRockSince;
 
     public boolean run(AutoMiningConfig config) {
         initialPlayerLocation = null;
+        minedAtAnchor = false;
+        noRockSince = 0;
         activeRock = null;
         activeLocation = null;
         Rs2Antiban.resetAntibanSettings();
@@ -130,14 +135,23 @@ public class AutoMiningScript extends Script {
 
                         GameObject rock = findRock(config.distanceToStray());
 
-                        if (shouldReturnToAnchor(config.progressiveMode(), rock != null, Rs2Player.getWorldLocation().distanceTo(initialPlayerLocation))) {
+                        if (rock != null) {
+                            noRockSince = 0;
+                        } else if (noRockSince == 0) {
+                            noRockSince = System.currentTimeMillis();
+                        }
+                        long noRockMillis = rock != null ? 0 : System.currentTimeMillis() - noRockSince;
+
+                        if (shouldReturnToAnchor(config.progressiveMode(), rock != null, minedAtAnchor, noRockMillis, Rs2Player.getWorldLocation().distanceTo(initialPlayerLocation))) {
                             Microbot.status = "No rocks in reach, walking to mining location...";
+                            noRockSince = 0;
                             Rs2Walker.walkTo(initialPlayerLocation, PROGRESSIVE_ARRIVAL_DISTANCE);
                             return;
                         }
 
                         if (rock != null) {
                             if (new Rs2TileObjectModel(rock).click()) {
+                                minedAtAnchor = true;
                                 waitForOreOrDepletion(rock);
                                 Rs2Antiban.actionCooldown();
                                 Rs2Antiban.takeMicroBreakByChance();
@@ -153,8 +167,12 @@ public class AutoMiningScript extends Script {
                                     return;
                                 }
 
-                                // deposit everything except the pickaxe to make room for bracelet of clay
-                                Rs2Bank.depositAllExcept("pickaxe");
+                                // deposit everything except a carried pickaxe to make room for bracelet of clay
+                                if (Rs2Inventory.contains("pickaxe", false)) {
+                                    Rs2Bank.depositAllExcept("pickaxe");
+                                } else {
+                                    Rs2Bank.depositAll();
+                                }
                                 sleepUntil(() -> !Rs2Inventory.isFull(), 3000);
                                 if (Rs2Bank.hasItem(11074)) {
                                     Rs2Bank.withdrawAndEquip(11074);
@@ -209,6 +227,10 @@ public class AutoMiningScript extends Script {
                             Rs2Inventory.dropAllExcept(false, config.interactOrder(), MiningBankRule.parseItemsToKeep(config.itemsToKeep()).toArray(new String[0]));
                         }
 
+                        if (config.useBank()) {
+                            minedAtAnchor = false;
+                        }
+                        noRockSince = 0;
                         state = State.MINING;
                         break;
                 }
@@ -333,6 +355,8 @@ public class AutoMiningScript extends Script {
         if (rock != activeRock || activeLocation == null) {
             activeRock = rock;
             activeLocation = MiningRockLocations.getBestAccessibleLocation(rock);
+            minedAtAnchor = false;
+            noRockSince = 0;
             if (config.progressiveMode()) {
                 warnIfWildernessLocation(rock, activeLocation);
             }
@@ -403,8 +427,12 @@ public class AutoMiningScript extends Script {
         return Math.max(1, distanceToStray);
     }
 
-    static boolean shouldReturnToAnchor(boolean progressiveMode, boolean rockFound, int distanceFromAnchor) {
-        return progressiveMode && !rockFound && distanceFromAnchor > PROGRESSIVE_ARRIVAL_DISTANCE;
+    static boolean shouldReturnToAnchor(boolean progressiveMode, boolean rockFound, boolean minedAtAnchor, long noRockMillis, int distanceFromAnchor) {
+        return progressiveMode
+                && !rockFound
+                && !minedAtAnchor
+                && noRockMillis >= NO_ROCK_GRACE_MILLIS
+                && distanceFromAnchor > PROGRESSIVE_ARRIVAL_DISTANCE;
     }
 
     private void updateStatus() {

@@ -8,6 +8,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AutoMiningProgressiveLeashTest {
 
+    private static final long GRACE = AutoMiningScript.NO_ROCK_GRACE_MILLIS;
+
     @Test
     void leashFollowsDistanceToStrayInsteadOfStoppingAtFiveTiles() {
         assertEquals(20, AutoMiningScript.progressiveLeash(20));
@@ -22,24 +24,36 @@ class AutoMiningProgressiveLeashTest {
     }
 
     @Test
-    void walksToTheAnchorWhenNothingIsReachableAndThePlayerIsFarFromIt() {
-        assertTrue(AutoMiningScript.shouldReturnToAnchor(true, false, 4));
-        assertTrue(AutoMiningScript.shouldReturnToAnchor(true, false, 20));
+    void walksToTheAnchorWhenNothingHasBeenReachableForAWhileAndThePlayerIsFarFromIt() {
+        assertTrue(AutoMiningScript.shouldReturnToAnchor(true, false, false, GRACE, 4));
+        assertTrue(AutoMiningScript.shouldReturnToAnchor(true, false, false, GRACE * 3, 20));
+    }
+
+    @Test
+    void ignoresAShortGapWithNoRock() {
+        assertFalse(AutoMiningScript.shouldReturnToAnchor(true, false, false, 0, 15));
+        assertFalse(AutoMiningScript.shouldReturnToAnchor(true, false, false, GRACE - 1, 15));
+    }
+
+    @Test
+    void staysAtTheRocksWhileTheyRespawnOnceItHasMinedHere() {
+        assertFalse(AutoMiningScript.shouldReturnToAnchor(true, false, true, GRACE, 4));
+        assertFalse(AutoMiningScript.shouldReturnToAnchor(true, false, true, GRACE * 60, 17));
     }
 
     @Test
     void staysPutOnceWithinArrivalDistanceSoTheWalkCannotRepeat() {
-        assertFalse(AutoMiningScript.shouldReturnToAnchor(true, false, 3));
-        assertFalse(AutoMiningScript.shouldReturnToAnchor(true, false, 0));
+        assertFalse(AutoMiningScript.shouldReturnToAnchor(true, false, false, GRACE, 3));
+        assertFalse(AutoMiningScript.shouldReturnToAnchor(true, false, false, GRACE, 0));
     }
 
     @Test
     void neverInterruptsARockTheScriptSelected() {
-        assertFalse(AutoMiningScript.shouldReturnToAnchor(true, true, 15));
+        assertFalse(AutoMiningScript.shouldReturnToAnchor(true, true, false, GRACE, 15));
     }
 
     @Test
     void doesNotApplyOutsideProgressiveMode() {
-        assertFalse(AutoMiningScript.shouldReturnToAnchor(false, false, 15));
+        assertFalse(AutoMiningScript.shouldReturnToAnchor(false, false, false, GRACE, 15));
     }
 }
