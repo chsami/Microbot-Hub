@@ -56,13 +56,19 @@ enum State {
 public class AutoMiningScript extends Script {
 
     private static final int GEM_MINE_UNDERGROUND = 11410;
+    private static final int PROGRESSIVE_ARRIVAL_DISTANCE = 3;
+    static final long NO_ROCK_GRACE_MILLIS = 5000;
     State state = State.MINING;
     private static final List<Rocks> PROGRESSIVE_ROCKS = buildProgressiveRocks();
     private Rocks activeRock;
     private LocationOption activeLocation;
+    private boolean minedAtAnchor;
+    private long noRockSince;
 
     public boolean run(AutoMiningConfig config) {
         initialPlayerLocation = null;
+        minedAtAnchor = false;
+        noRockSince = 0;
         activeRock = null;
         activeLocation = null;
         Rs2Antiban.resetAntibanSettings();
@@ -104,9 +110,6 @@ public class AutoMiningScript extends Script {
 
                 if (Rs2Player.getWorldLocation() == null) return;
 
-                if (handleNearbyPlayers(config)) return;
-
-
                 switch (state) {
                     case MINING:
                         if (Rs2Inventory.isFull()) {
@@ -128,10 +131,27 @@ public class AutoMiningScript extends Script {
                             }
                         }
 
+                        if (handleNearbyPlayers(config)) return;
+
                         GameObject rock = findRock(config.distanceToStray());
 
                         if (rock != null) {
+                            noRockSince = 0;
+                        } else if (noRockSince == 0) {
+                            noRockSince = System.currentTimeMillis();
+                        }
+                        long noRockMillis = rock != null ? 0 : System.currentTimeMillis() - noRockSince;
+
+                        if (shouldReturnToAnchor(config.progressiveMode(), rock != null, minedAtAnchor, noRockMillis, Rs2Player.getWorldLocation().distanceTo(initialPlayerLocation))) {
+                            Microbot.status = "No rocks in reach, walking to mining location...";
+                            noRockSince = 0;
+                            Rs2Walker.walkTo(initialPlayerLocation, PROGRESSIVE_ARRIVAL_DISTANCE);
+                            return;
+                        }
+
+                        if (rock != null) {
                             if (new Rs2TileObjectModel(rock).click()) {
+                                minedAtAnchor = true;
                                 waitForOreOrDepletion(rock);
                                 Rs2Antiban.actionCooldown();
                                 Rs2Antiban.takeMicroBreakByChance();
@@ -147,8 +167,13 @@ public class AutoMiningScript extends Script {
                                     return;
                                 }
 
-                                // deposit all non-locked items to make room for bracelet of clay
-                                Rs2Bank.depositAll();
+                                // deposit everything except a carried pickaxe to make room for bracelet of clay
+                                if (Rs2Inventory.contains("pickaxe", false)) {
+                                    Rs2Bank.depositAllExcept("pickaxe");
+                                } else {
+                                    Rs2Bank.depositAll();
+                                }
+                                sleepUntil(() -> !Rs2Inventory.isFull(), 3000);
                                 if (Rs2Bank.hasItem(11074)) {
                                     Rs2Bank.withdrawAndEquip(11074);
                                 }
@@ -159,8 +184,13 @@ public class AutoMiningScript extends Script {
                             }
                             else if (activeRock == Rocks.GEM && Rs2Player.getWorldLocation().getRegionID() == GEM_MINE_UNDERGROUND) {
                                 if (Rs2DepositBox.openDepositBox()) {
-                                    if (Rs2Inventory.contains("Open gem bag")) {
+                                    boolean hasGemBag = Rs2Inventory.contains("Open gem bag");
+                                    if (hasGemBag) {
                                         Rs2Inventory.interact("Open gem bag", "Empty");
+                                    }
+                                    if (!itemNames.isEmpty()) {
+                                        Rs2DepositBox.depositAll(i -> MiningBankRule.shouldBank(i.getName(), Arrays.asList(activeRock), itemNames));
+                                    } else if (hasGemBag) {
                                         Rs2DepositBox.depositAllExcept("Open gem bag");
                                     } else {
                                         Rs2DepositBox.depositAll();
@@ -197,6 +227,10 @@ public class AutoMiningScript extends Script {
                             Rs2Inventory.dropAllExcept(false, config.interactOrder(), MiningBankRule.parseItemsToKeep(config.itemsToKeep()).toArray(new String[0]));
                         }
 
+                        if (config.useBank()) {
+                            minedAtAnchor = false;
+                        }
+                        noRockSince = 0;
                         state = State.MINING;
                         break;
                 }
@@ -321,6 +355,8 @@ public class AutoMiningScript extends Script {
         if (rock != activeRock || activeLocation == null) {
             activeRock = rock;
             activeLocation = MiningRockLocations.getBestAccessibleLocation(rock);
+            minedAtAnchor = false;
+            noRockSince = 0;
             if (config.progressiveMode()) {
                 warnIfWildernessLocation(rock, activeLocation);
             }
@@ -373,18 +409,30 @@ public class AutoMiningScript extends Script {
             return true;
         }
 
-        int acceptableDistance = Math.min(Math.max(1, config.distanceToStray()), 5);
+        int acceptableDistance = progressiveLeash(config.distanceToStray());
         int distanceToTarget = playerLocation.distanceTo(targetPoint);
         if (distanceToTarget > acceptableDistance) {
             if (Rs2Player.isMoving()) {
                 return true;
             }
 
-            Rs2Walker.walkTo(targetPoint, 3);
+            Rs2Walker.walkTo(targetPoint, PROGRESSIVE_ARRIVAL_DISTANCE);
             return true;
         }
 
         return false;
+    }
+
+    static int progressiveLeash(int distanceToStray) {
+        return Math.max(1, distanceToStray);
+    }
+
+    static boolean shouldReturnToAnchor(boolean progressiveMode, boolean rockFound, boolean minedAtAnchor, long noRockMillis, int distanceFromAnchor) {
+        return progressiveMode
+                && !rockFound
+                && !minedAtAnchor
+                && noRockMillis >= NO_ROCK_GRACE_MILLIS
+                && distanceFromAnchor > PROGRESSIVE_ARRIVAL_DISTANCE;
     }
 
     private void updateStatus() {
