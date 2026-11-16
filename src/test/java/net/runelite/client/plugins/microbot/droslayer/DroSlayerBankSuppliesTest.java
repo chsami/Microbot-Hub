@@ -14,6 +14,13 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 public class DroSlayerBankSuppliesTest {
+    @Test public void prayerThresholdNeverExceedsWhatTheLastBankTripSupplied() {
+        assertEquals(4, DroSlayerBankSupplies.prayerRestockThreshold(4, -1));
+        assertEquals(0, DroSlayerBankSupplies.prayerRestockThreshold(4, 0));
+        assertEquals(2, DroSlayerBankSupplies.prayerRestockThreshold(4, 2));
+        assertEquals(4, DroSlayerBankSupplies.prayerRestockThreshold(4, 12));
+        assertEquals(0, DroSlayerBankSupplies.prayerRestockThreshold(0, 8));
+    }
     @Test public void cannonSuppliesFollowNextTaskInsteadOfPreviousTask() {
         for (String name : List.of("Cannon base","Cannon stand","Cannon barrels","Cannon furnace","Steel cannonball")) {
             assertTrue(keep(name,true,true,null));

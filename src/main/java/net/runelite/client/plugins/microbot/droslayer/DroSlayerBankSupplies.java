@@ -49,6 +49,10 @@ final class DroSlayerBankSupplies {
         return deposits;
     }
 
+    static int prayerRestockThreshold(int configuredThreshold, int bankedDoses) {
+        return bankedDoses < 0 ? configuredThreshold : Math.min(configuredThreshold, bankedDoses);
+    }
+
     static String chargedJewelryFamily(String name) {
         if (name == null) return null;
         String lower = name.trim().toLowerCase(Locale.ROOT);

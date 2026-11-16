@@ -114,6 +114,7 @@ public class DroSlayerScript extends Script {
     private static final WorldPoint FEROX_POOL = new WorldPoint(3128, 3637, 0);
     private DroSlayerState stateAfterFerox = DroSlayerState.BANKING;
     private boolean baseBankLoadComplete;
+    private int bankedPrayerDoses = -1;
     private volatile boolean tentacleDegraded;
     private boolean tentacleBankCheck;
     private boolean escapeAmmoRestock;
@@ -493,6 +494,7 @@ public class DroSlayerScript extends Script {
         DroSlayerPlugin.setState(DroSlayerState.IDLE);
         initialSetupDone = false;
         baseBankLoadComplete = false;
+        bankedPrayerDoses = -1;
         tentacleDegraded = false;
         tentacleBankCheck = false;
         escapeAmmoRestock = false;
@@ -3049,6 +3051,7 @@ public class DroSlayerScript extends Script {
                 return;
             }
             initialSetupDone = true;
+            recordBankedPrayerDoses();
 
             // A successful bank load is not proof that health/prayer were restored.
             // This also covers starting at a bank with initialSetupDone initially false.
@@ -3102,6 +3105,7 @@ public class DroSlayerScript extends Script {
                 return;
             }
             initialSetupDone = true;
+            recordBankedPrayerDoses();
 
             // A successful bank load is not proof that health/prayer were restored.
             // This also covers starting at a bank with initialSetupDone initially false.
@@ -6599,7 +6603,8 @@ public class DroSlayerScript extends Script {
         boolean usesPrayer = isWildernessSlayer() || config.useOffensivePrayers()
                 || (config.prayerFlickStyle() != PrayerFlickStyle.OFF
                     && getActiveProtectionPrayer() != DroSlayerPrayer.NONE);
-        int potionThreshold = isWildernessSlayer() ? Math.max(1, config.potionThreshold()) : config.potionThreshold();
+        int potionThreshold = DroSlayerBankSupplies.prayerRestockThreshold(
+                isWildernessSlayer() ? Math.max(1, config.potionThreshold()) : config.potionThreshold(), bankedPrayerDoses);
         if (!finishingTask && usesPrayer && potionThreshold > 0) {
             int prayerDoses = getPrayerPotionDoses();
             if (prayerDoses < potionThreshold) {
@@ -6624,6 +6629,15 @@ public class DroSlayerScript extends Script {
     /**
      * Gets total prayer potion doses in inventory (prayer potions and super restores)
      */
+    private void recordBankedPrayerDoses() {
+        bankedPrayerDoses = getPrayerPotionDoses();
+        int configured = isWildernessSlayer() ? Math.max(1, config.potionThreshold()) : config.potionThreshold();
+        if (bankedPrayerDoses < configured) {
+            log.info("Bank loadout supplied {} prayer potion doses, below the Prayer Potion Threshold ({}); banking for prayer only below {} doses",
+                    bankedPrayerDoses, configured, bankedPrayerDoses);
+        }
+    }
+
     private int getPrayerPotionDoses() {
         return Rs2Inventory.items().mapToInt(item ->
                 DroSlayerWildernessSupplies.prayerDoses(item.getName(), isWildernessSlayer()) * item.getQuantity()).sum();
