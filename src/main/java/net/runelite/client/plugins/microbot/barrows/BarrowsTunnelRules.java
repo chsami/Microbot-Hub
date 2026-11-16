@@ -79,6 +79,22 @@ final class BarrowsTunnelRules {
         return false;
     }
 
+    static boolean isChestAlreadyOpen(String[] chestActions) {
+        if (chestActions == null) {
+            return false;
+        }
+        boolean hasSearch = false;
+        for (String action : chestActions) {
+            if ("Open".equalsIgnoreCase(action)) {
+                return false;
+            }
+            if ("Search".equalsIgnoreCase(action)) {
+                hasSearch = true;
+            }
+        }
+        return hasSearch;
+    }
+
     static boolean isAttackRejectedMessage(String message) {
         if (message == null) {
             return false;
