@@ -471,15 +471,24 @@ public final class PrepPlanner
 		{
 			return PrepGoal.dropTool(Resource.RAW_FISH, "done fishing");
 		}
-		// The pestle and mortar: once no more dust will be crushed (every brew still to make already
-		// has its dust, no spike to crush) it goes straight away (1.8.5, player feedback: it was
-		// kept until a fish needed the slot, often only after a teleport home).
-		// (Not at home on the final trip: nothing needs the slot there any more, the click is wasted.)
-		boolean finalAtHome = finishedSeed == in.runSeed && in.runSeed != 0 && maze(in) != null && maze(in).inStartRoom();
-		if (pestleDone(l, n) && !finalAtHome && !in.droppedRecently.contains(Resource.SHARDS))
+		// The pestle and mortar (user, 0.4.7): once no more dust will be crushed (every brew still to
+		// make already has its dust, no spike to crush) it goes when a fish needs its slot. Kept
+		// otherwise while the Bear can still drop a spike, or an emergency sip can still call for a
+		// replacement brew (review, #912); with the Bear dead and prep wrapping up it goes straight
+		// away (1.8.5) - not at home on the final trip, where nothing needs the slot any more.
+		if (pestleDone(l, n) && !in.droppedRecently.contains(Resource.SHARDS))
 		{
-			return PrepGoal.dropTool(Resource.SHARDS, "pestle and mortar not needed any more (" + l.dust + " dust for "
-				+ n.potionsToMake + " brew(s))");
+			if (l.freeSlots == 0 && n.get(Resource.RAW_FISH) > 0)
+			{
+				return PrepGoal.dropTool(Resource.SHARDS, "pestle and mortar not needed any more: room for a fish");
+			}
+			GauntletMaze pm = maze(in);
+			boolean spikeLeft = pm == null || !pm.isKilled(Monster.BEAR);
+			boolean wrapping = finishedSeed == in.runSeed && in.runSeed != 0 || wrapUp;
+			if (wrapping && !spikeLeft && !pm.inStartRoom())
+			{
+				return PrepGoal.dropTool(Resource.SHARDS, "pestle and mortar not needed any more (Bear dead, prep wrapping up)");
+			}
 		}
 		// Leftover material nothing still to be made needs: drop it once everything that uses it
 		// is made (user, 0.3.26: 9 linum gathered for 7). One stack / item per chore.
@@ -689,7 +698,10 @@ public final class PrepPlanner
 
 		// Raw paddlefish lying close by (a monster's or a demi-boss's drop, 1.8.5 player feedback):
 		// a few steps for a fish beats fishing it, while it's still wanted and has a slot.
+		// Not in the start room: fish are dropped there for room to craft, and must stay dropped
+		// (review, #912: drop / pick-up loop).
 		if (in.groundFishAt != null && in.groundFishCount > 0 && in.groundFishTiles <= GROUND_FISH_TILES
+			&& !maze.inStartRoom() && !in.droppedRecently.contains(Resource.RAW_FISH)
 			&& n.get(Resource.RAW_FISH) > 0 && easyRoom > 0 && !fishOptional && in.demiOnUs == null)
 		{
 			return PrepGoal.pickUpFish(in.groundFishAt, in.groundFishCount + " raw paddlefish on the floor "
@@ -2113,7 +2125,8 @@ public final class PrepPlanner
 			return base;
 		}
 		int fish = n.get(Resource.RAW_FISH);
-		if (fish > base.get(Resource.RAW_FISH) && in.ledger.freeSlots > reservedSlots(in.ledger, n, false))
+		if (fish > base.get(Resource.RAW_FISH) && (in.maze == null || !in.maze.inStartRoom())
+			&& !in.droppedRecently.contains(Resource.RAW_FISH) && in.ledger.freeSlots > reservedSlots(in.ledger, n, false))
 		{
 			return base.withDeficit(Resource.RAW_FISH, fish);
 		}
@@ -2668,9 +2681,7 @@ public final class PrepPlanner
 		}
 		if (!roomToCraft && finalTrip && craftsLeft)
 		{
-			// (Not at home on the final trip: nothing needs the slot there any more, the click is wasted.)
-		boolean finalAtHome = finishedSeed == in.runSeed && in.runSeed != 0 && maze(in) != null && maze(in).inStartRoom();
-		if (pestleDone(l, n) && !finalAtHome && !in.droppedRecently.contains(Resource.SHARDS))
+			if (pestleDone(l, n) && !in.droppedRecently.contains(Resource.SHARDS))
 			{
 				return PrepGoal.dropTool(Resource.SHARDS, why + ": room for the last crafts (pestle and mortar, no more dust needed)");
 			}

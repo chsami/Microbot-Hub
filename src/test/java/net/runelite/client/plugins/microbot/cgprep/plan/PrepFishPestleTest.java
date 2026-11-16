@@ -4,7 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.cgprep.data.Resource;
+import net.runelite.client.plugins.microbot.cgprep.map.GauntletMaze;
 import org.junit.jupiter.api.Test;
 
 /** 1.8.5 player feedback: fish before going home, the pestle dropped once its dust is made, monster-dropped fish looted. */
@@ -78,5 +80,31 @@ class PrepFishPestleTest
 		assertEquals(4, PrepPlanner.lootNeeds(in).get(Resource.RAW_FISH));
 		in.ledger = bag(0);
 		assertEquals(0, PrepPlanner.lootNeeds(in).get(Resource.RAW_FISH)); // no slot: the cap stands
+	}
+
+	@Test
+	void aFishDroppedForRoomInTheStartRoomIsNotLootedBack()
+	{
+		GauntletMaze home = new GauntletMaze();
+		home.restoreForReplay(3, 3, 3, 3, new WorldPoint(1900, 5700, 1), 1852, 5652, new boolean[49],
+			new java.util.ArrayList<>(), new java.util.HashMap<>(), new java.util.HashSet<>());
+		PrepPlanner.Inputs in = new PrepPlanner.Inputs();
+		in.maze = home;
+		in.ledger = bag(1);
+		in.needs = needs(4);
+		in.gather = in.needs.withCap(Resource.RAW_FISH, 0);
+		assertTrue(home.inStartRoom());
+		assertEquals(0, PrepPlanner.lootNeeds(in).get(Resource.RAW_FISH));
+	}
+
+	@Test
+	void aFishJustDroppedIsNotLootedBack()
+	{
+		PrepPlanner.Inputs in = new PrepPlanner.Inputs();
+		in.ledger = bag(3);
+		in.needs = needs(4);
+		in.gather = in.needs.withCap(Resource.RAW_FISH, 0);
+		in.droppedRecently = java.util.EnumSet.of(Resource.RAW_FISH);
+		assertEquals(0, PrepPlanner.lootNeeds(in).get(Resource.RAW_FISH));
 	}
 }
