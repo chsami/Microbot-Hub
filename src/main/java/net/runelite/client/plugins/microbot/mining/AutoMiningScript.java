@@ -56,6 +56,7 @@ enum State {
 public class AutoMiningScript extends Script {
 
     private static final int GEM_MINE_UNDERGROUND = 11410;
+    private static final int PROGRESSIVE_ARRIVAL_DISTANCE = 3;
     State state = State.MINING;
     private static final List<Rocks> PROGRESSIVE_ROCKS = buildProgressiveRocks();
     private Rocks activeRock;
@@ -104,9 +105,6 @@ public class AutoMiningScript extends Script {
 
                 if (Rs2Player.getWorldLocation() == null) return;
 
-                if (handleNearbyPlayers(config)) return;
-
-
                 switch (state) {
                     case MINING:
                         if (Rs2Inventory.isFull()) {
@@ -128,7 +126,15 @@ public class AutoMiningScript extends Script {
                             }
                         }
 
+                        if (handleNearbyPlayers(config)) return;
+
                         GameObject rock = findRock(config.distanceToStray());
+
+                        if (shouldReturnToAnchor(config.progressiveMode(), rock != null, Rs2Player.getWorldLocation().distanceTo(initialPlayerLocation))) {
+                            Microbot.status = "No rocks in reach, walking to mining location...";
+                            Rs2Walker.walkTo(initialPlayerLocation, PROGRESSIVE_ARRIVAL_DISTANCE);
+                            return;
+                        }
 
                         if (rock != null) {
                             if (new Rs2TileObjectModel(rock).click()) {
@@ -147,8 +153,9 @@ public class AutoMiningScript extends Script {
                                     return;
                                 }
 
-                                // deposit all non-locked items to make room for bracelet of clay
-                                Rs2Bank.depositAll();
+                                // deposit everything except the pickaxe to make room for bracelet of clay
+                                Rs2Bank.depositAllExcept("pickaxe");
+                                sleepUntil(() -> !Rs2Inventory.isFull(), 3000);
                                 if (Rs2Bank.hasItem(11074)) {
                                     Rs2Bank.withdrawAndEquip(11074);
                                 }
@@ -159,8 +166,13 @@ public class AutoMiningScript extends Script {
                             }
                             else if (activeRock == Rocks.GEM && Rs2Player.getWorldLocation().getRegionID() == GEM_MINE_UNDERGROUND) {
                                 if (Rs2DepositBox.openDepositBox()) {
-                                    if (Rs2Inventory.contains("Open gem bag")) {
+                                    boolean hasGemBag = Rs2Inventory.contains("Open gem bag");
+                                    if (hasGemBag) {
                                         Rs2Inventory.interact("Open gem bag", "Empty");
+                                    }
+                                    if (!itemNames.isEmpty()) {
+                                        Rs2DepositBox.depositAll(i -> MiningBankRule.shouldBank(i.getName(), Arrays.asList(activeRock), itemNames));
+                                    } else if (hasGemBag) {
                                         Rs2DepositBox.depositAllExcept("Open gem bag");
                                     } else {
                                         Rs2DepositBox.depositAll();
@@ -373,18 +385,26 @@ public class AutoMiningScript extends Script {
             return true;
         }
 
-        int acceptableDistance = Math.min(Math.max(1, config.distanceToStray()), 5);
+        int acceptableDistance = progressiveLeash(config.distanceToStray());
         int distanceToTarget = playerLocation.distanceTo(targetPoint);
         if (distanceToTarget > acceptableDistance) {
             if (Rs2Player.isMoving()) {
                 return true;
             }
 
-            Rs2Walker.walkTo(targetPoint, 3);
+            Rs2Walker.walkTo(targetPoint, PROGRESSIVE_ARRIVAL_DISTANCE);
             return true;
         }
 
         return false;
+    }
+
+    static int progressiveLeash(int distanceToStray) {
+        return Math.max(1, distanceToStray);
+    }
+
+    static boolean shouldReturnToAnchor(boolean progressiveMode, boolean rockFound, int distanceFromAnchor) {
+        return progressiveMode && !rockFound && distanceFromAnchor > PROGRESSIVE_ARRIVAL_DISTANCE;
     }
 
     private void updateStatus() {
