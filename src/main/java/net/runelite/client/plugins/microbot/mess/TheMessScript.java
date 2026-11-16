@@ -22,6 +22,7 @@ import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
 import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
+import net.runelite.client.plugins.microbot.util.inventory.InteractOrder;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
@@ -58,6 +59,10 @@ public class TheMessScript extends Script {
 
     private static final int BATCH_SIZE = 14;
     private static final int PIZZA_BATCH_SIZE = 13; // 2 knife slots reserved
+    private static final int MAX_SURPLUS_DROP_ATTEMPTS = 5;
+
+    private int surplusItemId = -1;
+    private int surplusDropAttempts = 0;
 
     private TheMessConfig config;
     private TheMessOverlay overlay;
@@ -92,7 +97,7 @@ public class TheMessScript extends Script {
 
             if (!inMess()) { logDecision("walkToMess"); walkToMess(); return; }
             if (hasJunk()) { logDecision("cleanInventory"); runCleanInventory(); return; }
-            if (violatesBatchInvariant()) { setStatus("FAIL: batch invariant"); shutdown(); return; }
+            if (dropBatchSurplus()) return;
             dropBurnt();
 
             switch (config.dish()) {
@@ -162,6 +167,7 @@ public class TheMessScript extends Script {
         if (has(ItemID.BOWL_WATER) && has(ItemID.HOSIDIUS_SERVERY_POT_FLOUR))                        { combineDoughDialog(ItemID.BOWL_WATER, ItemID.HOSIDIUS_SERVERY_POT_FLOUR, "Pastry dough"); return; }
         if (has(ItemID.BOWL_EMPTY) && !has(ItemID.HOSIDIUS_SERVERY_POT_FLOUR))                       { withdrawFromFood(ItemID.HOSIDIUS_SERVERY_POT_FLOUR, count(ItemID.BOWL_EMPTY)); return; }
         if (has(ItemID.BOWL_EMPTY))                                                                  { fillBowls(); return; }
+        if (has(ItemID.BOWL_WATER))                                                                  { withdrawFromFood(ItemID.HOSIDIUS_SERVERY_POT_FLOUR, count(ItemID.BOWL_WATER)); return; }
 
         // Fresh batch — top up to BATCH_SIZE accounting for any leftover items in the chain.
         int leftover = count(ItemID.HOSIDIUS_SERVERY_PIE_SHELL)
@@ -187,6 +193,7 @@ public class TheMessScript extends Script {
         if (has(ItemID.BOWL_WATER) && has(ItemID.HOSIDIUS_SERVERY_POT_FLOUR))                             { combineDoughDialog(ItemID.BOWL_WATER, ItemID.HOSIDIUS_SERVERY_POT_FLOUR, "Pizza base"); return; }
         if (has(ItemID.BOWL_EMPTY) && !has(ItemID.HOSIDIUS_SERVERY_POT_FLOUR))                            { withdrawFromFood(ItemID.HOSIDIUS_SERVERY_POT_FLOUR, count(ItemID.BOWL_EMPTY)); return; }
         if (has(ItemID.BOWL_EMPTY))                                                                       { fillBowls(); return; }
+        if (has(ItemID.BOWL_WATER))                                                                       { withdrawFromFood(ItemID.HOSIDIUS_SERVERY_POT_FLOUR, count(ItemID.BOWL_WATER)); return; }
         if (count(ItemID.KNIFE) < 2)                                                                      { withdrawFromUtensil(ItemID.KNIFE, 2); return; }
 
         // Fresh batch — top up to PIZZA_BATCH_SIZE accounting for any leftovers in the chain.
@@ -486,23 +493,37 @@ public class TheMessScript extends Script {
         return false;
     }
 
-    /**
-     * Hard-fail invariant: no chain item should ever exceed {@link #BATCH_SIZE}
-     * (or {@link #PIZZA_BATCH_SIZE} for pizza). Exceeding it means our top-up
-     * math overshot or a leftover state went unhandled — we'd start over-fetching
-     * ingredients we'll never use, so stop loudly rather than waste resources.
-     */
-    private boolean violatesBatchInvariant() {
-        int max = config.dish() == Dish.PIZZA ? PIZZA_BATCH_SIZE : BATCH_SIZE;
+    boolean dropBatchSurplus() {
+        Dish dish = config.dish();
         for (int id : chainItemsForDish()) {
+            int max = batchLimit(dish, id);
             int c = count(id);
-            if (c > max) {
-                log.error("[mess] BATCH INVARIANT VIOLATED: itemId={} count={} > max={} for dish={}",
-                        id, c, max, config.dish());
+            if (c <= max) continue;
+
+            if (id != surplusItemId) { surplusItemId = id; surplusDropAttempts = 0; }
+            if (++surplusDropAttempts > MAX_SURPLUS_DROP_ATTEMPTS) {
+                Rs2ItemModel item = Rs2Inventory.get(id);
+                String name = item != null ? item.getName() : "item " + id;
+                log.error("[mess] surplus not dropped: itemId={} count={} > max={} for dish={}", id, c, max, dish);
+                setStatus("Stopped: " + c + " " + name + ", max " + max);
+                shutdown();
                 return true;
             }
+
+            log.warn("[mess] dropping surplus: itemId={} count={} > max={} for dish={}", id, c, max, dish);
+            setStatus("Dropping surplus");
+            Rs2Inventory.dropAmount(id, c - max, InteractOrder.STANDARD);
+            sleepUntil(() -> count(id) <= max, 3000);
+            return true;
         }
+        surplusItemId = -1;
+        surplusDropAttempts = 0;
         return false;
+    }
+
+    static int batchLimit(Dish dish, int itemId) {
+        if (dish != Dish.PIZZA) return BATCH_SIZE;
+        return itemId == ItemID.HOSIDIUS_SERVERY_PASTRY_DOUGH ? 0 : PIZZA_BATCH_SIZE;
     }
 
     private int[] chainItemsForDish() {
