@@ -63,12 +63,14 @@ public class AutoMiningScript extends Script {
     private Rocks activeRock;
     private LocationOption activeLocation;
     private boolean minedAtAnchor;
+    private boolean rockSeenAtAnchor;
     private long noRockSince;
     private boolean noRocksInRange;
 
     public boolean run(AutoMiningConfig config) {
         initialPlayerLocation = null;
         minedAtAnchor = false;
+        rockSeenAtAnchor = false;
         noRockSince = 0;
         noRocksInRange = false;
         activeRock = null;
@@ -138,6 +140,7 @@ public class AutoMiningScript extends Script {
                         GameObject rock = findRock(config.distanceToStray());
 
                         if (rock != null) {
+                            rockSeenAtAnchor = true;
                             noRockSince = 0;
                             noRocksInRange = false;
                         } else if (noRockSince == 0) {
@@ -152,7 +155,7 @@ public class AutoMiningScript extends Script {
                             return;
                         }
 
-                        if (!noRocksInRange && shouldWarnNoRocksInRange(config.progressiveMode(), rock != null, minedAtAnchor, noRockMillis)) {
+                        if (!noRocksInRange && shouldWarnNoRocksInRange(config.progressiveMode(), rock != null, rockSeenAtAnchor, noRockMillis)) {
                             noRocksInRange = true;
                             warnNoRocksInRange(config.distanceToStray());
                             updateStatus(config.progressiveMode());
@@ -365,6 +368,7 @@ public class AutoMiningScript extends Script {
             activeRock = rock;
             activeLocation = MiningRockLocations.getBestAccessibleLocation(rock);
             minedAtAnchor = false;
+            rockSeenAtAnchor = false;
             noRockSince = 0;
             noRocksInRange = false;
             if (config.progressiveMode()) {
@@ -445,24 +449,25 @@ public class AutoMiningScript extends Script {
                 && distanceFromAnchor > PROGRESSIVE_ARRIVAL_DISTANCE;
     }
 
-    static boolean shouldWarnNoRocksInRange(boolean progressiveMode, boolean rockFound, boolean minedAtAnchor, long noRockMillis) {
+    static boolean shouldWarnNoRocksInRange(boolean progressiveMode, boolean rockFound, boolean rockSeenAtAnchor, long noRockMillis) {
         return !progressiveMode
                 && !rockFound
-                && !minedAtAnchor
+                && !rockSeenAtAnchor
                 && noRockMillis >= NO_ROCK_GRACE_MILLIS;
     }
 
     static String noRocksInRangeMessage(String oreName, int distanceToStray) {
         String range = distanceToStray <= 0
-                ? "next to the tile you started on"
+                ? "next to the tile you started on (Distance to Stray is 0)"
                 : "within " + distanceToStray + " tiles of where you started";
-        return "Auto Mining: no " + oreName + " " + range
-                + ". Stop the script, stand next to the rocks and start it again, or turn on Progressive mode to let it walk to a mine for your Mining level.";
+        return "Auto Mining: no " + oreName + " to mine " + range
+                + ". If the rocks here are just mined out, it will carry on when they respawn."
+                + " If there are none nearby, stop the script, stand next to the rocks and start it again, or turn on Progressive mode to let it walk to a mine for your Mining level.";
     }
 
     static String statusText(String oreName, String locationName, boolean progressiveMode, boolean noRocksInRange) {
         if (!progressiveMode && noRocksInRange) {
-            return "No " + oreName + " in range - stand at the rocks or turn on Progressive mode";
+            return "Waiting for " + oreName + " - none in range. Stand at the rocks or turn on Progressive mode";
         }
         String place = progressiveMode && locationName != null ? locationName : "current area";
         return "Mining " + oreName + " @ " + place;

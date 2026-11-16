@@ -23,8 +23,16 @@ class AutoMiningNoRocksInRangeTest {
     }
 
     @Test
-    void staysQuietWhileRocksItAlreadyMinedRespawn() {
+    void staysQuietWhileRocksItAlreadyFoundRespawn() {
         assertFalse(AutoMiningScript.shouldWarnNoRocksInRange(false, false, true, GRACE * 60));
+    }
+
+    @Test
+    void staysQuietAfterABankTripWhenTheRocksItFoundEarlierAreMinedOut() {
+        boolean rockSeenAtAnchor = true;
+        long noRockMillisAfterBankTrip = GRACE;
+        assertFalse(AutoMiningScript.shouldWarnNoRocksInRange(false, false, rockSeenAtAnchor, noRockMillisAfterBankTrip));
+        assertFalse(AutoMiningScript.shouldWarnNoRocksInRange(false, false, rockSeenAtAnchor, noRockMillisAfterBankTrip * 60));
     }
 
     @Test
@@ -40,14 +48,14 @@ class AutoMiningNoRocksInRangeTest {
     @Test
     void messageTellsThePlayerWhatToDo() {
         assertEquals(
-                "Auto Mining: no tin rocks within 20 tiles of where you started. Stop the script, stand next to the rocks and start it again, or turn on Progressive mode to let it walk to a mine for your Mining level.",
+                "Auto Mining: no tin rocks to mine within 20 tiles of where you started. If the rocks here are just mined out, it will carry on when they respawn. If there are none nearby, stop the script, stand next to the rocks and start it again, or turn on Progressive mode to let it walk to a mine for your Mining level.",
                 AutoMiningScript.noRocksInRangeMessage("tin rocks", 20));
     }
 
     @Test
-    void messageDoesNotSayZeroTiles() {
+    void messageNamesTheDistanceToStraySettingInsteadOfSayingZeroTiles() {
         assertEquals(
-                "Auto Mining: no tin rocks next to the tile you started on. Stop the script, stand next to the rocks and start it again, or turn on Progressive mode to let it walk to a mine for your Mining level.",
+                "Auto Mining: no tin rocks to mine next to the tile you started on (Distance to Stray is 0). If the rocks here are just mined out, it will carry on when they respawn. If there are none nearby, stop the script, stand next to the rocks and start it again, or turn on Progressive mode to let it walk to a mine for your Mining level.",
                 AutoMiningScript.noRocksInRangeMessage("tin rocks", 0));
     }
 
@@ -62,8 +70,8 @@ class AutoMiningNoRocksInRangeTest {
     }
 
     @Test
-    void statusSaysNoRocksInRangeInsteadOfMining() {
-        assertEquals("No tin rocks in range - stand at the rocks or turn on Progressive mode",
+    void statusSaysItIsWaitingWithNoRocksInRangeInsteadOfMining() {
+        assertEquals("Waiting for tin rocks - none in range. Stand at the rocks or turn on Progressive mode",
                 AutoMiningScript.statusText("tin rocks", "Lumbridge Swamp West Mine", false, true));
         assertEquals("Mining tin rocks @ Lumbridge Swamp West Mine",
                 AutoMiningScript.statusText("tin rocks", "Lumbridge Swamp West Mine", true, true));
