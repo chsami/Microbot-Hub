@@ -274,8 +274,9 @@ public class DroElfScript extends Script {
             }
         }
 
-        elf = findLockedElf();
-        if (elf == null || elf.getNpc() == null) {
+        final Rs2NpcModel target = findLockedElf();
+        elf = target;
+        if (target == null || target.getNpc() == null) {
             // A recovery request can survive a world hop/scene rebuild before the NPC
             // has repopulated in cache. In that case, return to the original locked
             // area first; do not invent a replacement elf.
@@ -289,7 +290,7 @@ public class DroElfScript extends Script {
         final long missingForMs = elfMissingSince == 0L
                 ? 0L
                 : System.currentTimeMillis() - elfMissingSince;
-        rememberLockedElf(elf);
+        rememberLockedElf(target);
         if (missingForMs > 0L) {
             log.info("[DroElf] Reacquired locked elf={} id={} index={} at={} after={}ms",
                     lockedElfName, lockedElfId, lockedElfIndex, lastKnownElfTile, missingForMs);
@@ -311,7 +312,7 @@ public class DroElfScript extends Script {
         // that can actually interact across collision?" -- never "can I stand on the
         // NPC's occupied tile." Recovery pathing owns any required door opening.
         final long reachabilityCheckAt = System.currentTimeMillis();
-        final boolean reachable = isLockedElfReachable(elf);
+        final boolean reachable = isLockedElfReachable(target);
         // A pause, bank trip, or scene transition must not age an old failed sample
         // into an immediate recovery. Normal failed checks repeat every 300 ms.
         if (reachable || reachabilityCheckAt - lastElfReachabilityCheckAt > ELF_REACHABILITY_GRACE_MS) {
@@ -329,7 +330,7 @@ public class DroElfScript extends Script {
             }
             elfUnreachableSince = 0L;
             if (System.currentTimeMillis() >= nextElfLockRecoveryAt) {
-                handleElfLockRecovery(elf);
+                handleElfLockRecovery(target);
             }
             return;
         }
@@ -339,13 +340,18 @@ public class DroElfScript extends Script {
         status = "Pickpocketing " + lockedElfName;
         adaptiveBehavior.maybePreClickPause(personality);
         pauseBeforeAction();
-        boolean clicked = elf.click("Pickpocket");
+        if (!shouldClickLockedElf(isRunning(), elf)) return;
+        boolean clicked = target.click("Pickpocket");
         if (clicked) {
             boolean mouseMoved = handlePickpocketMouseBehavior();
             adaptiveBehavior.afterSuccessfulClick(personality, mouseMoved);
         }
         sleep(250, 450);
         if (Rs2Player.isStunned()) sleepUntil(() -> !Rs2Player.isStunned(), 8_000);
+    }
+
+    static boolean shouldClickLockedElf(boolean running, Rs2NpcModel current) {
+        return running && current != null;
     }
 
     /**
