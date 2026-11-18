@@ -362,6 +362,27 @@ class RevKillerScriptSafetyTest {
     }
 
     @Test
+    void cavesCheckKeepsLastKnownAnswerWhilePlayerLocationIsMissing() {
+        revKillerScript script = new revKillerScript();
+        try (MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class)) {
+            player.when(Rs2Player::getWorldLocation).thenReturn(null);
+            assertFalse(script.WeAreInTheCaves());
+
+            player.when(Rs2Player::getWorldLocation).thenReturn(new WorldPoint(3200, 10100, 0));
+            assertTrue(script.WeAreInTheCaves());
+
+            player.when(Rs2Player::getWorldLocation).thenReturn(null);
+            assertTrue(script.WeAreInTheCaves());
+
+            player.when(Rs2Player::getWorldLocation).thenReturn(new WorldPoint(3130, 3630, 0));
+            assertFalse(script.WeAreInTheCaves());
+
+            player.when(Rs2Player::getWorldLocation).thenReturn(null);
+            assertFalse(script.WeAreInTheCaves());
+        }
+    }
+
+    @Test
     void emptyAmmoSlotHasNoAmmo() {
         try (MockedStatic<Rs2Equipment> equipment = mockStatic(Rs2Equipment.class)) {
             equipment.when(() -> Rs2Equipment.get(EquipmentInventorySlot.AMMO)).thenReturn(null);

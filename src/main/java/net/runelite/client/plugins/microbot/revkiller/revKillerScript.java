@@ -88,6 +88,7 @@ public class revKillerScript extends Script {
     public volatile boolean shouldFlee = false;
     private long startTime = System.currentTimeMillis();
     public volatile boolean firstRun = false;
+    private volatile boolean lastKnownInTheCaves = false;
 
     @Inject
     Rs2NpcCache rs2NpcCache;
@@ -454,7 +455,11 @@ public class revKillerScript extends Script {
     }
 
     public boolean WeAreInTheCaves(){
-        return Rs2Player.getWorldLocation().getY() > 9000;
+        WorldPoint location = Rs2Player.getWorldLocation();
+        if(location != null){
+            lastKnownInTheCaves = location.getY() > 9000;
+        }
+        return lastKnownInTheCaves;
     }
 
     public boolean timeToBreak(){
