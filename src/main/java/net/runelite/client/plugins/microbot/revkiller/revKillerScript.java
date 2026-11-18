@@ -89,6 +89,7 @@ public class revKillerScript extends Script {
     private long startTime = System.currentTimeMillis();
     public volatile boolean firstRun = false;
     private volatile boolean lastKnownInTheCaves = false;
+    private volatile int lastKnownWildernessLevel = 0;
 
     @Inject
     Rs2NpcCache rs2NpcCache;
@@ -99,6 +100,8 @@ public class revKillerScript extends Script {
 
     public boolean run(revKillerConfig config) {
         this.config = config;
+        lastKnownInTheCaves = false;
+        lastKnownWildernessLevel = 0;
         Microbot.enableAutoRunOn = false;
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
@@ -462,6 +465,14 @@ public class revKillerScript extends Script {
         return lastKnownInTheCaves;
     }
 
+    int wildernessLevel(){
+        WorldPoint location = Rs2Player.getWorldLocation();
+        if(location != null){
+            lastKnownWildernessLevel = Rs2Pvp.getWildernessLevelFrom(location);
+        }
+        return lastKnownWildernessLevel;
+    }
+
     public boolean timeToBreak(){
         return BreakHandlerScript.breakIn <= 300 && BreakHandlerScript.breakIn != -1;
     }
@@ -657,8 +668,8 @@ public class revKillerScript extends Script {
         if(!Rs2Player.isTeleBlocked()){
             Microbot.log("At least we're not teleblocked.");
             enablePrayer();
-            if(Rs2Pvp.getWildernessLevelFrom(Rs2Player.getWorldLocation()) > 30) {
-                while (Rs2Pvp.getWildernessLevelFrom(Rs2Player.getWorldLocation()) > 30) {
+            if(wildernessLevel() > 30) {
+                while (wildernessLevel() > 30) {
                     if (!super.isRunning()) break;
                     if(!shouldFlee) break;
                     if(weDied){
@@ -670,22 +681,26 @@ public class revKillerScript extends Script {
                     WorldPoint safe1 = (new WorldPoint(3199, 10071, 0));
                     WorldPoint safe2 = (new WorldPoint(3226, 10067, 0));
 
-                    if(Rs2Player.getWorldLocation().distanceTo(safe1) <= Rs2Player.getWorldLocation().distanceTo(safe2)){
-                        Rs2Walker.walkTo(safe1, Rs2Player.getWorldLocation().distanceTo(safe1) - (generateRandomNumber(2,5)));
+                    WorldPoint location = Rs2Player.getWorldLocation();
+                    if(location == null){
+                        if(!sleepUntil(()-> Rs2Player.getWorldLocation() != null, generateRandomNumber(600,1200))) break;
+                        continue;
                     }
 
-                    if(Rs2Player.getWorldLocation().distanceTo(safe1) > Rs2Player.getWorldLocation().distanceTo(safe2)){
-                        Rs2Walker.walkTo(safe2, Rs2Player.getWorldLocation().distanceTo(safe2) - (generateRandomNumber(2,5)));
+                    if(location.distanceTo(safe1) <= location.distanceTo(safe2)){
+                        Rs2Walker.walkTo(safe1, location.distanceTo(safe1) - (generateRandomNumber(2,5)));
+                    } else {
+                        Rs2Walker.walkTo(safe2, location.distanceTo(safe2) - (generateRandomNumber(2,5)));
                     }
 
-                    if (Rs2Pvp.getWildernessLevelFrom(Rs2Player.getWorldLocation()) <= 30) {
+                    if (wildernessLevel() <= 30) {
                         break;
                     }
                 }
             }
-            if(Rs2Pvp.getWildernessLevelFrom(Rs2Player.getWorldLocation()) >= 20 && Rs2Pvp.getWildernessLevelFrom(Rs2Player.getWorldLocation()) <= 30 && hasGloryTeleport()) {
+            if(wildernessLevel() >= 20 && wildernessLevel() <= 30 && hasGloryTeleport()) {
                 int failedTeleports = 0;
-                while (Rs2Pvp.getWildernessLevelFrom(Rs2Player.getWorldLocation()) >= 20 && Rs2Pvp.getWildernessLevelFrom(Rs2Player.getWorldLocation()) <= 30) {
+                while (wildernessLevel() >= 20 && wildernessLevel() <= 30) {
                     Microbot.log("Attempting to teleport via glory");
                     if (!super.isRunning()) break;
                     if(!shouldFlee) break;
@@ -721,9 +736,9 @@ public class revKillerScript extends Script {
                 return;
             }
             String failedTeleportItem = null;
-            if(Rs2Pvp.getWildernessLevelFrom(Rs2Player.getWorldLocation()) <= 20 && hasDuelingTeleport()) {
+            if(wildernessLevel() <= 20 && hasDuelingTeleport()) {
                 int failedTeleports = 0;
-                while (Rs2Pvp.getWildernessLevelFrom(Rs2Player.getWorldLocation()) <= 20) {
+                while (wildernessLevel() <= 20) {
                     Microbot.log("Attempting to teleport via dueling");
                     if (!super.isRunning()) break;
                     if(weDied){
@@ -880,6 +895,7 @@ public class revKillerScript extends Script {
                 }
             }
         } catch (Exception e) {
+            shouldFlee = false;
             Microbot.log("Error during PK check: " + e.getMessage());
             e.printStackTrace();
         }
@@ -1599,7 +1615,7 @@ public class revKillerScript extends Script {
         } else if (failedTeleportItem != null) {
             Microbot.log("Teleport with " + failedTeleportItem + " failed " + MAX_FLEE_TELEPORT_ATTEMPTS + " times, running to Ferox Enclave on foot.");
         } else {
-            Microbot.log(noChargedTeleportMessage(Rs2Pvp.getWildernessLevelFrom(Rs2Player.getWorldLocation())));
+            Microbot.log(noChargedTeleportMessage(wildernessLevel()));
         }
         Rs2Walker.walkTo(BankLocation.FEROX_ENCLAVE.getWorldPoint());
         Rs2Walker.setTarget(null);

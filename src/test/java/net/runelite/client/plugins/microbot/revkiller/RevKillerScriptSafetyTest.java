@@ -38,7 +38,9 @@ import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -379,6 +381,84 @@ class RevKillerScriptSafetyTest {
 
             player.when(Rs2Player::getWorldLocation).thenReturn(null);
             assertFalse(script.WeAreInTheCaves());
+        }
+    }
+
+    @Test
+    @Timeout(10)
+    void fleeKeepsGoingWhenPlayerLocationGoesMissing() {
+        Rs2ItemModel amulet = mock(Rs2ItemModel.class);
+        when(amulet.getName()).thenReturn("Amulet of glory(4)");
+        revKillerScript script = spy(new revKillerScript());
+        doReturn(true).when(script).isRunning();
+        script.shouldFlee = true;
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<Rs2Equipment> equipment = mockStatic(Rs2Equipment.class);
+             MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class);
+             MockedStatic<Rs2Pvp> pvp = mockStatic(Rs2Pvp.class);
+             MockedStatic<Rs2Prayer> prayer = mockStatic(Rs2Prayer.class);
+             MockedStatic<Rs2Walker> walker = mockStatic(Rs2Walker.class);
+             MockedStatic<Rs2Random> random = mockStatic(Rs2Random.class)) {
+            microbot.when(Microbot::getClient).thenReturn(mock(Client.class));
+            random.when(() -> Rs2Random.nextInt(anyInt(), anyInt(), anyDouble(), anyBoolean())).thenReturn(1);
+            equipment.when(() -> Rs2Equipment.get(EquipmentInventorySlot.AMULET)).thenReturn(amulet);
+            player.when(Rs2Player::isTeleBlocked).thenReturn(false);
+            pvp.when(() -> Rs2Pvp.getWildernessLevelFrom(any())).thenReturn(25);
+            pvp.when(() -> Rs2Pvp.getWildernessLevelFrom(isNull())).thenThrow(new NullPointerException());
+            player.when(Rs2Player::getWorldLocation).thenReturn(new WorldPoint(3200, 10100, 0));
+            assertTrue(script.WeAreInTheCaves());
+            assertEquals(25, script.wildernessLevel());
+            player.when(Rs2Player::getWorldLocation).thenReturn(null);
+
+            script.getAwayFromPker();
+
+            equipment.verify(() -> Rs2Equipment.interact(eq(EquipmentInventorySlot.AMULET), anyString()), times(revKillerScript.MAX_FLEE_TELEPORT_ATTEMPTS));
+            walker.verify(() -> Rs2Walker.walkTo(BankLocation.FEROX_ENCLAVE.getWorldPoint()));
+            assertFalse(script.shouldFlee);
+        }
+    }
+
+    @Test
+    @Timeout(10)
+    void fleeFromDeepWildernessWaitsInsteadOfThrowingWhilePlayerLocationIsMissing() {
+        revKillerScript script = spy(new revKillerScript());
+        doReturn(true).when(script).isRunning();
+        script.shouldFlee = true;
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<Rs2Equipment> equipment = mockStatic(Rs2Equipment.class);
+             MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class);
+             MockedStatic<Rs2Pvp> pvp = mockStatic(Rs2Pvp.class);
+             MockedStatic<Rs2Prayer> prayer = mockStatic(Rs2Prayer.class);
+             MockedStatic<Rs2Walker> walker = mockStatic(Rs2Walker.class);
+             MockedStatic<Rs2Random> random = mockStatic(Rs2Random.class)) {
+            microbot.when(Microbot::getClient).thenReturn(mock(Client.class));
+            random.when(() -> Rs2Random.nextInt(anyInt(), anyInt(), anyDouble(), anyBoolean())).thenReturn(1);
+            player.when(Rs2Player::isTeleBlocked).thenReturn(false);
+            pvp.when(() -> Rs2Pvp.getWildernessLevelFrom(any())).thenReturn(35);
+            pvp.when(() -> Rs2Pvp.getWildernessLevelFrom(isNull())).thenThrow(new NullPointerException());
+            player.when(Rs2Player::getWorldLocation).thenReturn(new WorldPoint(3200, 10100, 0));
+            assertTrue(script.WeAreInTheCaves());
+            assertEquals(35, script.wildernessLevel());
+            player.when(Rs2Player::getWorldLocation).thenReturn(null);
+
+            script.getAwayFromPker();
+
+            walker.verify(() -> Rs2Walker.walkTo(any(WorldPoint.class), anyInt()), never());
+            walker.verify(() -> Rs2Walker.walkTo(BankLocation.FEROX_ENCLAVE.getWorldPoint()));
+            assertFalse(script.shouldFlee);
+        }
+    }
+
+    @Test
+    void failedPkCheckDoesNotLeaveTheFleeFlagSet() {
+        revKillerScript script = spy(new revKillerScript());
+        script.selectedRev = "Revenant imp";
+        doReturn(true).when(script).isPkerAround();
+        doThrow(new NullPointerException()).when(script).getAwayFromPker();
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class)) {
+            script.futurePKCheck();
+
+            assertFalse(script.shouldFlee);
         }
     }
 
