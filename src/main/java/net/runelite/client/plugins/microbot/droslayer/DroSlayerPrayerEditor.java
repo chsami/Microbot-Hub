@@ -26,7 +26,7 @@ final class DroSlayerPrayerEditor {
         return key;
     }
 
-    static final String RETIRED_MESSAGE = "[Dro] AIO Slayer was updated or removed. Open Edit task prayers again to change task settings.";
+    static final String RETIRED_MESSAGE = "[Dro] AIO Slayer was updated or removed while this window was open, so your changes were not saved. If the plugin is still installed, click Edit monster config in its settings and make the change again.";
 
     static void close() {
         if (dialog == null) return;
@@ -90,7 +90,7 @@ final class DroSlayerPrayerEditor {
         JButton save = new JButton("Save task settings");
         save.addActionListener(e -> {
             if (closeIfRetired(installed, () -> JOptionPane.showMessageDialog(dialog, RETIRED_MESSAGE,
-                    "Plugin changed", JOptionPane.INFORMATION_MESSAGE))) return;
+                    "Changes not saved", JOptionPane.WARNING_MESSAGE))) return;
             try {
                 String task = (String) tasks.getSelectedItem();
                 DroSlayerPrayer prayer = (DroSlayerPrayer) prayers.getSelectedItem();
@@ -127,6 +127,7 @@ final class DroSlayerPrayerEditor {
         dialog.pack();
         dialog.setLocationRelativeTo(null);
         dialog.setVisible(true);
+        dialog.toFront();
     }
 
     static void mutuallyExclusive(JCheckBox first, JCheckBox second) {

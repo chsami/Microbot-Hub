@@ -88,5 +88,8 @@ public class PrayerSettingsActionsTest {
         assertEquals(0, notices.get());
         assertTrue(DroSlayerPrayerEditor.closeIfRetired(() -> false, notices::incrementAndGet));
         assertEquals(1, notices.get());
+        assertTrue(DroSlayerPrayerEditor.RETIRED_MESSAGE.contains("your changes were not saved"));
+        assertTrue(DroSlayerPrayerEditor.RETIRED_MESSAGE.contains("Edit monster config"));
+        assertFalse(DroSlayerPrayerEditor.RETIRED_MESSAGE.contains("Edit task prayers"));
     }
 }
