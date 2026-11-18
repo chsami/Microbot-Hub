@@ -16,13 +16,19 @@ import net.runelite.client.plugins.microbot.autofishing.enums.Fish;
 import net.runelite.client.plugins.microbot.autofishing.enums.HarpoonType;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
+import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
+import net.runelite.client.plugins.microbot.util.depositbox.DepositBoxLocation;
+import net.runelite.client.plugins.microbot.util.depositbox.Rs2DepositBox;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
+import net.runelite.client.plugins.microbot.util.walker.Rs2PathApi;
+import net.runelite.client.plugins.microbot.util.walker.Rs2RouteRequest;
+import net.runelite.client.plugins.microbot.util.walker.Rs2RouteResult;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
@@ -51,6 +57,9 @@ public class AutoFishingScript extends Script {
     private volatile boolean outOfBait = false;
     static final int MAX_TACKLE_BOX_CASTS_WITHOUT_XP = 3;
     private int tackleBoxCastsWithoutXp = 0;
+    private boolean depositPointChosen;
+    private BankLocation depositBank;
+    private DepositBoxLocation depositBox;
 
     public boolean run(AutoFishingConfig config) {
         this.config = config;
@@ -59,6 +68,7 @@ public class AutoFishingScript extends Script {
         this.lastActionTime = System.currentTimeMillis();
         this.outOfBait = false;
         this.tackleBoxCastsWithoutXp = 0;
+        clearDepositPoint();
 
         Rs2Antiban.resetAntibanSettings();
         Rs2Antiban.antibanSetupTemplates.applyFishingSetup();
@@ -79,6 +89,9 @@ public class AutoFishingScript extends Script {
             if (playerLocation == null) return;
 
             currentState = determineState(playerLocation);
+            if (currentState != AutoFishingState.DEPOSITING) {
+                clearDepositPoint();
+            }
 
             if (currentState == AutoFishingState.FISHING) {
                 String reason = outOfMaterialsReason();
@@ -109,7 +122,7 @@ public class AutoFishingScript extends Script {
                 case FISHING: handleFishing(); break;
                 case PROCESSING_FISH: handleProcessingFish(); break;
                 case COOKING: handleCooking(); break;
-                case DEPOSITING: handleDepositing(); break;
+                case DEPOSITING: handleDepositing(playerLocation); break;
                 case DROPPING: handleDropping(); break;
                 case ERROR_RECOVERY: handleErrorRecovery(); break;
             }
@@ -345,13 +358,16 @@ public class AutoFishingScript extends Script {
         }
     }
 
-    private void handleDepositing() {
-        if (Rs2Bank.walkToBankAndUseBank()) {
+    private void handleDepositing(WorldPoint playerLocation) {
+        if (openDepositPoint(playerLocation)) {
+            boolean usingDepositBox = depositBox != null;
             // Use API: empty barrel (deposits its fish contents directly when bank open),
             // then deposit everything except the protected tools/harpoon/barrel using ids.
             // This replaces the manual side-slot widget config + locking dance entirely.
-            Rs2Bank.emptyFishBarrel();
-            Rs2Inventory.waitForInventoryChanges(1000);
+            if (!usingDepositBox) {
+                Rs2Bank.emptyFishBarrel();
+                Rs2Inventory.waitForInventoryChanges(1000);
+            }
 
             Set<Integer> keepIds = new HashSet<>();
             if (selectedHarpoon != HarpoonType.NONE && Rs2Inventory.hasItem(selectedHarpoon.getName())) {
@@ -375,7 +391,17 @@ public class AutoFishingScript extends Script {
                 keepIds.add(ItemID.FISH_BARREL_OPEN);
             }
 
-            if (!keepIds.isEmpty()) {
+            if (Rs2Inventory.hasItem(ItemID.COINS)) {
+                keepIds.add(ItemID.COINS);
+            }
+
+            if (usingDepositBox) {
+                if (!keepIds.isEmpty()) {
+                    Rs2DepositBox.depositAllExcept(keepIds.toArray(new Integer[0]));
+                } else {
+                    Rs2DepositBox.depositAll();
+                }
+            } else if (!keepIds.isEmpty()) {
                 Rs2Bank.depositAllExcept(keepIds.toArray(new Integer[0]));
             } else {
                 Rs2Bank.depositAll();
@@ -385,8 +411,13 @@ public class AutoFishingScript extends Script {
             sleepUntil(() -> !Rs2Inventory.isFull(), 5000);
 
             // Human-like timing + antiban after banking action
-            Rs2Bank.closeBank();
-            sleepUntil(() -> !Rs2Bank.isOpen(), 3000);
+            if (usingDepositBox) {
+                Rs2DepositBox.closeDepositBox();
+            } else {
+                Rs2Bank.closeBank();
+                sleepUntil(() -> !Rs2Bank.isOpen(), 3000);
+            }
+            clearDepositPoint();
             Rs2Inventory.waitForInventoryChanges(1800);
             try {
                 Rs2Antiban.actionCooldown();
@@ -397,7 +428,63 @@ public class AutoFishingScript extends Script {
         }
     }
 
+    private boolean openDepositPoint(WorldPoint playerLocation) {
+        if (!depositPointChosen) {
+            chooseDepositPoint(playerLocation);
+            depositPointChosen = true;
+        }
+        if (depositBox != null) {
+            return Rs2DepositBox.walkToAndUseDepositBox(depositBox) && Rs2DepositBox.isOpen();
+        }
+        if (depositBank != null) {
+            return Rs2Bank.walkToBankAndUseBank(depositBank);
+        }
+        return Rs2Bank.walkToBankAndUseBank();
+    }
+
+    private void chooseDepositPoint(WorldPoint playerLocation) {
+        boolean hasFishBarrel = Rs2Inventory.hasItem(ItemID.FISH_BARREL_CLOSED) || Rs2Inventory.hasItem(ItemID.FISH_BARREL_OPEN);
+        Set<BankLocation> banks = accessibleBanks();
+        Set<DepositBoxLocation> depositBoxes = hasFishBarrel ? Set.of() : accessibleDepositBoxes();
+        Set<WorldPoint> targets = new HashSet<>();
+        banks.forEach(bank -> targets.add(bank.getWorldPoint()));
+        depositBoxes.forEach(box -> targets.add(box.getWorldPoint()));
+        if (targets.isEmpty()) return;
+
+        WorldPoint reached = nearestOnFoot(playerLocation, targets);
+        if (reached == null) {
+            log.info("No bank or deposit box reachable without teleports, using the nearest bank");
+            return;
+        }
+        depositBank = banks.stream().filter(bank -> bank.getWorldPoint().equals(reached)).findFirst().orElse(null);
+        if (depositBank == null) {
+            depositBox = depositBoxes.stream().filter(box -> box.getWorldPoint().equals(reached)).findFirst().orElse(null);
+        }
+        log.info("Depositing at {} (closest without teleports, so the trip back to the fishing spot stays short)",
+                depositBank != null ? depositBank : depositBox);
+    }
+
+    Set<BankLocation> accessibleBanks() {
+        return Arrays.stream(BankLocation.values()).filter(BankLocation::hasRequirements).collect(Collectors.toSet());
+    }
+
+    Set<DepositBoxLocation> accessibleDepositBoxes() {
+        return Arrays.stream(DepositBoxLocation.values()).filter(DepositBoxLocation::hasRequirements).collect(Collectors.toSet());
+    }
+
+    WorldPoint nearestOnFoot(WorldPoint from, Set<WorldPoint> targets) {
+        Rs2RouteResult route = Rs2PathApi.plan(Rs2RouteRequest.toAny(from, targets).withoutTeleports());
+        return route == null ? null : route.getReachedTarget(2).orElse(null);
+    }
+
+    private void clearDepositPoint() {
+        depositPointChosen = false;
+        depositBank = null;
+        depositBox = null;
+    }
+
     private void handleErrorRecovery() {
+        if (Rs2DepositBox.isOpen()) Rs2DepositBox.closeDepositBox();
         if (Rs2Bank.isOpen()) Rs2Bank.closeBank();
         fishAction = "";
     }
