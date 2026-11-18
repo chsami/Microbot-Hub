@@ -420,7 +420,11 @@ class RevKillerScriptSafetyTest {
 
     @Test
     @Timeout(10)
-    void fleeFromDeepWildernessWaitsInsteadOfThrowingWhilePlayerLocationIsMissing() {
+    void fleeFromDeepWildernessRetriesInsteadOfRunningOnFootWhilePlayerLocationIsMissing() {
+        Rs2ItemModel ring = mock(Rs2ItemModel.class);
+        when(ring.getName()).thenReturn("Ring of dueling(8)");
+        Rs2ItemModel amulet = mock(Rs2ItemModel.class);
+        when(amulet.getName()).thenReturn("Amulet of glory(4)");
         revKillerScript script = spy(new revKillerScript());
         doReturn(true).when(script).isRunning();
         script.shouldFlee = true;
@@ -433,6 +437,8 @@ class RevKillerScriptSafetyTest {
              MockedStatic<Rs2Random> random = mockStatic(Rs2Random.class)) {
             microbot.when(Microbot::getClient).thenReturn(mock(Client.class));
             random.when(() -> Rs2Random.nextInt(anyInt(), anyInt(), anyDouble(), anyBoolean())).thenReturn(1);
+            equipment.when(() -> Rs2Equipment.get(EquipmentInventorySlot.RING)).thenReturn(ring);
+            equipment.when(() -> Rs2Equipment.get(EquipmentInventorySlot.AMULET)).thenReturn(amulet);
             player.when(Rs2Player::isTeleBlocked).thenReturn(false);
             pvp.when(() -> Rs2Pvp.getWildernessLevelFrom(any())).thenReturn(35);
             pvp.when(() -> Rs2Pvp.getWildernessLevelFrom(isNull())).thenThrow(new NullPointerException());
@@ -444,7 +450,10 @@ class RevKillerScriptSafetyTest {
             script.getAwayFromPker();
 
             walker.verify(() -> Rs2Walker.walkTo(any(WorldPoint.class), anyInt()), never());
-            walker.verify(() -> Rs2Walker.walkTo(BankLocation.FEROX_ENCLAVE.getWorldPoint()));
+            walker.verify(() -> Rs2Walker.walkTo(BankLocation.FEROX_ENCLAVE.getWorldPoint()), never());
+            equipment.verify(() -> Rs2Equipment.interact(any(EquipmentInventorySlot.class), anyString()), never());
+            microbot.verify(() -> Microbot.log("Could not read our position while fleeing, retrying the escape."));
+            microbot.verify(() -> Microbot.log(revKillerScript.noChargedTeleportMessage(35)), never());
             assertFalse(script.shouldFlee);
         }
     }

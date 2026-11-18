@@ -683,7 +683,11 @@ public class revKillerScript extends Script {
 
                     WorldPoint location = Rs2Player.getWorldLocation();
                     if(location == null){
-                        if(!sleepUntil(()-> Rs2Player.getWorldLocation() != null, generateRandomNumber(600,1200))) break;
+                        if(!sleepUntil(()-> Rs2Player.getWorldLocation() != null, generateRandomNumber(600,1200))){
+                            Microbot.log("Could not read our position while fleeing, retrying the escape.");
+                            shouldFlee = false;
+                            return;
+                        }
                         continue;
                     }
 
