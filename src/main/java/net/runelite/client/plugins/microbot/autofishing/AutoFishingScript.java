@@ -453,15 +453,33 @@ public class AutoFishingScript extends Script {
 
         WorldPoint reached = nearestOnFoot(playerLocation, targets);
         if (reached == null) {
-            log.info("No bank or deposit box reachable without teleports, using the nearest bank");
+            log.info(NO_DEPOSIT_POINT_ON_FOOT);
             return;
         }
         depositBank = banks.stream().filter(bank -> bank.getWorldPoint().equals(reached)).findFirst().orElse(null);
         if (depositBank == null) {
             depositBox = depositBoxes.stream().filter(box -> box.getWorldPoint().equals(reached)).findFirst().orElse(null);
         }
-        log.info("Depositing at {} (closest without teleports, so the trip back to the fishing spot stays short)",
-                depositBank != null ? depositBank : depositBox);
+        Enum<?> chosen = depositBank != null ? depositBank : depositBox;
+        if (chosen != null) {
+            log.info(depositPointMessage(chosen.name(), depositBox != null, hasFishBarrel));
+        }
+    }
+
+    static final String NO_DEPOSIT_POINT_ON_FOOT = "No bank or deposit box can be reached on foot or by ship from here, so the nearest bank will be used and this may use a teleport. "
+            + "If you fish on Karamja, keep at least 60 coins in your inventory for the ship there and back.";
+
+    static String depositPointMessage(String location, boolean isDepositBox, boolean depositBoxesSkipped) {
+        String place = Arrays.stream(location.toLowerCase().split("_"))
+                .filter(word -> !word.isEmpty())
+                .map(word -> Character.toUpperCase(word.charAt(0)) + word.substring(1))
+                .collect(Collectors.joining(" "));
+        String message = "Depositing at the " + place + (isDepositBox ? " deposit box" : " bank")
+                + " (the closest one reachable without teleporting, so the walk back to the fishing spot stays short)";
+        if (depositBoxesSkipped) {
+            message += " (deposit boxes skipped: a Fish barrel can only be emptied at a bank)";
+        }
+        return message;
     }
 
     Set<BankLocation> accessibleBanks() {
@@ -782,7 +800,9 @@ public class AutoFishingScript extends Script {
     @Override
     public void shutdown() {
         super.shutdown();
+        if (Rs2DepositBox.isOpen()) Rs2DepositBox.closeDepositBox();
         if (Rs2Bank.isOpen()) Rs2Bank.closeBank();
+        clearDepositPoint();
         this.fishingLocation = null;
         this.fishAction = "";
     }

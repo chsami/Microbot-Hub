@@ -44,6 +44,6 @@ The **Auto Fishing Plugin** automates fishing with banking support and special a
 |----------------------|----------------------------------------------------|
 | **Fishing Method**   | Select the fishing method to use                  |
 | **Fish Type**        | Choose specific fish to catch (if applicable)     |
-| **Banking**          | Enable/disable automatic banking                   |
+| **Banking**          | Deposit fish at the closest bank or deposit box and walk back to the fishing spot. The script walks (or takes a ship) there instead of using a teleport. Coins stay in your inventory so the script can pay for ships (e.g. Karamja). |
 | **Special Attack**   | Use special attacks with harpoons                  |
 

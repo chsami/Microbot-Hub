@@ -482,6 +482,30 @@ class AutoFishingScriptTest {
         });
     }
 
+    @Test
+    void depositLogLineNamesThePlaceAndWhetherItIsABankOrDepositBox() {
+        assertEquals("Depositing at the Port Sarim deposit box (the closest one reachable without teleporting, so the walk back to the fishing spot stays short)",
+                AutoFishingScript.depositPointMessage(DepositBoxLocation.PORT_SARIM.name(), true, false));
+        assertEquals("Depositing at the Draynor Village bank (the closest one reachable without teleporting, so the walk back to the fishing spot stays short)"
+                        + " (deposit boxes skipped: a Fish barrel can only be emptied at a bank)",
+                AutoFishingScript.depositPointMessage(BankLocation.DRAYNOR_VILLAGE.name(), false, true));
+    }
+
+    @Test
+    void stoppingClosesAnOpenDepositBox() {
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<Rs2Bank> bank = mockStatic(Rs2Bank.class);
+             MockedStatic<Rs2DepositBox> depositBox = mockStatic(Rs2DepositBox.class);
+             MockedStatic<Rs2Walker> walker = mockStatic(Rs2Walker.class)) {
+            depositBox.when(Rs2DepositBox::isOpen).thenReturn(true);
+
+            new AutoFishingScript().shutdown();
+
+            depositBox.verify(Rs2DepositBox::closeDepositBox);
+            bank.verify(Rs2Bank::closeBank, never());
+        }
+    }
+
     private void runDepositTick(boolean fishBarrel, WorldPoint reachedOnFoot, Set<WorldPoint> planned, Set<Integer> kept,
                                 BiConsumer<MockedStatic<Rs2Bank>, MockedStatic<Rs2DepositBox>> verification) {
         ScheduledExecutorService executor = mock(ScheduledExecutorService.class);
