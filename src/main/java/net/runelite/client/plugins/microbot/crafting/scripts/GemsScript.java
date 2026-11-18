@@ -62,7 +62,7 @@ public class GemsScript extends Script implements ICraftingScript {
                         && Rs2Player.getSkillRequirement(Skill.FLETCHING, boltTip.getFletchingLevelRequired());
                 final int craftingLevel = config.gemType().getLevelRequired();
                 final boolean canCut = Rs2Player.getSkillRequirement(Skill.CRAFTING, craftingLevel);
-                if (!canCut && !fletchCutGems) {
+                if (shouldStopForLevels(canCut, fletchCutGems)) {
                     Microbot.showMessage(craftingLevelMessage(gemName, craftingLevel, amethyst, config.fletchIntoBoltTips() ? boltTip : null));
                     shutdown();
                     return;
@@ -85,6 +85,10 @@ public class GemsScript extends Script implements ICraftingScript {
                             Rs2Bank.depositAll(gemName);
                             sleepUntil(() -> !Rs2Inventory.hasItem(gemName) && !Rs2Inventory.hasItem("crushed gem"));
                         }
+                        if (!canCut && Rs2Inventory.hasItem(uncutGemName)) {
+                            Rs2Bank.depositAll(uncutGemName);
+                            sleepUntil(() -> !Rs2Inventory.hasItem(uncutGemName));
+                        }
                         if (canCut && Rs2Bank.hasItem(uncutGemName)) {
                             Rs2Bank.withdrawItem(true, "chisel");
                             Rs2Bank.withdrawAll(true, uncutGemName);
@@ -95,6 +99,10 @@ public class GemsScript extends Script implements ICraftingScript {
                             }
                             Rs2Bank.withdrawItem(true, "chisel");
                             Rs2Bank.withdrawAll(true, gemName, true);
+                            if (!sleepUntil(() -> Rs2Inventory.hasItem(gemName, true))) {
+                                Microbot.showMessage(noRoomForCutGemsMessage(gemName));
+                                shutdown();
+                            }
                         } else if (amethyst && Rs2Bank.hasItem(21347)) {
                             Rs2Bank.withdrawItem(true, "chisel");
                             Rs2Bank.withdrawAll(21347);
@@ -182,11 +190,19 @@ public class GemsScript extends Script implements ICraftingScript {
         if (canCut) {
             return "No uncut " + gemName + " left, fletching cut " + gemName + " from your bank into bolt tips.";
         }
-        return "Crafting level " + craftingLevel + " needed to cut " + gemName + ", only fletching cut " + gemName + " from your bank into bolt tips.";
+        return "Your Crafting level is below " + craftingLevel + ", so uncut " + gemName + " is skipped. Fletching cut " + gemName + " from your bank into bolt tips.";
     }
 
     static String outOfCutGemsMessage(String gemName, int craftingLevel) {
-        return "Out of cut " + gemName + " in your bank and Crafting level " + craftingLevel + " is needed to cut more. Stopping.";
+        return "Out of cut " + gemName + " in your bank. Crafting level " + craftingLevel + " is needed to cut uncut " + gemName + ", so add more cut " + gemName + " to your bank to keep fletching. Stopping.";
+    }
+
+    static String noRoomForCutGemsMessage(String gemName) {
+        return "No room for cut " + gemName + " in your inventory. Make room in your inventory and start again. Stopping.";
+    }
+
+    static boolean shouldStopForLevels(boolean canCut, boolean fletchCutGems) {
+        return !canCut && !fletchCutGems;
     }
 
     static String outOfMaterialsMessage(String gemName, boolean amethyst, boolean fletchCutGems) {

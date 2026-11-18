@@ -103,7 +103,7 @@ class GemsScriptTest {
 
     @Test
     void bankCutGemsMessageExplainsLowCraftingLevel() {
-        assertEquals("Crafting level 34 needed to cut Ruby, only fletching cut Ruby from your bank into bolt tips.",
+        assertEquals("Your Crafting level is below 34, so uncut Ruby is skipped. Fletching cut Ruby from your bank into bolt tips.",
                 GemsScript.bankCutGemsMessage("Ruby", false, 34));
         assertEquals("No uncut Ruby left, fletching cut Ruby from your bank into bolt tips.",
                 GemsScript.bankCutGemsMessage("Ruby", true, 34));
@@ -111,8 +111,30 @@ class GemsScriptTest {
 
     @Test
     void outOfCutGemsMessageNamesCraftingLevel() {
-        assertEquals("Out of cut Ruby in your bank and Crafting level 34 is needed to cut more. Stopping.",
+        assertEquals("Out of cut Ruby in your bank. Crafting level 34 is needed to cut uncut Ruby, so add more cut Ruby to your bank to keep fletching. Stopping.",
                 GemsScript.outOfCutGemsMessage("Ruby", 34));
+    }
+
+    @Test
+    void noRoomForCutGemsMessageNamesGem() {
+        assertEquals("No room for cut Ruby in your inventory. Make room in your inventory and start again. Stopping.",
+                GemsScript.noRoomForCutGemsMessage("Ruby"));
+    }
+
+    @Test
+    void lowCraftingDoesNotStopWhenCutGemsCanBeFletched() {
+        assertFalse(GemsScript.shouldStopForLevels(false, true));
+    }
+
+    @Test
+    void lowCraftingStopsWhenCutGemsCannotBeFletched() {
+        assertTrue(GemsScript.shouldStopForLevels(false, false));
+    }
+
+    @Test
+    void metCraftingLevelNeverStops() {
+        assertFalse(GemsScript.shouldStopForLevels(true, false));
+        assertFalse(GemsScript.shouldStopForLevels(true, true));
     }
 
     @Test
