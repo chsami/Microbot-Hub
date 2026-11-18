@@ -1,9 +1,12 @@
 package net.runelite.client.plugins.microbot.sandcrabs;
 
+import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.inventorysetups.InventorySetup;
+import net.runelite.client.plugins.microbot.sandcrabs.enums.State;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
+import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
@@ -11,6 +14,7 @@ import org.mockito.MockedStatic;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -68,6 +72,57 @@ class SandCrabScriptTest {
             microbot.verify(() -> Microbot.logStackTrace(any(), any()), never());
             rs2Combat.verify(Rs2Combat::enableAutoRetialiate, never());
             rs2Player.verify(() -> Rs2Player.getPlayers(any()), never());
+        }
+    }
+
+    @Test
+    void resetAggroWithoutStartLocationDoesNotWalk() {
+        SandCrabScript script = new SandCrabScript();
+        script.state = State.RESET_AGGRO;
+
+        try (MockedStatic<Rs2Player> rs2Player = mockStatic(Rs2Player.class);
+             MockedStatic<Rs2Walker> rs2Walker = mockStatic(Rs2Walker.class)) {
+            rs2Player.when(Rs2Player::getWorldLocation).thenReturn(new WorldPoint(1776, 3468, 0));
+
+            script.resetAggro(mock(SandCrabPlugin.class));
+            script.walkBack(mock(SandCrabPlugin.class));
+
+            rs2Walker.verifyNoInteractions();
+            assertEquals(State.RESET_AGGRO, script.state);
+        }
+    }
+
+    @Test
+    void resetAggroWithoutPlayerLocationDoesNotWalk() {
+        SandCrabScript script = new SandCrabScript();
+        script.startLocation = new WorldPoint(1776, 3468, 0);
+        script.state = State.RESET_AGGRO;
+
+        try (MockedStatic<Rs2Player> rs2Player = mockStatic(Rs2Player.class);
+             MockedStatic<Rs2Walker> rs2Walker = mockStatic(Rs2Walker.class)) {
+            rs2Player.when(Rs2Player::getWorldLocation).thenReturn(null);
+
+            script.resetAggro(mock(SandCrabPlugin.class));
+
+            rs2Walker.verifyNoInteractions();
+            assertEquals(State.RESET_AGGRO, script.state);
+        }
+    }
+
+    @Test
+    void resetAggroWalksNorthOfOwnStartLocation() {
+        SandCrabScript script = new SandCrabScript();
+        script.startLocation = new WorldPoint(1776, 3468, 0);
+        script.state = State.RESET_AGGRO;
+
+        try (MockedStatic<Rs2Player> rs2Player = mockStatic(Rs2Player.class);
+             MockedStatic<Rs2Walker> rs2Walker = mockStatic(Rs2Walker.class)) {
+            rs2Player.when(Rs2Player::getWorldLocation).thenReturn(new WorldPoint(1776, 3468, 0));
+            rs2Walker.when(() -> Rs2Walker.walkTo(new WorldPoint(1776, 3508, 0), 4)).thenReturn(true);
+
+            script.resetAggro(mock(SandCrabPlugin.class));
+
+            assertEquals(State.WALK_BACK, script.state);
         }
     }
 }
