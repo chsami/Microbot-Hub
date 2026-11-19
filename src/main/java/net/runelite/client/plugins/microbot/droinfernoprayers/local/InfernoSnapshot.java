@@ -13,15 +13,13 @@ final class InfernoSnapshot
 {
     final JsonObject raw, player;
     final long tick, time;
-    final int x, y, hp, maxHp, prayer, maxPrayer, magic, baseMagic, ranged, baseRanged, bloodLevel;
-    final int runEnergy, specEnergy, animation, interacting, plane;
+    final int x, y, hp, maxHp, prayer, maxPrayer, magic, baseMagic, ranged, baseRanged;
+    final int animation, interacting, plane;
 
-    final int iceRunes;
-    static final int ICE_BURST = 1, ICE_BLITZ = 2, ICE_BARRAGE = 4;
-    final boolean instance, moving, runOn, specOn, spellSelected;
+    final boolean instance, moving, runOn;
     final List<Npc> npcs = new ArrayList<>();
-    final List<Item> inventory = new ArrayList<>(), equipment = new ArrayList<>();
-    final JsonArray events, projectiles, ground;
+    final List<Item> equipment = new ArrayList<>();
+    final JsonArray events, projectiles;
     final Set<String> prayers = new HashSet<>();
 
     InfernoSnapshot(JsonObject raw)
@@ -37,33 +35,20 @@ final class InfernoSnapshot
         JsonObject boosted = object(skills, "boosted"), real = object(skills, "real");
         maxPrayer = integer(real, "prayer", 0);
         magic = integer(boosted, "magic", 0); baseMagic = integer(real, "magic", magic);
-        bloodLevel = bool(player, "ancientSpellbook", false) && bool(player, "bloodAutocast", false)
-            ? supportedBloodLevel(integer(player, "bloodAutocastLevel", 0)) : 0;
-        iceRunes = integer(player, "iceRunes", -1);
         ranged = integer(boosted, "ranged", 0); baseRanged = integer(real, "ranged", ranged);
-        runEnergy = integer(player, "runEnergy", 0); specEnergy = integer(player, "specEnergy", 0);
         animation = integer(player, "anim", -1); interacting = integer(player, "interacting", -1);
         instance = bool(player, "instance", false); moving = bool(player, "moving", false);
-        runOn = bool(player, "runOn", false); specOn = bool(player, "specOn", false);
-        spellSelected = bool(player, "spellSelected", false);
+        runOn = bool(player, "runOn", false);
         for (JsonElement e : array(raw, "npcs")) if (e.isJsonObject()) npcs.add(new Npc(e.getAsJsonObject()));
-        for (JsonElement e : array(raw, "inventory")) if (e.isJsonObject()) inventory.add(new Item(e.getAsJsonObject(), false));
         for (JsonElement e : array(raw, "equipment")) if (e.isJsonObject()) equipment.add(new Item(e.getAsJsonObject(), true));
         for (JsonElement e : array(raw, "prayers")) if (e.isJsonPrimitive()) prayers.add(e.getAsString());
-        events = array(raw, "events"); projectiles = array(raw, "projectiles"); ground = array(raw, "ground");
+        events = array(raw, "events"); projectiles = array(raw, "projectiles");
     }
 
     boolean playable()
     {
         return tick >= 0 && instance && hp > 0 && maxHp > 0 && plane == 0
             && x >= 2240 && x <= 2303 && y >= 5312 && y <= 5375;
-    }
-
-
-
-    static int supportedBloodLevel(int level)
-    {
-        return level == 56 || level == 68 || level == 80 || level == 92 ? level : 0;
     }
 
     Npc npc(int index)
