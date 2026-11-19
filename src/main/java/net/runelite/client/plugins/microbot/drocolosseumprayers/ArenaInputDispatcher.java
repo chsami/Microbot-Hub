@@ -39,11 +39,6 @@ public final class ArenaInputDispatcher implements AutoCloseable {
     }
     static InterfaceTab tab(String op){
         if(op.startsWith("prayer."))return InterfaceTab.PRAYER;
-        if(op.startsWith("inventory.")||op.equals("equipment.set")||op.equals("equipment.equip"))return InterfaceTab.INVENTORY;
-        if(op.equals("equipment.slot"))return InterfaceTab.EQUIPMENT;
-        if(op.equals("magic.armIce"))return InterfaceTab.MAGIC;
-        if(op.equals("combat.style")||op.equals("combat.retaliate"))return InterfaceTab.COMBAT;
-        if(op.equals("player.logout"))return InterfaceTab.LOGOUT;
         return null;
     }
     private static boolean prepareTab(String op){

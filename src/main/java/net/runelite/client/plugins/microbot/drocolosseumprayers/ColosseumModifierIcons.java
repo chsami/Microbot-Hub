@@ -7,8 +7,6 @@ import java.util.Map;
 
 final class ColosseumModifierIcons
 {
-    static final int SCRIPT_MODIFIER_SELECT_INIT=4931;
-
     static final class Info
     {
         final String key,title;final int[] sprites;final int id,levelVarbit;
@@ -40,17 +38,5 @@ final class ColosseumModifierIcons
     private static void add(Map<String,Info> m,String key,String title,int[] sprites,int id,int levelVarbit)
     {m.put(key,new Info(key,title,sprites,id,levelVarbit));}
 
-    static final int VARBIT_MODIFIER_SELECTED=9788;
-    static final int MINIMUS=12808;
-
-    static List<String> offers(Object[] args)
-    {
-        List<String> out=new ArrayList<>(3);
-        for(int i=2;i<=4;i++){String key=null;if(args.length>i&&args[i] instanceof Integer)for(Info info:ALL.values())if(info.id==(Integer)args[i])key=info.key;out.add(key);}
-        return out;
-    }
-
-    static String picked(List<String> offers,int selected)
-    {return selected>=1&&selected<=offers.size()?offers.get(selected-1):null;}
     private ColosseumModifierIcons(){}
 }

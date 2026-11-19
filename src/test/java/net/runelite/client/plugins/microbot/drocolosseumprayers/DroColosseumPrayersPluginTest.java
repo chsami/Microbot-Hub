@@ -38,8 +38,6 @@ public class DroColosseumPrayersPluginTest
         DroColosseumPrayersConfig config = new DroColosseumPrayersConfig() { };
         assertTrue(config.showTilePack(), "the tile pack is on by default");
         DroColosseumPrayersPlugin plugin = new DroColosseumPrayersPlugin();
-        assertTrue(plugin.prayersOnly());
-        assertFalse(plugin.manualMovement());
         assertEquals(ArenaFightInput.INVOKES, plugin.fightInput());
     }
 }

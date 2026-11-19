@@ -6,38 +6,27 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import java.util.Arrays;
-import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import net.runelite.client.plugins.microbot.drocolosseumprayers.plugins.common.State;
-import net.runelite.client.plugins.microbot.drocolosseumprayers.plugins.inferno.InfernoState;
-import net.runelite.client.plugins.microbot.drocolosseumprayers.execution.Messages.GroundItem;
 import net.runelite.client.plugins.microbot.drocolosseumprayers.execution.Messages.Worn;
 
 final class StateMessage
 {
-	private static final Set<String> SAME_SECTIONS =
-		Set.of("prayers", "inventory", "equipment", "ground", "camera", "widgets", "dialogue");
+	private static final Set<String> SAME_SECTIONS = Set.of("prayers", "equipment");
 	private static final String[] SKILLS = {"hitpoints", "prayer", "ranged", "magic", "attack", "strength", "defence"};
 
 	private static final Gson TREE = new Gson();
 
 	State state;
-	InfernoState infernoState;
-    net.runelite.client.plugins.microbot.drocolosseumprayers.ColosseumUi colosseumUi;
 
 	private volatile Set<String> sections = Set.of();
-
 	private volatile int[] area;
-	private volatile int[] screen;
-	private Set<Integer> occluders = Set.of();
-
 	private volatile int[] widgets = new int[0];
 
 	private final Map<String, JsonElement> lastSent = new HashMap<>();
 	private int[] lastCollision;
-
 	private java.util.List<String> tickPrayers;
 
 	synchronized void capturePrayers()
@@ -47,20 +36,9 @@ final class StateMessage
 
 	synchronized void welcome(Set<String> sections, int[] area, int[] screen, int[] widgets)
 	{
-        welcome(sections, area, screen, widgets, Set.of());
-    }
-
-    synchronized void welcome(Set<String> sections, int[] area, int[] screen, int[] widgets, Set<Integer> occluders)
-    {
 		this.sections = new java.util.HashSet<>(sections);
-		this.sections.retainAll(Set.of("player", "npcs", "prayers", "inventory", "events", "projectiles", "equipment", "ground", "camera", "collision"));
-        if(colosseumUi!=null){
-            if(sections.contains("widgets"))this.sections.add("widgets");
-            if(sections.contains("dialogue"))this.sections.add("dialogue");
-        }
+		this.sections.retainAll(Set.of("player", "npcs", "prayers", "events", "projectiles", "equipment", "collision"));
 		this.area = area;
-		this.screen = screen == null ? null : screen.clone();
-        this.occluders = screen == null ? Set.of() : Set.copyOf(occluders);
 		this.widgets = widgets;
 		lastSent.clear();
 		lastCollision = null;
@@ -98,10 +76,6 @@ final class StateMessage
 		{
 			section(s, same, "prayers", TREE.toJsonTree(prayers != null ? prayers : state.activePrayers()));
 		}
-		if (sections.contains("inventory"))
-		{
-			section(s, same, "inventory", TREE.toJsonTree(state.inventory()));
-		}
 		if (sections.contains("events"))
 		{
 			s.add("events", events);
@@ -113,21 +87,6 @@ final class StateMessage
 		if (sections.contains("equipment"))
 		{
 			section(s, same, "equipment", equipment());
-		}
-		if (sections.contains("ground") && infernoState != null)
-		{
-			section(s, same, "ground", ground());
-		}
-        if(sections.contains("widgets")&&colosseumUi!=null){
-            colosseumUi.beginSnapshot();JsonArray list=new JsonArray();
-            for(int id:widgets){var widget=colosseumUi.widget(id);if(widget!=null)list.add(TREE.toJsonTree(widget));}
-            section(s,same,"widgets",list);
-        }
-        if(sections.contains("dialogue")&&colosseumUi!=null)
-            section(s,same,"dialogue",TREE.toJsonTree(colosseumUi.dialogue()));
-		if (sections.contains("camera"))
-		{
-			section(s, same, "camera", camera());
 		}
 		if (sections.contains("collision"))
 		{
@@ -168,9 +127,6 @@ final class StateMessage
             collision.add("flags", TREE.toJsonTree(lastCollision));
             snapshot.add("collision", collision);
         }
-        snapshot.add("graphicsObjects",state.graphicsObjects());
-
-        snapshot.add("objects",state.moltenSand());
         snapshot.remove("same");
         return snapshot;
     }
@@ -184,10 +140,7 @@ final class StateMessage
 		p.addProperty("tx", state.templateX());
 		p.addProperty("ty", state.templateY());
 		p.addProperty("hp", state.hp());
-		p.addProperty("poison", state.poison());
-        p.addProperty("selectedModifier",state.selectedModifier());
-        p.add("modifiers",state.modifierLevels());
-        p.addProperty("solGrapplePending",state.solGrapplePending());
+        p.add("modifiers", state.modifierLevels());
 		p.addProperty("maxHp", state.maxHp());
 		p.addProperty("healthRatio", state.healthRatio());
 		p.addProperty("healthScale", state.healthScale());
@@ -198,14 +151,10 @@ final class StateMessage
 		{
 			p.addProperty("interacting", ((Number) target).intValue());
 		}
-		p.addProperty("spellSelected", state.spellSelected());
 		p.addProperty("moving", state.moving());
-        JsonObject destination=state.destination();
-        if(destination!=null)p.add("destination",destination);
-		p.addProperty("runEnergy", state.runEnergy());
+        JsonObject destination = state.destination();
+        if (destination != null) p.add("destination", destination);
 		p.addProperty("runOn", state.runOn());
-		p.addProperty("specEnergy", state.specEnergy());
-		p.addProperty("specOn", state.specOn());
 		JsonObject boosted = new JsonObject();
 		JsonObject real = new JsonObject();
 		for (String skill : SKILLS)
@@ -238,6 +187,7 @@ final class StateMessage
 		JsonArray list = new JsonArray();
 		for (Worn w : state.equipment())
 		{
+            if (w.slot != 3) continue;
 			JsonObject o = new JsonObject();
 			o.addProperty("slot", w.slot);
 			o.addProperty("id", w.id);
@@ -246,40 +196,6 @@ final class StateMessage
 			list.add(o);
 		}
 		return list;
-	}
-
-	private JsonArray ground()
-	{
-		JsonArray list = new JsonArray();
-		for (GroundItem g : infernoState.groundItems())
-		{
-			JsonObject o = new JsonObject();
-			o.addProperty("id", g.id);
-			o.add("name", text(g.name));
-			o.addProperty("qty", g.qty);
-			o.addProperty("tx", g.tx);
-			o.addProperty("ty", g.ty);
-			list.add(o);
-		}
-		return list;
-	}
-
-	private JsonObject camera()
-	{
-		JsonObject c = new JsonObject();
-		c.addProperty("yaw", state.cameraYaw());
-		c.addProperty("pitch", state.cameraPitch());
-		c.addProperty("zoom", state.cameraZoom());
-		String mask = onScreen();
-		if (mask != null)
-		{
-			c.addProperty("onScreen", mask);
-		}
-        if (screen != null && !occluders.isEmpty())
-        {
-            c.addProperty("hidden", Base64.getEncoder().encodeToString(state.hiddenTiles(screen, occluders)));
-        }
-		return c;
 	}
 
 	private void section(JsonObject s, JsonArray same, String key, JsonElement value)
@@ -294,26 +210,6 @@ final class StateMessage
 			lastSent.put(key, value);
 		}
 		s.add(key, value);
-	}
-
-	private String onScreen()
-	{
-		int[] r = screen;
-		if (r == null)
-		{
-			return null;
-		}
-		int width = r[2] - r[0] + 1;
-		int height = r[3] - r[1] + 1;
-		byte[] bits = new byte[(width * height + 7) / 8];
-		for (int i = 0; i < width * height; i++)
-		{
-			if (state.tileOnScreen(r[0] + i % width, r[1] + i / width))
-			{
-				bits[i >> 3] |= (byte) (1 << (i & 7));
-			}
-		}
-		return Base64.getEncoder().encodeToString(bits);
 	}
 
 	private JsonObject collision()
