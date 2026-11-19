@@ -1,6 +1,7 @@
 package net.runelite.client.plugins.microbot.shadeskiller;
 
 import net.runelite.api.Skill;
+import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.shadeskiller.enums.State;
@@ -32,7 +33,29 @@ public class ShadesKillerScript extends Script {
     boolean resetActions = false;
 
     boolean coffinHasItems = true;
+    int coffinDialogMisses = 0;
+    int failedWithdrawAttempts = 0;
 
+    static final int MAX_COFFIN_DIALOG_MISSES = 3;
+    static final int MAX_FAILED_WITHDRAW_ATTEMPTS = 3;
+    static final int TELEPORT_MIN_DISTANCE = 20;
+
+    static boolean isLowHpEscapeState(State state) {
+        return state == State.FIGHT_SHADES || state == State.WALK_TO_SHADES;
+    }
+
+    static boolean hasTeleported(WorldPoint before, WorldPoint now) {
+        if (before == null || now == null) return false;
+        return now.distanceTo(before) > TELEPORT_MIN_DISTANCE;
+    }
+
+    static String missingSupply(boolean hasKey, boolean hasTeleportToShades, boolean hasTeleportToBank,
+                                String teleportItemToShades, String teleportItemToBank, String foodName, int foodAmount) {
+        if (!hasKey) return "a silver key";
+        if (!hasTeleportToShades) return teleportItemToShades;
+        if (!hasTeleportToBank) return teleportItemToBank;
+        return foodAmount + " x " + foodName;
+    }
 
     private void withdrawCoffin() {
         if (config.useCoffin()) {
@@ -83,18 +106,33 @@ public class ShadesKillerScript extends Script {
         return true;
     }
 
-    private void emptyCoffin() {
-        if (!config.useCoffin()) return;
+    private boolean emptyCoffin() {
+        if (!config.useCoffin()) return false;
         if (!Rs2Inventory.hasItem("coffin")) {
+            if (!Rs2Bank.isOpen()) return true;
+            if (!Rs2Bank.hasItem("coffin")) {
+                coffinHasItems = false;
+                Microbot.log("No coffin found in the inventory or bank, continuing the trip without it.");
+                return false;
+            }
             Rs2Bank.depositAll();
             Rs2Bank.withdrawOne("coffin");
+            sleepUntil(() -> Rs2Inventory.hasItem("coffin"));
         }
         Rs2Bank.closeBank();
         sleepUntil(() -> !Rs2Bank.isOpen());
         sleep(800, 1200);
-        Rs2Inventory.interact("coffin", "configure");
+        boolean clickedCoffin = Rs2Inventory.interact("coffin", "configure");
         boolean isEmptyCoffin = sleepUntilTrue(() -> Rs2Widget.hasWidget("Empty Coffin."), 100, 3000);
-        if (!isEmptyCoffin) return;
+        if (!isEmptyCoffin) {
+            if (clickedCoffin && ++coffinDialogMisses >= MAX_COFFIN_DIALOG_MISSES) {
+                coffinDialogMisses = 0;
+                coffinHasItems = false;
+                Microbot.log("The coffin could not be emptied, continuing the trip without emptying it.");
+            }
+            return true;
+        }
+        coffinDialogMisses = 0;
         Rs2Widget.clickWidget("Empty Coffin");
         boolean isMakeInterface = sleepUntilTrue(() -> Rs2Widget.hasWidget("What would you like to take?"), 100, 3000);
         if (!isMakeInterface) {
@@ -102,18 +140,22 @@ public class ShadesKillerScript extends Script {
             if (isCoffinEmpty) {
                 coffinHasItems = false;
             }
-            return;
+            return true;
         }
         Rs2Widget.clickWidget(17694738);
         Rs2Bank.openBank();
         sleepUntil(Rs2Bank::isOpen);
         Rs2Bank.depositAll("fiyr remains");
+        return true;
     }
 
     public boolean run(ShadesKillerConfig config) {
         this.config = config;
         initScript = true;
         state = State.BANKING;
+        coffinHasItems = true;
+        coffinDialogMisses = 0;
+        failedWithdrawAttempts = 0;
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
                 if (!Microbot.isLoggedIn()) return;
@@ -133,13 +175,14 @@ public class ShadesKillerScript extends Script {
                     resetActions = true;
                 }
 
-                if (Microbot.getClient().getBoostedSkillLevel(Skill.HITPOINTS) <= config.hpTreshhold() && Rs2Inventory.hasItem(config.teleportItemToBank())) {
+                if (Microbot.getClient().getBoostedSkillLevel(Skill.HITPOINTS) <= config.hpTreshhold() && Rs2Inventory.hasItem(config.teleportItemToBank()) && isLowHpEscapeState(state)) {
                     state = USE_TELEPORT_TO_BANK;
                 }
 
                 switch (state) {
                     case BANKING:
                         if (hasRequiredItemsToKillShades()) {
+                            failedWithdrawAttempts = 0;
                             state = State.USE_TELEPORT_TO_SHADES;
                             return;
                         }
@@ -160,20 +203,35 @@ public class ShadesKillerScript extends Script {
                             }
                         }
                         if (coffinHasItems && config.useCoffin()) {
-                            emptyCoffin();
-                            return;
+                            if (emptyCoffin()) return;
                         }
                         if (Rs2Bank.isOpen()) {
                             boolean result = withdrawRequiredItems();
                             if (!result) return;
+                            if (sleepUntil(this::hasRequiredItemsToKillShades, 3000)) {
+                                failedWithdrawAttempts = 0;
+                            } else if (++failedWithdrawAttempts >= MAX_FAILED_WITHDRAW_ATTEMPTS) {
+                                String missing = missingSupply(!getKeyInInventory().isEmpty(),
+                                        Rs2Inventory.hasItem(config.teleportItemToShades()),
+                                        Rs2Inventory.hasItem(config.teleportItemToBank()),
+                                        config.teleportItemToShades(), config.teleportItemToBank(),
+                                        config.food().getName(), config.foodAmount());
+                                Microbot.log("Shades killer stopped: could not withdraw " + missing + " from the bank.");
+                                Microbot.showMessage("Shades killer stopped: could not withdraw " + missing + " from the bank.");
+                                shutdown();
+                                return;
+                            }
                             Rs2Bank.closeBank();
                             sleepUntil(() -> !Rs2Bank.isOpen());
                         }
                         break;
                     case USE_TELEPORT_TO_SHADES:
                         if (Rs2Inventory.hasItem(config.teleportItemToShades())) {
-                            Rs2Inventory.interact(config.teleportItemToShades(), config.teleportActionToShades());
-                            Rs2Player.waitForAnimation();
+                            WorldPoint beforeShadesTeleport = Rs2Player.getWorldLocation();
+                            if (Rs2Inventory.interact(config.teleportItemToShades(), config.teleportActionToShades())
+                                    && sleepUntil(() -> hasTeleported(beforeShadesTeleport, Rs2Player.getWorldLocation()), 5000)) {
+                                state = State.WALK_TO_SHADES;
+                            }
                         } else {
                             state = State.WALK_TO_SHADES;
                         }
@@ -189,9 +247,11 @@ public class ShadesKillerScript extends Script {
 
                     case USE_TELEPORT_TO_BANK:
                         if (Rs2Inventory.hasItem(config.teleportItemToBank())) {
-                            Rs2Inventory.interact(config.teleportItemToBank(),
-                                    config.teleportActionToBank());
-                            Rs2Player.waitForAnimation();
+                            WorldPoint beforeBankTeleport = Rs2Player.getWorldLocation();
+                            if (Rs2Inventory.interact(config.teleportItemToBank(), config.teleportActionToBank())
+                                    && sleepUntil(() -> hasTeleported(beforeBankTeleport, Rs2Player.getWorldLocation()), 5000)) {
+                                state = State.BANKING;
+                            }
                         } else {
                             state = State.BANKING;
                         }
