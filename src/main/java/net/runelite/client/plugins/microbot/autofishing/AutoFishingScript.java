@@ -51,6 +51,7 @@ public class AutoFishingScript extends Script {
     private volatile boolean outOfBait = false;
     static final int MAX_TACKLE_BOX_CASTS_WITHOUT_XP = 3;
     private int tackleBoxCastsWithoutXp = 0;
+    private long lastAnimTime;
 
     public boolean run(AutoFishingConfig config) {
         this.config = config;
@@ -59,6 +60,7 @@ public class AutoFishingScript extends Script {
         this.lastActionTime = System.currentTimeMillis();
         this.outOfBait = false;
         this.tackleBoxCastsWithoutXp = 0;
+        this.lastAnimTime = 0L;
 
         Rs2Antiban.resetAntibanSettings();
         Rs2Antiban.antibanSetupTemplates.applyFishingSetup();
@@ -100,6 +102,7 @@ public class AutoFishingScript extends Script {
             }
 
             if (currentState == AutoFishingState.COOKING && (Rs2Player.isAnimating() || Rs2Player.isInteracting())) {
+                lastAnimTime = System.currentTimeMillis();
                 return;
             }
 
@@ -127,7 +130,7 @@ public class AutoFishingScript extends Script {
             return AutoFishingState.DROPPING;
         }
 
-        if (!hasRequiredGear()) {
+        if (!hasRequiredGear() || (Rs2Bank.isOpen() && hasRequiredGear())) {
             if (findNearestFishingSpot() == null) {
                 return AutoFishingState.GETTING_GEAR;
             }
@@ -141,7 +144,7 @@ public class AutoFishingScript extends Script {
     }
 
     /**
-     * Handle methods 
+     * Handle methods
      */
     private void handleTraveling(WorldPoint playerLocation) {
         if (fishingLocation == null) {
@@ -210,14 +213,14 @@ public class AutoFishingScript extends Script {
 
     private void handleDropping() {
         List<String> itemsToDrop = Rs2Inventory.all().stream()
-                .map(Rs2ItemModel::getName)
-                .filter(name -> !isRequiredItem(selectedFish, name))
-                .filter(name -> name.startsWith("Raw") ||
-                                name.contains("Leaping") ||
-                                name.toLowerCase().contains("burnt"))
-                .distinct()
-                .collect(Collectors.toList());
-        
+            .map(Rs2ItemModel::getName)
+            .filter(name -> !isRequiredItem(selectedFish, name))
+            .filter(name -> name.startsWith("Raw") ||
+                name.contains("Leaping") ||
+                name.toLowerCase().contains("burnt"))
+            .distinct()
+            .collect(Collectors.toList());
+
         if (!itemsToDrop.isEmpty()) {
             Rs2Inventory.dropAll(itemsToDrop.toArray(new String[0]));
         } else {
@@ -235,6 +238,8 @@ public class AutoFishingScript extends Script {
         }
     }
 
+    //change this to automatically ignore teh flag if theres no fire around
+    //either send to bank or drop instead
     private void handleCooking() {
         if (Thread.currentThread().isInterrupted() || !Microbot.isLoggedIn()) {
             return;
@@ -250,8 +255,10 @@ public class AutoFishingScript extends Script {
             if (Thread.currentThread().isInterrupted() || !Microbot.isLoggedIn()) {
                 return;
             }
+
             if (Rs2Player.isAnimating() || Rs2Player.isInteracting()) {
-                sleepUntil(() -> !Rs2Player.isAnimating() && !Rs2Player.isInteracting(), 15000);
+                lastAnimTime = System.currentTimeMillis();
+                return;
             }
 
             List<String> raws = getRawFishInInventory();
@@ -260,9 +267,9 @@ public class AutoFishingScript extends Script {
             }
 
             String fishToCook = raws.stream()
-                    .filter(this::hasCookingLevelForRaw)
-                    .findFirst()
-                    .orElse(null);
+                .filter(this::hasCookingLevelForRaw)
+                .findFirst()
+                .orElse(null);
             if (fishToCook == null) {
                 break;
             }
@@ -274,24 +281,31 @@ public class AutoFishingScript extends Script {
             if (playerLocation == null) {
                 return;
             }
+
             if (playerLocation.distanceTo(firePoint) > 4) {
                 Rs2Walker.walkTo(firePoint);
-                sleepUntil(() -> !Rs2Player.isMoving() || isWithin(Rs2Player.getWorldLocation(), firePoint, 3), 10000);
-                sleepUntil(() -> !Rs2Player.isMoving(), 5000);
+                return;
             }
 
+            if (Rs2Player.isAnimating()) {
+                lastAnimTime = System.currentTimeMillis();
+                return;
+            }
+
+            if (System.currentTimeMillis() - lastAnimTime < 4000) {
+                return;
+            }
+
+            lastAnimTime = System.currentTimeMillis();
             Rs2Inventory.useUnNotedItemOnObject(fishToCook, fireOrRange.getId());
             if (sleepUntil(() -> Rs2Widget.findWidget("How many would you like to cook?", null) != null, 3000)) {
+                sleep(75, 250);
                 Rs2Keyboard.keyPress(KeyEvent.VK_SPACE);
+                sleepUntil(() -> Rs2Player.isAnimating(0));
 
-                Rs2Player.waitForXpDrop(Skill.COOKING, true);
-                sleepUntil(() -> Rs2Player.getAnimation() != AnimationID.IDLE);
-
-                String currentRaw = fishToCook;
-                sleepUntilTrue(() ->
-                                !Rs2Inventory.hasItem(currentRaw, true) &&
-                                !Rs2Player.isAnimating(3500),
-                        500, 150000);
+                if (Rs2Inventory.hasItem(fishToCook, true) || Rs2Player.isAnimating(3500)) { //already within 4 tiles, no ned to distance gate
+                    return;
+                }
 
                 try {
                     Rs2Antiban.actionCooldown();
@@ -307,24 +321,41 @@ public class AutoFishingScript extends Script {
         }
     }
 
+    //I would make it deposit items first so you dont run out of space
     private void handleGettingGear() {
+        Set<String> keepNames = new HashSet<>(); //these can/should be converted to ItemIDs
         if (Rs2Bank.walkToBankAndUseBank()) {
             for (String tool : selectedFish.getMethod().getRequiredItems()) {
+                keepNames.addAll(Arrays.asList(acceptedConsumables(tool)));
                 if (!hasRequiredItem(tool)) {
-                    withdrawAndEquipItem(bankedName(tool));
+                    String bankItem = bankedName(tool);
+                    if (Rs2Bank.hasItem(bankItem)) {
+                        withdrawAndEquipItem(bankItem);
+                        log.info("withdrawing " + bankItem);
+                        return;
+                    }
                 }
             }
+
             if (selectedHarpoon != HarpoonType.NONE) {
                 String harpoonName = selectedHarpoon.getName();
-                if (!Rs2Inventory.hasItem(harpoonName) && !Rs2Equipment.isWearing(harpoonName)) {
+                keepNames.add(harpoonName);
+                if (!Rs2Inventory.hasItem(harpoonName) && !Rs2Equipment.isWearing(harpoonName) && Rs2Bank.hasItem(harpoonName)) {
                     withdrawAndEquipItem(harpoonName);
+                    return;
                 }
             }
-            // Human delay + ensure cache updates before closing to prevent rapid re-open
-            sleep(400, 900);
+
+            if (Rs2Bank.depositAllExcept(Rs2ItemModel.matches(false, keepNames.toArray(new String[0]))
+                .or(item -> extraKeepItems.contains(item.getId())))) {
+                log.info("Depositing excess gear");
+                return;
+            }
+
             Rs2Bank.closeBank();
             sleepUntil(() -> !Rs2Bank.isOpen(), 3000);
             Rs2Inventory.waitForInventoryChanges(1800);
+
             try {
                 Rs2Antiban.actionCooldown();
                 Rs2Antiban.takeMicroBreakByChance();
@@ -334,13 +365,12 @@ public class AutoFishingScript extends Script {
 
             if (!hasRequiredGear()) {
                 List<String> missing = selectedFish.getMethod().getRequiredItems().stream()
-                        .filter(tool -> !hasRequiredItem(tool))
-                        .collect(Collectors.toCollection(ArrayList::new));
+                    .filter(tool -> !hasRequiredItem(tool))
+                    .collect(Collectors.toCollection(ArrayList::new));
                 if (selectedHarpoon != HarpoonType.NONE && !Rs2Inventory.hasItem(selectedHarpoon.getName()) && !Rs2Equipment.isWearing(selectedHarpoon.getName())) {
                     missing.add(selectedHarpoon.getName());
                 }
                 stopWithReason(missingFromBankReason(missing));
-                return;
             }
         }
     }
@@ -427,8 +457,8 @@ public class AutoFishingScript extends Script {
         int[] spotIds = selectedFish.getFishingSpot();
         try {
             return Microbot.getRs2NpcCache().query()
-                    .where(npc -> Arrays.stream(spotIds).anyMatch(id -> npc.getId() == id))
-                    .nearestOnClientThread();
+                .where(npc -> Arrays.stream(spotIds).anyMatch(id -> npc.getId() == id))
+                .nearestOnClientThread();
         } catch (RuntimeException e) {
             if (e.getMessage() != null && e.getMessage().toLowerCase().contains("interrupted waiting for client thread")) {
                 Thread.currentThread().interrupt();
@@ -440,11 +470,11 @@ public class AutoFishingScript extends Script {
 
     private List<String> getRawFishInInventory() {
         return Rs2Inventory.all().stream()
-                .map(Rs2ItemModel::getName)
-                .filter(name -> name.startsWith("Raw"))
-                .filter(name -> !isRequiredItem(selectedFish, name))
-                .distinct()
-                .collect(Collectors.toList());
+            .map(Rs2ItemModel::getName)
+            .filter(name -> name.startsWith("Raw"))
+            .filter(name -> !isRequiredItem(selectedFish, name))
+            .distinct()
+            .collect(Collectors.toList());
     }
 
     static boolean isRequiredItem(Fish fish, String name) {
@@ -455,8 +485,8 @@ public class AutoFishingScript extends Script {
         String lower = item.toLowerCase();
         return lower.contains("bait") || lower.contains("feather") || lower.contains("sandworm") || lower.contains("karambwanji");
     }
-    
-    private Rs2TileObjectModel getNearbyFireOrRange() {
+
+    private Rs2TileObjectModel getNearbyFireOrRange() { //this doesnt do ranges or stoves
         if (Thread.currentThread().isInterrupted()) {
             return null;
         }
@@ -464,7 +494,17 @@ public class AutoFishingScript extends Script {
             ObjectID.FIRE,
             ObjectID.FORESTRY_FIRE,
             ObjectID.EAGLEPEAK_CAMPFIRE_TIDY,
-            ObjectID.FIRE_COOK
+            ObjectID.FIRE_COOK,
+            ObjectID.TRAIL_WHITE_FIRE,
+            ObjectID.TRAIL_PURPLE_FIRE,
+            ObjectID.RED_FIRE,
+            ObjectID.GREEN_FIRE,
+            ObjectID.BLUE_FIRE,
+            ObjectID.FORESTRY_FIRE_RED,
+            ObjectID.FORESTRY_FIRE_GREEN,
+            ObjectID.FORESTRY_FIRE_BLUE,
+            ObjectID.FORESTRY_FIRE_WHITE,
+            ObjectID.FORESTRY_FIRE_PURPLE
         };
         try {
             return Microbot.getRs2TileObjectCache().query().withIds(fireIds).within(15).nearestOnClientThread();
@@ -484,7 +524,7 @@ public class AutoFishingScript extends Script {
 
     private boolean hasRequiredGear() {
         boolean hasTools = selectedFish.getMethod().getRequiredItems().stream()
-                .allMatch(this::hasRequiredItem);
+            .allMatch(this::hasRequiredItem);
 
         if (selectedHarpoon != HarpoonType.NONE) {
             return hasTools && (Rs2Inventory.hasItem(selectedHarpoon.getName()) || Rs2Equipment.isWearing(selectedHarpoon.getName()));
@@ -494,24 +534,24 @@ public class AutoFishingScript extends Script {
 
     private String outOfMaterialsReason() {
         List<String> consumables = selectedFish.getMethod().getRequiredItems().stream()
-                .filter(AutoFishingScript::isConsumable)
-                .collect(Collectors.toList());
+            .filter(AutoFishingScript::isConsumable)
+            .collect(Collectors.toList());
         if (consumables.isEmpty()) return null;
 
         String needed = joinNames(displayNames(consumables), "and");
         if (outOfBait) {
             if (Rs2Inventory.hasItem(ItemID.TACKLE_BOX) && consumables.stream().anyMatch(AutoFishingScript::isTackleBoxBait)) {
                 String refill = config.useBank()
-                        ? "Refill the bait, withdraw " + needed + " from your bank, or put it in your inventory"
-                        : "Refill the bait or put it in your inventory";
+                    ? "Refill the bait, withdraw " + needed + " from your bank, or put it in your inventory"
+                    : "Refill the bait or put it in your inventory";
                 return "AutoFishing stopped: out of " + needed + " (your Tackle box is empty too). " + refill + ", then start again.";
             }
             return "AutoFishing stopped: out of " + needed + ". Put more in your inventory, then start again.";
         }
 
         List<String> missing = consumables.stream()
-                .filter(item -> !hasRequiredItem(item))
-                .collect(Collectors.toList());
+            .filter(item -> !hasRequiredItem(item))
+            .collect(Collectors.toList());
         if (missing.isEmpty()) return null;
 
         List<String> sources = new ArrayList<>();
@@ -522,29 +562,29 @@ public class AutoFishingScript extends Script {
             }
         }
         return "AutoFishing stopped: no " + joinNames(sources, "or") + " in your inventory for " + selectedFish.getName()
-                + ". Add " + joinNames(displayNames(missing), "and") + " and start again.";
+            + ". Add " + joinNames(displayNames(missing), "and") + " and start again.";
     }
 
     static String missingFromBankReason(List<String> missing) {
         List<String> names = missing.stream()
-                .map(item -> joinNames(displayNames(Arrays.asList(acceptedConsumables(item))), "or"))
-                .collect(Collectors.toList());
+            .map(item -> joinNames(displayNames(Arrays.asList(acceptedConsumables(item))), "or"))
+            .collect(Collectors.toList());
         boolean single = missing.size() == 1 && !isConsumable(missing.get(0));
         return "AutoFishing stopped: could not find " + joinNames(names, "and") + " in your bank. Put " + (single ? "it" : "them")
-                + " in your bank or inventory (buy " + (single ? "one" : "some") + " if you have none), then start again.";
+            + " in your bank or inventory (buy " + (single ? "one" : "some") + " if you have none), then start again.";
     }
 
     static List<String> displayNames(List<String> items) {
         return items.stream()
-                .map(item -> item.equalsIgnoreCase("Feather") ? "Feathers" : item)
-                .collect(Collectors.toList());
+            .map(item -> item.equalsIgnoreCase("Feather") ? "Feathers" : item)
+            .collect(Collectors.toList());
     }
 
     private String bankedName(String item) {
         return Arrays.stream(acceptedConsumables(item))
-                .filter(name -> Rs2Bank.hasItem(name))
-                .findFirst()
-                .orElse(item);
+            .filter(name -> Rs2Bank.hasItem(name))
+            .findFirst()
+            .orElse(item);
     }
 
     private void countTackleBoxCast(boolean gainedXp) {
@@ -561,7 +601,7 @@ public class AutoFishingScript extends Script {
 
     private boolean fishesFromTackleBoxOnly() {
         return Rs2Inventory.hasItem(ItemID.TACKLE_BOX) && selectedFish.getMethod().getRequiredItems().stream()
-                .anyMatch(item -> isConsumable(item) && isTackleBoxBait(item) && !Rs2Inventory.hasItem(acceptedConsumables(item)));
+            .anyMatch(item -> isConsumable(item) && isTackleBoxBait(item) && !Rs2Inventory.hasItem(acceptedConsumables(item)));
     }
 
     private boolean hasRequiredItem(String item) {
@@ -631,7 +671,7 @@ public class AutoFishingScript extends Script {
         return Rs2Player.getSkillRequirement(Skill.COOKING, getCookingLevelForRaw(rawName));
     }
 
-    private int getCookingLevelForRaw(String rawName) {
+    private int getCookingLevelForRaw(String rawName) { //this should just be part of the Fish enum
         if (rawName == null) return 99;
         String lower = rawName.toLowerCase();
         if (lower.contains("shrimp") || lower.contains("anchovies") || lower.contains("sardine")) return 1;
@@ -655,6 +695,13 @@ public class AutoFishingScript extends Script {
         return 1;
     }
 
+    //used to exclude items from deposit while banking
+    private final List<Integer> extraKeepItems = List.of(
+        ItemID.TACKLE_BOX,
+        ItemID.FISH_BARREL_CLOSED,
+        ItemID.FISH_BARREL_OPEN
+    );
+
     private void activateSpec() {
         if (selectedHarpoon != HarpoonType.NONE && Rs2Combat.getSpecEnergy() >= 100) {
             Rs2Combat.setSpecState(true, 1000);
@@ -671,11 +718,12 @@ public class AutoFishingScript extends Script {
             }
             Rs2Bank.withdrawOne(itemName);
             if (sleepUntil(() -> Rs2Inventory.hasItem(itemName))) {
-                if (itemName.equalsIgnoreCase("Hammer") || itemName.equalsIgnoreCase("Knife")) {
-                    return;
+                Rs2ItemModel item = Rs2Inventory.get(itemName, true);
+                if (item != null && item.getAction("wield") != null) { //this could be expanded if we eve rneed to Wear items too
+                    if (Rs2Inventory.wield(itemName)) {
+                        sleepUntil(() -> Rs2Equipment.isWearing(itemName));
+                    }
                 }
-                Rs2Inventory.wield(itemName);
-                sleepUntil(() -> Rs2Equipment.isWearing(itemName));
             }
         } else {
             log.warn("The object '{}' was not found in the bank", itemName);
@@ -687,9 +735,9 @@ public class AutoFishingScript extends Script {
         NPCComposition composition = npcModel.getNpc().getTransformedComposition();
         if (composition == null || composition.getActions() == null) return "";
         return Arrays.stream(composition.getActions())
-                .filter(action -> action != null && actions.stream().anyMatch(a -> a.equalsIgnoreCase(action)))
-                .findFirst()
-                .orElse("");
+            .filter(action -> action != null && actions.stream().anyMatch(a -> a.equalsIgnoreCase(action)))
+            .findFirst()
+            .orElse("");
     }
 
     @Override
