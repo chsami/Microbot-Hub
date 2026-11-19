@@ -32,7 +32,7 @@ import java.awt.*;
         name = PluginConstants.DRO + "AIO Slayer",
         description = "Gets a task from any Slayer master, travels there with [Dro] Efficient Walker, fights with the matching gear, prayers and cannon, banks for supplies and returns for the next task. Krystilia Wilderness tasks are supported. Requires [Dro] Efficient Walker from the Microbot Hub.",
         tags = {"dro", "slayer", "aio", "combat", "task", "efficientwalker", "microbot"},
-        authors = {"Big L", "Dro"},
+        authors = {"droplugins"},
         version = DroSlayerPlugin.version,
         minClientVersion = "2.6.55",
         iconUrl = "https://chsami.github.io/Microbot-Hub/DroSlayerPlugin/assets/icon.png",
