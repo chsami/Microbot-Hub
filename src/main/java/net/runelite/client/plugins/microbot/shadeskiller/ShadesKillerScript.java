@@ -57,6 +57,37 @@ public class ShadesKillerScript extends Script {
         return foodAmount + " x " + foodName;
     }
 
+    enum CoffinStep {
+        REOPEN_BANK,
+        SKIP_NO_COFFIN,
+        WITHDRAW_FROM_BANK,
+        EMPTY
+    }
+
+    static CoffinStep coffinStep(boolean coffinInInventory, boolean bankOpen, boolean coffinInBank) {
+        if (coffinInInventory) return CoffinStep.EMPTY;
+        if (!bankOpen) return CoffinStep.REOPEN_BANK;
+        if (!coffinInBank) return CoffinStep.SKIP_NO_COFFIN;
+        return CoffinStep.WITHDRAW_FROM_BANK;
+    }
+
+    static int coffinDialogMissesAfter(int misses, boolean clickedCoffin, boolean dialogOpened) {
+        if (dialogOpened) return 0;
+        return clickedCoffin ? misses + 1 : misses;
+    }
+
+    static boolean shouldGiveUpEmptyingCoffin(int misses) {
+        return misses >= MAX_COFFIN_DIALOG_MISSES;
+    }
+
+    static int failedWithdrawAttemptsAfter(int attempts, boolean hasRequiredItems) {
+        return hasRequiredItems ? 0 : attempts + 1;
+    }
+
+    static boolean shouldStopAfterFailedWithdraws(int attempts) {
+        return attempts >= MAX_FAILED_WITHDRAW_ATTEMPTS;
+    }
+
     private void withdrawCoffin() {
         if (config.useCoffin()) {
             Rs2Bank.withdrawOne("coffin");
@@ -108,31 +139,38 @@ public class ShadesKillerScript extends Script {
 
     private boolean emptyCoffin() {
         if (!config.useCoffin()) return false;
-        if (!Rs2Inventory.hasItem("coffin")) {
-            if (!Rs2Bank.isOpen()) return true;
-            if (!Rs2Bank.hasItem("coffin")) {
+        boolean coffinInInventory = Rs2Inventory.hasItem("coffin");
+        boolean bankOpen = Rs2Bank.isOpen();
+        boolean coffinInBank = !coffinInInventory && bankOpen && Rs2Bank.hasItem("coffin");
+        switch (coffinStep(coffinInInventory, bankOpen, coffinInBank)) {
+            case REOPEN_BANK:
+                return true;
+            case SKIP_NO_COFFIN:
                 coffinHasItems = false;
                 Microbot.log("No coffin found in the inventory or bank, continuing the trip without it.");
                 return false;
-            }
-            Rs2Bank.depositAll();
-            Rs2Bank.withdrawOne("coffin");
-            sleepUntil(() -> Rs2Inventory.hasItem("coffin"));
+            case WITHDRAW_FROM_BANK:
+                Rs2Bank.depositAll();
+                Rs2Bank.withdrawOne("coffin");
+                sleepUntil(() -> Rs2Inventory.hasItem("coffin"));
+                break;
+            default:
+                break;
         }
         Rs2Bank.closeBank();
         sleepUntil(() -> !Rs2Bank.isOpen());
         sleep(800, 1200);
         boolean clickedCoffin = Rs2Inventory.interact("coffin", "configure");
         boolean isEmptyCoffin = sleepUntilTrue(() -> Rs2Widget.hasWidget("Empty Coffin."), 100, 3000);
+        coffinDialogMisses = coffinDialogMissesAfter(coffinDialogMisses, clickedCoffin, isEmptyCoffin);
         if (!isEmptyCoffin) {
-            if (clickedCoffin && ++coffinDialogMisses >= MAX_COFFIN_DIALOG_MISSES) {
+            if (shouldGiveUpEmptyingCoffin(coffinDialogMisses)) {
                 coffinDialogMisses = 0;
                 coffinHasItems = false;
                 Microbot.log("The coffin could not be emptied, continuing the trip without emptying it.");
             }
             return true;
         }
-        coffinDialogMisses = 0;
         Rs2Widget.clickWidget("Empty Coffin");
         boolean isMakeInterface = sleepUntilTrue(() -> Rs2Widget.hasWidget("What would you like to take?"), 100, 3000);
         if (!isMakeInterface) {
@@ -208,9 +246,8 @@ public class ShadesKillerScript extends Script {
                         if (Rs2Bank.isOpen()) {
                             boolean result = withdrawRequiredItems();
                             if (!result) return;
-                            if (sleepUntil(this::hasRequiredItemsToKillShades, 3000)) {
-                                failedWithdrawAttempts = 0;
-                            } else if (++failedWithdrawAttempts >= MAX_FAILED_WITHDRAW_ATTEMPTS) {
+                            failedWithdrawAttempts = failedWithdrawAttemptsAfter(failedWithdrawAttempts, sleepUntil(this::hasRequiredItemsToKillShades, 3000));
+                            if (shouldStopAfterFailedWithdraws(failedWithdrawAttempts)) {
                                 String missing = missingSupply(!getKeyInInventory().isEmpty(),
                                         Rs2Inventory.hasItem(config.teleportItemToShades()),
                                         Rs2Inventory.hasItem(config.teleportItemToBank()),

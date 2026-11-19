@@ -41,8 +41,17 @@ public final class ShadesKillerScriptTest
 	}
 
 	@Test
-	void missingSupplyNamesTheFirstRequirementThatIsNotCarried()
+	void bankWithoutTheSuppliesStopsAfterThreeFailedVisitsAndNamesTheSupply()
 	{
+		int attempts = 0;
+		int visits = 0;
+		while (!ShadesKillerScript.shouldStopAfterFailedWithdraws(attempts) && visits < 50)
+		{
+			attempts = ShadesKillerScript.failedWithdrawAttemptsAfter(attempts, false);
+			visits++;
+		}
+		assertEquals(3, visits);
+		assertTrue(ShadesKillerScript.shouldStopAfterFailedWithdraws(attempts));
 		assertEquals("a silver key", ShadesKillerScript.missingSupply(false, false, false, "barrows teleport", "varrock teleport", "Monkfish", 6));
 		assertEquals("barrows teleport", ShadesKillerScript.missingSupply(true, false, false, "barrows teleport", "varrock teleport", "Monkfish", 6));
 		assertEquals("varrock teleport", ShadesKillerScript.missingSupply(true, true, false, "barrows teleport", "varrock teleport", "Monkfish", 6));
@@ -50,9 +59,46 @@ public final class ShadesKillerScriptTest
 	}
 
 	@Test
-	void retryLimitsAreBounded()
+	void successfulWithdrawResetsTheFailedVisitCount()
 	{
-		assertEquals(3, ShadesKillerScript.MAX_FAILED_WITHDRAW_ATTEMPTS);
-		assertEquals(3, ShadesKillerScript.MAX_COFFIN_DIALOG_MISSES);
+		int attempts = ShadesKillerScript.failedWithdrawAttemptsAfter(0, false);
+		attempts = ShadesKillerScript.failedWithdrawAttemptsAfter(attempts, false);
+		assertFalse(ShadesKillerScript.shouldStopAfterFailedWithdraws(attempts));
+		attempts = ShadesKillerScript.failedWithdrawAttemptsAfter(attempts, true);
+		assertEquals(0, attempts);
+		attempts = ShadesKillerScript.failedWithdrawAttemptsAfter(attempts, false);
+		assertFalse(ShadesKillerScript.shouldStopAfterFailedWithdraws(attempts));
+	}
+
+	@Test
+	void missingCoffinIsDecidedOnlyFromAnOpenBank()
+	{
+		assertEquals(ShadesKillerScript.CoffinStep.SKIP_NO_COFFIN, ShadesKillerScript.coffinStep(false, true, false));
+		assertEquals(ShadesKillerScript.CoffinStep.REOPEN_BANK, ShadesKillerScript.coffinStep(false, false, false));
+		assertEquals(ShadesKillerScript.CoffinStep.REOPEN_BANK, ShadesKillerScript.coffinStep(false, false, true));
+		assertEquals(ShadesKillerScript.CoffinStep.WITHDRAW_FROM_BANK, ShadesKillerScript.coffinStep(false, true, true));
+		assertEquals(ShadesKillerScript.CoffinStep.EMPTY, ShadesKillerScript.coffinStep(true, false, false));
+		assertEquals(ShadesKillerScript.CoffinStep.EMPTY, ShadesKillerScript.coffinStep(true, true, false));
+	}
+
+	@Test
+	void coffinDialogThatNeverOpensIsGivenUpAfterThreeClicks()
+	{
+		int misses = 0;
+		int clicks = 0;
+		while (!ShadesKillerScript.shouldGiveUpEmptyingCoffin(misses) && clicks < 50)
+		{
+			misses = ShadesKillerScript.coffinDialogMissesAfter(misses, true, false);
+			clicks++;
+		}
+		assertEquals(3, clicks);
+	}
+
+	@Test
+	void coffinDialogMissesOnlyCountDispatchedClicksAndResetWhenTheDialogOpens()
+	{
+		assertEquals(2, ShadesKillerScript.coffinDialogMissesAfter(2, false, false));
+		assertFalse(ShadesKillerScript.shouldGiveUpEmptyingCoffin(ShadesKillerScript.coffinDialogMissesAfter(2, false, false)));
+		assertEquals(0, ShadesKillerScript.coffinDialogMissesAfter(2, true, true));
 	}
 }
