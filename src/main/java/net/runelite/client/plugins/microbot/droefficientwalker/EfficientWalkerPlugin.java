@@ -43,6 +43,7 @@ import java.util.function.Supplier;
     name = PluginConstants.DRO + "Efficient Walker",
     description = "Efficient Microbot webwalker",
     tags = {"walking", "pathfinding", "microbot"},
+    authors = {"droplugins"},
     enabledByDefault = PluginConstants.DEFAULT_ENABLED,
     version = "1.12.69",
     iconUrl = "https://chsami.github.io/Microbot-Hub/EfficientWalkerPlugin/assets/icon.png",
