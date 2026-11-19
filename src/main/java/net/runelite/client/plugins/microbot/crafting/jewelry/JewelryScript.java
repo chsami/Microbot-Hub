@@ -459,7 +459,11 @@ public class JewelryScript extends Script {
     }
     
     private boolean shouldBank() {
-        return hasFinishedCutting() || hasFinishedCrafting() || hasFinishedAlching() || hasFinishedEnchanting();
+        return shouldBank(state, hasFinishedCutting() || hasFinishedCrafting(), hasFinishedAlching() || hasFinishedEnchanting());
+    }
+
+    static boolean shouldBank(State state, boolean finishedMaterials, boolean finishedCompletionAction) {
+        return finishedMaterials || (state == State.ALCHING && finishedCompletionAction);
     }
     
     private boolean hasFinishedCutting() {

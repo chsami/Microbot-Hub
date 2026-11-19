@@ -1,5 +1,6 @@
 package net.runelite.client.plugins.microbot.crafting.jewelry;
 
+import net.runelite.client.plugins.microbot.crafting.jewelry.enums.State;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -11,6 +12,27 @@ class JewelryScriptTest {
     @Test
     void missingAntibanCategoryIsNotBusy() {
         assertFalse(JewelryScript.isCategoryBusy(null));
+    }
+
+    @Test
+    void wornStaffWithoutNotedJewelryDoesNotBankOutsideAlching() {
+        assertFalse(JewelryScript.shouldBank(State.BANKING, false, true));
+        assertFalse(JewelryScript.shouldBank(State.CRAFTING, false, true));
+        assertFalse(JewelryScript.shouldBank(State.CUTTING, false, true));
+        assertFalse(JewelryScript.shouldBank(null, false, true));
+    }
+
+    @Test
+    void finishedAlchingBanksWhileAlching() {
+        assertTrue(JewelryScript.shouldBank(State.ALCHING, false, true));
+        assertFalse(JewelryScript.shouldBank(State.ALCHING, false, false));
+    }
+
+    @Test
+    void finishedMaterialsBankInAnyState() {
+        assertTrue(JewelryScript.shouldBank(State.CRAFTING, true, false));
+        assertTrue(JewelryScript.shouldBank(State.CUTTING, true, false));
+        assertTrue(JewelryScript.shouldBank(null, true, false));
     }
 
     @Test
