@@ -31,8 +31,6 @@ import org.slf4j.LoggerFactory;
 import net.runelite.client.plugins.microbot.drocolosseumprayers.plugins.common.Commands;
 import net.runelite.client.plugins.microbot.drocolosseumprayers.plugins.common.State;
 import net.runelite.client.plugins.microbot.drocolosseumprayers.plugins.common.NpcSpawnDiagnostics;
-import net.runelite.client.plugins.microbot.drocolosseumprayers.plugins.inferno.InfernoCommands;
-import net.runelite.client.plugins.microbot.drocolosseumprayers.plugins.inferno.InfernoState;
 import net.runelite.client.plugins.microbot.drocolosseumprayers.execution.LocalColosseumSession;
 import net.runelite.client.plugins.microbot.drocolosseumprayers.execution.Events;
 import net.runelite.client.plugins.microbot.drocolosseumprayers.execution.Messages;
@@ -49,7 +47,7 @@ import net.runelite.client.plugins.microbot.drocolosseumprayers.execution.Messag
     isExternal = PluginConstants.IS_EXTERNAL)
 public class DroColosseumPrayersPlugin extends Plugin implements ArenaActivity
 {
-    static final String version = "1.0.100";
+    static final String version = "1.0.101";
 	private static final Logger log = LoggerFactory.getLogger(DroColosseumPrayersPlugin.class);
 
 	@Inject
@@ -84,13 +82,11 @@ public class DroColosseumPrayersPlugin extends Plugin implements ArenaActivity
     @Override public ArenaHud arenaHud(){return active||arenaRunProtected()?hud:null;}
 
     void updateHud(boolean inside){
-        if(!inside){hud=null;hudTracker=null;picked=java.util.List.of();modifierOffers=java.util.List.of();return;}
+        if(!inside){hud=null;hudTracker=null;return;}
         if(!active&&!arenaRunProtected())return;
         if(hudTracker==null)hudTracker=new ArenaHudTracker(ArenaProduct.COLOSSEUM,System.currentTimeMillis());
         ColosseumDecisionEngine engine=localSession!=null?decisionEngine:null;
-        java.util.Map<String,Integer> taken=new java.util.HashMap<>(engine==null?java.util.Map.of():engine.activeModifiers());
-        for(String key:picked)taken.merge(key,1,Math::max);
-        hud=hudTracker.snapshot(client,status(),engine==null?null:engine.liveState(),taken);
+        hud=hudTracker.snapshot(client,status(),engine==null?null:engine.liveState(),java.util.Map.of());
     }
     private void enforceInputLease(){
         if((!active||arenaFailure()!=null)&&!arenaRunProtected()){if(inputLease!=null){inputLease.close();inputLease=null;}return;}
@@ -164,9 +160,6 @@ public class DroColosseumPrayersPlugin extends Plugin implements ArenaActivity
     protected String configGroup(){return DroColosseumPrayersConfig.PRAYERS_GROUP;}
     protected DroColosseumPrayersConfig config(){return config;}
 
-    protected boolean prayersOnly(){return true;}
-    protected boolean manualMovement(){return false;}
-
     protected ArenaFightInput fightInput(){return ArenaFightInput.INVOKES;}
 
 
@@ -226,20 +219,17 @@ public class DroColosseumPrayersPlugin extends Plugin implements ArenaActivity
 
     private void connect(){
         long expected=session;
-        Commands common=new Commands(client,this::inputAllowed,ArenaProduct.COLOSSEUM).prayersOnly(this::prayersOnly);commands=common;
+        Commands common=new Commands(client,this::inputAllowed,ArenaProduct.COLOSSEUM);commands=common;
         localSession=new LocalColosseumSession(task->{if(expected==session)task.run();},
             line->log.info("[Colosseum local] {}",line),this::inputAllowed,decisionEngine=new ColosseumDecisionEngine())
-            .input(actions).fightInput(this::fightInput).prayersOnly(this::prayersOnly).manualMovement(this::manualMovement)
+            .input(actions).fightInput(this::fightInput)
             .common(new State(client,npcDiagnostics),common)
-            .inferno(new InfernoState(client),new InfernoCommands(client,this::inputAllowed))
             .settings(runSettings());
         localSession.start();
     }
 
     private Map<String,Object> runSettings(){
-        Map<String,Object> options=new java.util.LinkedHashMap<>();
-        options.put("prayersOnly",prayersOnly());options.put("manualMovement",manualMovement());
-        return options;
+        return Map.of();
     }
 
     private boolean infernoRunning(){return false;}
@@ -251,12 +241,6 @@ public class DroColosseumPrayersPlugin extends Plugin implements ArenaActivity
         hud=null;terminalStatus="Colosseum stopped: local Inferno started";return true;
     }
 
-    private volatile java.util.List<String> picked=java.util.List.of(),modifierOffers=java.util.List.of();
-    @Subscribe public void onScriptPreFired(net.runelite.api.events.ScriptPreFired event){
-        if(event.getScriptId()!=ColosseumModifierIcons.SCRIPT_MODIFIER_SELECT_INIT||event.getScriptEvent()==null)return;
-        Object[] args=event.getScriptEvent().getArguments();
-        if(args!=null)modifierOffers=ColosseumModifierIcons.offers(args);
-    }
     @Subscribe public void onClientTick(net.runelite.api.events.ClientTick event){
         if(overlay!=null)overlay.capture(client);
         if(stopForConflict())return;
@@ -292,28 +276,10 @@ public class DroColosseumPrayersPlugin extends Plugin implements ArenaActivity
 
         if (localSession==null) connect();
         if (localSession!=null) {
-            localSession.spellState(net.runelite.client.plugins.microbot.util.magic.Rs2Magic.isSpellbook(
-                net.runelite.client.plugins.microbot.util.magic.Rs2Spellbook.ANCIENT),localBloodAutocastLevel());
             localSession.observePrayers(client);localSession.onGameTick();
         }
 
 	}
-
-    private int localBloodAutocastLevel(){
-        if(!net.runelite.client.plugins.microbot.util.magic.Rs2Magic.isSpellbook(
-            net.runelite.client.plugins.microbot.util.magic.Rs2Spellbook.ANCIENT))return 0;
-        var spell=net.runelite.client.plugins.microbot.util.magic.Rs2Magic.getCurrentAutoCastSpell();
-        if(spell==null||client.getVarbitValue(net.runelite.api.Varbits.DEFENSIVE_CASTING_MODE)!=0)return 0;
-        switch(spell){
-            case BLOOD_RUSH:case BLOOD_BURST:case BLOOD_BLITZ:case BLOOD_BARRAGE:return spell.getRequiredLevel();
-            default:return 0;
-        }
-    }
-
-    static final String SOL="Sol Heredit";
-    private long nextSolContinue;
-
-
 
     @Subscribe public void onActorDeath(net.runelite.api.events.ActorDeath event) {
         if(!arenaRunProtected())return;
@@ -363,11 +329,6 @@ public class DroColosseumPrayersPlugin extends Plugin implements ArenaActivity
 	@Subscribe
 	public void onNpcDespawned(NpcDespawned e)
 	{
-        if(e.getNpc().getId()==ColosseumModifierIcons.MINIMUS&&!modifierOffers.isEmpty()){
-            String key=ColosseumModifierIcons.picked(modifierOffers,client.getVarbitValue(ColosseumModifierIcons.VARBIT_MODIFIER_SELECTED));
-            if(key!=null&&!picked.contains(key)){var merged=new java.util.ArrayList<>(picked);merged.add(key);picked=java.util.List.copyOf(merged);}
-            modifierOffers=java.util.List.of();
-        }
 		if (npcDiagnostics != null) npcDiagnostics.despawned(e.getNpc());
 		Events events = events();
 		if (events != null)
@@ -462,7 +423,6 @@ public class DroColosseumPrayersPlugin extends Plugin implements ArenaActivity
         String reason=!active?"ACTIVITY_STOPPED":!inside?"OUTSIDE_ARENA":paused?"PAUSED":human?"HUMAN_INPUT":current==null||!current.running()?"LOCAL_NOT_READY":"LIVE";
         Map<String,Object> values=new java.util.LinkedHashMap<>(Map.of("event","arena_input_status","product","colosseum","session",current==null?"NONE":current.running()?"LOCAL_READY":"LOCAL_STOPPED","live",reason.equals("LIVE"),"reason",reason,"paused",paused,"humanInput",human,"inside",inside,"fightInput","INVOKES"));
 
-        values.put("manualMovement",manualMovement());values.put("prayersOnly",prayersOnly());
         values.put("version",engineVersion());
         if(values.equals(previousStatus))return;previousStatus=values;
         try{var bus=Microbot.getEventBus();if(bus!=null)bus.post(new net.runelite.client.plugins.microbot.drocolosseumprayers.ArenaDiagnostic(values));}catch(RuntimeException ignored){}

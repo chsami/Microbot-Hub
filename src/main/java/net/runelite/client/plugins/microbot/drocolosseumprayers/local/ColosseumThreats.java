@@ -42,7 +42,7 @@ final class ColosseumThreats
     private ColosseumMarch.Result march(ColosseumSnapshot f,ColosseumCollision collision,Tile tile)
     {
         if(marchTick!=f.tick){marchOne.clear();marchTick=f.tick;}
-        return marchOne.computeIfAbsent(tile,t->ColosseumMarch.run(f,collision,null,t,List.of(),1));
+        return marchOne.computeIfAbsent(tile, t -> ColosseumMarch.run(f, collision, t));
     }
     void reset(){clocks.clear();playerTick=-1;playerDx=playerDy=0;forecastCollision=null;playerForecast=null;marchOne.clear();marchTick=-1;}
     void observe(ColosseumSnapshot f)
@@ -261,17 +261,5 @@ final class ColosseumThreats
             if(closing||passing||freed||collision.melee(n,tile))return true;
         }
         return false;
-    }
-    double danger(ColosseumSnapshot f,ColosseumCollision collision,Tile tile)
-    {
-        double danger=0;
-        for(int ahead=0;ahead<4;ahead++)
-        {
-            Map<String,Integer> weights=new HashMap<>();
-            for(Hit h:hits(f,collision,tile,ahead))weights.merge(h.prayer,h.weight,Integer::sum);
-            int total=0,best=0;for(int weight:weights.values()){total+=weight;best=Math.max(best,weight);}
-            danger+=(total-best)*4.0/(ahead+1)+total*.04;
-        }
-        return danger;
     }
 }
