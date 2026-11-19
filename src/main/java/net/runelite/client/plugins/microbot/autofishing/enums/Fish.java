@@ -3,6 +3,7 @@ package net.runelite.client.plugins.microbot.autofishing.enums;
 import lombok.Getter;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.game.FishingSpot;
+import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -33,7 +34,7 @@ public enum Fish {
     SHARK("Shark", List.of("Raw shark", "Shark", "Burnt shark"), FishingMethod.HARPOON, FishingSpot.SHARK.getIds());
 
     private final String name;
-    private final List<String> itemNames; // raw, cook and burnt states
+    private final List<String> itemNames; // raw, cook and burnt states //derive burnt from the cooked name toLower, theres no need to explicitly define it
     private final FishingMethod method;
     private final int[] fishingSpot;
 
@@ -69,6 +70,9 @@ public enum Fish {
         int minDistance = Integer.MAX_VALUE;
 
         for (FishingSpotLocation location : availableLocations) {
+            if (needsExclusion(location)) {
+                continue;
+            }
             for (WorldPoint point : location.getLocations()) {
                 int distance = playerLocation.distanceTo(point);
                 if (distance < minDistance) {
@@ -79,6 +83,16 @@ public enum Fish {
         }
 
         return closestPoint;
+    }
+
+    private boolean needsExclusion(FishingSpotLocation spot) {
+        if (spot == FishingSpotLocation.DRAYNOR_VILLAGE) { //lvl 7 dark wiz
+            if (Rs2Player.getCombatLevel() < 15) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private FishingSpot getFishingSpotType() {
