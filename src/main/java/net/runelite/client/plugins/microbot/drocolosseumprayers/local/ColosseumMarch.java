@@ -29,7 +29,13 @@ final class ColosseumMarch
         return n.alive() && n.enemy() && n.role != Role.FLARE && n.role != Role.BEES && !marches(n) && (WARBAND_BLOCKS || !n.warband());
     }
 
+    private static boolean lingers(Npc n)
+    {
+        return CORPSES && n.index >= 0 && n.dead && n.role != Role.FLARE && n.role != Role.PILLAR && n.role != Role.MINIMUS && n.role != Role.SPECTATOR && (WARBAND_BLOCKS || !n.warband());
+    }
+
     static final boolean WARBAND_BLOCKS = "true".equals(System.getProperty("colo.marchWarband"));
+    static final boolean CORPSES = !"false".equals(System.getProperty("colo.marchCorpses"));
 
     static Result run(ColosseumSnapshot f, ColosseumCollision collision, Tile start)
     {
@@ -43,7 +49,7 @@ final class ColosseumMarch
                 order.add(n);
                 at.put(n.index, new Tile(n.x, n.y));
             }
-            else if (stands(n))
+            else if (stands(n) || lingers(n))
             {
                 at.put(n.index, new Tile(n.x, n.y));
             }

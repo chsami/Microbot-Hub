@@ -14,7 +14,7 @@ import net.runelite.client.plugins.microbot.drocolosseumprayers.execution.Messag
 
 final class StateMessage
 {
-	private static final Set<String> SAME_SECTIONS = Set.of("prayers", "equipment");
+	private static final Set<String> SAME_SECTIONS = Set.of("prayers", "equipment", "widgets");
 	private static final String[] SKILLS = {"hitpoints", "prayer", "ranged", "magic", "attack", "strength", "defence"};
 
 	private static final Gson TREE = new Gson();
@@ -37,7 +37,7 @@ final class StateMessage
 	synchronized void welcome(Set<String> sections, int[] area, int[] screen, int[] widgets)
 	{
 		this.sections = new java.util.HashSet<>(sections);
-		this.sections.retainAll(Set.of("player", "npcs", "prayers", "events", "projectiles", "equipment", "collision"));
+		this.sections.retainAll(Set.of("player", "npcs", "prayers", "events", "projectiles", "equipment", "collision", "widgets"));
 		this.area = area;
 		this.widgets = widgets;
 		lastSent.clear();
@@ -87,6 +87,20 @@ final class StateMessage
 		if (sections.contains("equipment"))
 		{
 			section(s, same, "equipment", equipment());
+		}
+		if (sections.contains("widgets") && state != null)
+		{
+			JsonArray list = new JsonArray();
+			for (int id : widgets)
+			{
+				if (state.widgetVisible(id))
+				{
+					JsonObject obj = new JsonObject();
+					obj.addProperty("id", id);
+					list.add(obj);
+				}
+			}
+			section(s, same, "widgets", list);
 		}
 		if (sections.contains("collision"))
 		{

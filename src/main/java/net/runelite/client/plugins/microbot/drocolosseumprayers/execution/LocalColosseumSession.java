@@ -27,7 +27,7 @@ import net.runelite.client.plugins.microbot.drocolosseumprayers.ArenaDiagnostic;
 public final class LocalColosseumSession implements AutoCloseable
 {
     private static final Gson SNAPSHOT_JSON = new GsonBuilder().serializeNulls().disableHtmlEscaping().create();
-    private static final Set<String> SECTIONS = Set.of("player", "npcs", "prayers", "events", "projectiles", "equipment", "collision");
+    private static final Set<String> SECTIONS = Set.of("player", "npcs", "prayers", "events", "projectiles", "equipment", "collision", "widgets");
     private final Events events = new Events();
     private final StateMessage stateMessage = new StateMessage();
     private final CommandRunner runner;
@@ -124,7 +124,7 @@ public final class LocalColosseumSession implements AutoCloseable
         stop();
         lastEnd = null;
         worker.start(options);
-        stateMessage.welcome(SECTIONS, new int[]{1792, 3072, 1855, 3135}, null, new int[0]);
+        stateMessage.welcome(SECTIONS, new int[]{1792, 3072, 1855, 3135}, null, new int[]{56688655, 56688656, 56688657});
         running = true;
         events.collect(true);
 

@@ -120,6 +120,12 @@ public class State
         return levels;
     }
 
+    public boolean widgetVisible(int id)
+    {
+        net.runelite.api.widgets.Widget w = client.getWidget(id);
+        return w != null && !w.isHidden();
+    }
+
 	public int maxHp()
 	{
 		return client.getRealSkillLevel(Skill.HITPOINTS);

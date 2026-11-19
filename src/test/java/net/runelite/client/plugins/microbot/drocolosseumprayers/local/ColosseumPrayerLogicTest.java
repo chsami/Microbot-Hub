@@ -1,6 +1,7 @@
 package net.runelite.client.plugins.microbot.drocolosseumprayers.local;
 
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -75,7 +76,19 @@ public class ColosseumPrayerLogicTest
 
         raw.add("npcs", npcs != null ? npcs : new JsonArray());
         raw.add("equipment", new JsonArray());
-        raw.add("events", events != null ? events : new JsonArray());
+        JsonArray ev = new JsonArray();
+        if (wave > 0)
+        {
+            JsonObject chat = new JsonObject();
+            chat.addProperty("e", "chat");
+            chat.addProperty("text", "Wave: " + wave);
+            ev.add(chat);
+        }
+        if (events != null)
+        {
+            for (JsonElement e : events) ev.add(e);
+        }
+        raw.add("events", ev);
         raw.add("projectiles", new JsonArray());
         raw.add("widgets", widgets != null ? widgets : new JsonArray());
 
@@ -284,17 +297,17 @@ public class ColosseumPrayerLogicTest
     @Test
     public void testOffensivePrayersFlickedOnAttackTickAndOffOnNonAttack()
     {
-        // Player is wearing a blowpipe (slot 3, id 12926, speed 2)
+        // Player is wearing an Abyssal whip (slot 3, 4-tick weapon)
         JsonObject snap1 = baseSnapshot(10, 5, List.of("PROTECT_FROM_MISSILES"), new JsonArray(), null, null);
         JsonObject player = snap1.getAsJsonObject("player");
         player.addProperty("interacting", 1);
-        player.addProperty("anim", 5061); // Blowpipe attack anim
+        player.addProperty("anim", 1658); // Whip attack anim
 
         JsonArray eq = snap1.getAsJsonArray("equipment");
         JsonObject weapon = new JsonObject();
         weapon.addProperty("slot", 3);
-        weapon.addProperty("id", 12926);
-        weapon.addProperty("name", "Toxic blowpipe");
+        weapon.addProperty("id", 4151);
+        weapon.addProperty("name", "Abyssal whip");
         eq.add(weapon);
 
         JsonArray npcs = snap1.getAsJsonArray("npcs");
@@ -303,39 +316,156 @@ public class ColosseumPrayerLogicTest
         JsonObject animEvent = new JsonObject();
         animEvent.addProperty("e", "anim");
         animEvent.addProperty("actor", "player");
-        animEvent.addProperty("anim", 5061);
+        animEvent.addProperty("anim", 1658);
         snap1.getAsJsonArray("events").add(animEvent);
 
-        // Tick 10: attack anim observed -> RIGOUR turns ON
+        // Tick 10: attack anim 1658 observed -> PIETY turns ON for the attack tick
         List<JsonObject> d10 = engine.decide(snap1);
-        boolean rigourOn = false;
-        for (JsonObject cmd : d10)
-        {
-            JsonObject args = cmd.getAsJsonObject("args");
-            if ("RIGOUR".equals(args.get("prayer").getAsString()) && args.get("on").getAsBoolean())
-            {
-                rigourOn = true;
-            }
-        }
-        assertTrue(rigourOn, "Rigour should turn ON for the attack tick");
+        boolean pietyOn = d10.stream().anyMatch(c ->
+            "PIETY".equals(c.getAsJsonObject("args").get("prayer").getAsString()) && c.getAsJsonObject("args").get("on").getAsBoolean());
+        assertTrue(pietyOn, "Piety should turn ON for the attack tick");
 
-        // Tick 11: non-attack tick (blowpipe speed 2, elapsed = 1) -> RIGOUR turns OFF
-        JsonObject snap2 = baseSnapshot(11, 5, List.of("PROTECT_FROM_MISSILES", "RIGOUR"), npcs, null, null);
-        JsonObject player2 = snap2.getAsJsonObject("player");
-        player2.addProperty("interacting", 1);
+        // Tick 11: elapsed = 1 (speed 4) -> PIETY turns OFF
+        JsonObject snap2 = baseSnapshot(11, 5, List.of("PROTECT_FROM_MISSILES", "PIETY"), npcs, null, null);
+        snap2.getAsJsonObject("player").addProperty("interacting", 1);
         snap2.get("equipment").getAsJsonArray().add(weapon);
-
         List<JsonObject> d11 = engine.decide(snap2);
-        boolean rigourOff = false;
-        for (JsonObject cmd : d11)
+        boolean pietyOff = d11.stream().anyMatch(c ->
+            "PIETY".equals(c.getAsJsonObject("args").get("prayer").getAsString()) && !c.getAsJsonObject("args").get("on").getAsBoolean());
+        assertTrue(pietyOff, "Piety should turn OFF on tick 11 (elapsed 1 of 4)");
+
+        // Tick 12: elapsed = 2 -> PIETY stays OFF
+        JsonObject snap3 = baseSnapshot(12, 5, List.of("PROTECT_FROM_MISSILES"), npcs, null, null);
+        snap3.getAsJsonObject("player").addProperty("interacting", 1);
+        snap3.get("equipment").getAsJsonArray().add(weapon);
+        List<JsonObject> d12 = engine.decide(snap3);
+        boolean pietyStayedOff = d12.stream().noneMatch(c ->
+            "PIETY".equals(c.getAsJsonObject("args").get("prayer").getAsString()) && c.getAsJsonObject("args").get("on").getAsBoolean());
+        assertTrue(pietyStayedOff, "Piety should stay OFF on tick 12 (elapsed 2 of 4)");
+
+        // Tick 13: elapsed = 3 (speed - 1) -> PIETY turns ON in advance of the attack roll
+        JsonObject snap4 = baseSnapshot(13, 5, List.of("PROTECT_FROM_MISSILES"), npcs, null, null);
+        snap4.getAsJsonObject("player").addProperty("interacting", 1);
+        snap4.get("equipment").getAsJsonArray().add(weapon);
+        List<JsonObject> d13 = engine.decide(snap4);
+        boolean pietyTurnedOnAtAdvance = d13.stream().anyMatch(c ->
+            "PIETY".equals(c.getAsJsonObject("args").get("prayer").getAsString()) && c.getAsJsonObject("args").get("on").getAsBoolean());
+        assertTrue(pietyTurnedOnAtAdvance, "Piety should turn ON on tick 13 (speed - 1) in advance of next attack");
+
+        // Tick 14: elapsed = 4 (attack roll tick) -> PIETY stays ON
+        JsonObject snap5 = baseSnapshot(14, 5, List.of("PROTECT_FROM_MISSILES", "PIETY"), npcs, null, null);
+        snap5.getAsJsonObject("player").addProperty("interacting", 1);
+        snap5.get("equipment").getAsJsonArray().add(weapon);
+        List<JsonObject> d14 = engine.decide(snap5);
+        boolean pietyStayedOnAtAttack = d14.stream().noneMatch(c ->
+            "PIETY".equals(c.getAsJsonObject("args").get("prayer").getAsString()) && !c.getAsJsonObject("args").get("on").getAsBoolean());
+        assertTrue(pietyStayedOnAtAttack, "Piety should stay ON on tick 14 (attack launch tick)");
+    }
+
+    @Test
+    public void testEatingOrDrinkingDoesNotTriggerOffensivePrayer()
+    {
+        engine.reset();
+        JsonObject snap = baseSnapshot(10, 5, List.of(), new JsonArray(), null, null);
+        JsonObject player = snap.getAsJsonObject("player");
+        player.addProperty("anim", 829); // Eating / drinking potion anim
+
+        JsonObject animEvent = new JsonObject();
+        animEvent.addProperty("e", "anim");
+        animEvent.addProperty("actor", "player");
+        animEvent.addProperty("anim", 829);
+        snap.getAsJsonArray("events").add(animEvent);
+
+        List<JsonObject> decisions = engine.decide(snap);
+        boolean offensiveTriggered = decisions.stream().anyMatch(c -> {
+            JsonObject args = c.getAsJsonObject("args");
+            return args != null && args.has("prayer") && !args.get("prayer").getAsString().startsWith("PROTECT_");
+        });
+        assertFalse(offensiveTriggered, "Eating or drinking must not trigger offensive prayer");
+    }
+
+    @Test
+    public void testWaveStartProtectionTable()
+    {
+        int[] magicWaves = {1, 4, 8, 11};
+        for (int w : magicWaves)
         {
-            JsonObject args = cmd.getAsJsonObject("args");
-            if ("RIGOUR".equals(args.get("prayer").getAsString()) && !args.get("on").getAsBoolean())
+            engine.reset();
+            JsonArray widgets = new JsonArray();
+            JsonObject widget = new JsonObject();
+            widget.addProperty("id", 56688655);
+            widgets.add(widget);
+            engine.decide(baseSnapshot(10, w - 1, List.of(), new JsonArray(), widgets, null));
+
+            JsonArray npcs = new JsonArray();
+            npcs.add(createNpc(1, 12810, "Fremennik Warband", 1824, 3108, 1, -1, -1));
+            engine.decide(baseSnapshot(11, w, List.of(), npcs, new JsonArray(), null));
+
+            for (int t = 13; t <= 17; t++)
             {
-                rigourOff = true;
+                JsonObject snap = baseSnapshot(t, w, List.of(), npcs, new JsonArray(), null);
+                List<JsonObject> plan = engine.decide(snap);
+                boolean hasMagic = plan.stream().anyMatch(c ->
+                    "PROTECT_FROM_MAGIC".equals(c.getAsJsonObject("args").get("prayer").getAsString())
+                        && c.getAsJsonObject("args").get("on").getAsBoolean());
+                assertTrue(hasMagic, "Wave " + w + " tick " + t + " (launchAge " + (t - 11) + ") should protect magic");
             }
         }
-        assertTrue(rigourOff, "Rigour should turn OFF on non-attack ticks");
+
+        int[] missileWaves = {2, 3, 5, 6, 7, 9};
+        for (int w : missileWaves)
+        {
+            engine.reset();
+            JsonArray widgets = new JsonArray();
+            JsonObject widget = new JsonObject();
+            widget.addProperty("id", 56688655);
+            widgets.add(widget);
+            engine.decide(baseSnapshot(10, w - 1, List.of(), new JsonArray(), widgets, null));
+
+            JsonArray npcs = new JsonArray();
+            npcs.add(createNpc(1, 12810, "Fremennik Warband", 1824, 3108, 1, -1, -1));
+            engine.decide(baseSnapshot(11, w, List.of(), npcs, new JsonArray(), null));
+
+            for (int t = 13; t <= 17; t++)
+            {
+                JsonObject snap = baseSnapshot(t, w, List.of(), npcs, new JsonArray(), null);
+                List<JsonObject> plan = engine.decide(snap);
+                boolean hasMissiles = plan.stream().anyMatch(c ->
+                    "PROTECT_FROM_MISSILES".equals(c.getAsJsonObject("args").get("prayer").getAsString())
+                        && c.getAsJsonObject("args").get("on").getAsBoolean());
+                assertTrue(hasMissiles, "Wave " + w + " tick " + t + " (launchAge " + (t - 11) + ") should protect missiles");
+            }
+        }
+    }
+
+    @Test
+    public void testCorpseBlocksMarchingJaguar()
+    {
+        // Player at (1824, 3104)
+        // Dead corpse at (1824, 3105)
+        // Live Jaguar Warrior (size 2, id 12814) at (1824, 3106)
+        JsonArray npcs = new JsonArray();
+        JsonObject corpse = new JsonObject();
+        corpse.addProperty("index", 1);
+        corpse.addProperty("id", 12811);
+        corpse.addProperty("name", "Fremennik Warband");
+        corpse.addProperty("tx", 1824);
+        corpse.addProperty("ty", 3105);
+        corpse.addProperty("size", 1);
+        corpse.addProperty("dead", true);
+        corpse.addProperty("hpRatio", 0);
+        corpse.addProperty("hpScale", 100);
+        npcs.add(corpse);
+
+        JsonObject jaguar = createNpc(2, 12814, "Jaguar Warrior", 1824, 3106, 2, -1, -1);
+        npcs.add(jaguar);
+
+        JsonObject snap = baseSnapshot(10, 1, List.of(), npcs, null, null);
+        ColosseumSnapshot f = new ColosseumSnapshot(snap);
+        ColosseumCollision collision = new ColosseumCollision(f);
+
+        ColosseumMarch.Result r = ColosseumMarch.run(f, collision, new ColosseumCollision.Tile(1824, 3104));
+        assertFalse(r.reach.contains(2), "Jaguar Warrior should be blocked by the corpse from reaching the player");
     }
 
     @Test

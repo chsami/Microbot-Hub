@@ -17,6 +17,9 @@ public final class ColosseumDecisionEngine
     private long previousTick = -1;
     private int wave;
     private boolean waveFinished;
+    private boolean modifierWasVisible;
+    private long modifierClosed = -1000;
+    private int enteringWave;
     private long lastAttackTick = -1000;
     private int lastPlayerAnim = -1;
     private static final Pattern WAVE = Pattern.compile("(?i)wave\\s*:?\\s+(\\d+)");
@@ -47,6 +50,9 @@ public final class ColosseumDecisionEngine
         previousTick = -1;
         wave = 0;
         waveFinished = false;
+        modifierWasVisible = false;
+        modifierClosed = -1000;
+        enteringWave = 0;
         lastAttackTick = -1000;
         lastPlayerAnim = -1;
     }
@@ -129,16 +135,54 @@ public final class ColosseumDecisionEngine
 
         ColosseumCollision collision = new ColosseumCollision(f);
         Tile current = new Tile(f.x, f.y);
+        boolean modifierScreen = hasModifierScreen(f);
+        if (modifierWasVisible && !modifierScreen)
+        {
+            modifierClosed = f.tick;
+            if (waveFinished)
+            {
+                enteringWave = wave + 1;
+            }
+            else if (enteringWave == 0)
+            {
+                enteringWave = Math.max(wave, 1);
+            }
+        }
+        modifierWasVisible = modifierScreen;
 
         boolean hostiles = f.npcs.stream().anyMatch(Npc::enemy);
-        if (!hostiles)
+        if (hostiles && (f.tick - modifierClosed > 10 || enteringWave == 0))
+        {
+            if (wave > 0 && enteringWave != wave)
+            {
+                modifierClosed = f.tick;
+                enteringWave = wave;
+            }
+        }
+
+        if (modifierScreen)
+        {
+            setProtection(plan, f, null, true);
+            status = "Between waves: modifier screen";
+        }
+        else if (!hostiles)
         {
             setProtection(plan, f, null, true);
             status = "Between waves";
         }
         else
         {
+            long launchAge = f.tick - modifierClosed;
             String protection = threats.protection(f, collision, current);
+
+            if (enteringWave >= 1 && enteringWave <= 11 && launchAge >= 2 && launchAge <= 6 && f.y <= 3112)
+            {
+                if (enteringWave == 1 || enteringWave == 4 || enteringWave == 8 || enteringWave == 11)
+                    protection = "PROTECT_FROM_MAGIC";
+                else if (enteringWave != 10)
+                    protection = "PROTECT_FROM_MISSILES";
+            }
+
             setProtection(plan, f, protection, false);
             status = protectionStatus(protection);
         }
@@ -168,8 +212,14 @@ public final class ColosseumDecisionEngine
                 int seen = Integer.parseInt(m.group(1));
                 if (seen >= 1 && seen <= 12)
                 {
+                    boolean waveStarted = seen > wave || !text.toLowerCase(Locale.ROOT).contains("complete");
                     wave = Math.max(wave, seen);
                     waveFinished = text.toLowerCase(Locale.ROOT).contains("complete");
+                    if (waveStarted && !waveFinished && (f.tick - modifierClosed > 10 || enteringWave != seen))
+                    {
+                        modifierClosed = f.tick;
+                        enteringWave = seen;
+                    }
                 }
             }
             if (text.contains("Sol Heredit jumps"))
@@ -204,6 +254,7 @@ public final class ColosseumDecisionEngine
 
     private boolean isAttackTick(ColosseumSnapshot f)
     {
+        boolean attackSeen = false;
         for (JsonElement e : f.events)
         {
             if (!e.isJsonObject()) continue;
@@ -214,34 +265,45 @@ public final class ColosseumDecisionEngine
                 if (actor.isEmpty() || "player".equals(actor) || "-1".equals(actor))
                 {
                     int anim = integer(ev, "anim", -1);
-                    if (ATTACK_ANIMATIONS.contains(anim) || (anim > 0 && anim != 808 && anim != 819 && anim != 824))
+                    if (ATTACK_ANIMATIONS.contains(anim))
                     {
                         lastAttackTick = f.tick;
                         lastPlayerAnim = anim;
-                        return true;
+                        attackSeen = true;
                     }
                 }
             }
         }
-        if (f.animation > 0 && f.animation != lastPlayerAnim)
+        if (f.animation > 0 && f.animation != lastPlayerAnim && ATTACK_ANIMATIONS.contains(f.animation))
         {
-            if (ATTACK_ANIMATIONS.contains(f.animation) || (f.animation != 808 && f.animation != 819 && f.animation != 824))
-            {
-                lastAttackTick = f.tick;
-                lastPlayerAnim = f.animation;
-                return true;
-            }
+            lastAttackTick = f.tick;
+            lastPlayerAnim = f.animation;
+            attackSeen = true;
         }
-        lastPlayerAnim = f.animation;
-
-        if (f.interacting >= 0 && lastAttackTick >= 0)
+        if (f.animation <= 0)
         {
-            int weaponSpeed = weaponSpeed(f.weapon());
+            lastPlayerAnim = -1;
+        }
+
+        if (attackSeen) return true;
+
+        if (f.interacting >= 0)
+        {
+            if (lastAttackTick < 0) return true;
+            int speed = weaponSpeed(f.weapon());
             long elapsed = f.tick - lastAttackTick;
-            if (elapsed > 0 && elapsed % weaponSpeed == 0)
-            {
-                return true;
-            }
+            return elapsed >= 0 && (elapsed % speed == speed - 1 || elapsed % speed == 0);
+        }
+        return false;
+    }
+
+    private static boolean hasModifierScreen(ColosseumSnapshot f)
+    {
+        for (JsonElement e : array(f.raw, "widgets"))
+        {
+            if (!e.isJsonObject()) continue;
+            int id = integer(e.getAsJsonObject(), "id", -1);
+            if (id >= 56688655 && id <= 56688657) return true;
         }
         return false;
     }
