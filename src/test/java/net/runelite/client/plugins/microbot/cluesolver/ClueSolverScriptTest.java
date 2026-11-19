@@ -4,8 +4,11 @@ import net.runelite.api.Client;
 import net.runelite.api.events.GameTick;
 import net.runelite.client.eventbus.EventBus;
 import net.runelite.client.plugins.cluescrolls.ClueScrollPlugin;
+import net.runelite.client.plugins.cluescrolls.clues.BeginnerMapClue;
+import net.runelite.client.plugins.cluescrolls.clues.ClueScroll;
 import net.runelite.client.plugins.cluescrolls.clues.HotColdClue;
 import net.runelite.client.plugins.microbot.cluesolver.cluetask.HotColdClueTask;
+import net.runelite.client.plugins.microbot.cluesolver.cluetask.MapClueTask;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,6 +24,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.startsWith;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -35,6 +39,7 @@ class ClueSolverScriptTest {
     private HotColdClue clue;
     private boolean solverWasRunning;
     private final BlockingQueue<HotColdClueTask> startedTasks = new LinkedBlockingQueue<>();
+    private final BlockingQueue<MapClueTask> startedMapTasks = new LinkedBlockingQueue<>();
     private final CountDownLatch stoppedAfterError = new CountDownLatch(1);
 
     @BeforeEach
@@ -53,6 +58,9 @@ class ClueSolverScriptTest {
             Object subscriber = invocation.getArgument(0);
             if (subscriber instanceof HotColdClueTask) {
                 startedTasks.add((HotColdClueTask) subscriber);
+            }
+            if (subscriber instanceof MapClueTask) {
+                startedMapTasks.add((MapClueTask) subscriber);
             }
             return null;
         }).when(eventBus).register(any());
@@ -106,6 +114,28 @@ class ClueSolverScriptTest {
 
         verify(overlay, times(2)).updateTaskStatus(startsWith("New Clue Detected"));
         assertNotNull(startedTasks.poll(WAIT_SECONDS, TimeUnit.SECONDS));
+    }
+
+    @Test
+    void beginnerMapClueStartsMapClueTask() throws InterruptedException {
+        BeginnerMapClue beginnerClue = mock(BeginnerMapClue.class);
+        when(clueScrollPlugin.getClue()).thenReturn(beginnerClue);
+
+        script.processClues();
+
+        assertNotNull(startedMapTasks.poll(WAIT_SECONDS, TimeUnit.SECONDS));
+        verify(overlay, never()).updateTaskStatus(startsWith("Unsupported clue type"));
+    }
+
+    @Test
+    void clueWithoutTaskReportsUnsupportedType() {
+        ClueScroll unsupportedClue = mock(ClueScroll.class);
+        when(clueScrollPlugin.getClue()).thenReturn(unsupportedClue);
+
+        script.processClues();
+        script.processClues();
+
+        verify(overlay, times(1)).updateTaskStatus(startsWith("Unsupported clue type"));
     }
 
     private void failHotColdTask() throws InterruptedException {

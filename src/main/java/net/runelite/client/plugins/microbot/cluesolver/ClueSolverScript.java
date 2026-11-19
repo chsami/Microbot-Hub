@@ -163,8 +163,13 @@ public class ClueSolverScript extends Script {
     }
 
     private ClueTask createClueTaskForClue(ClueScroll clue) {
-        Supplier<ClueTask> taskSupplier = taskFactoryMap.get(clue.getClass());
-        return (taskSupplier != null) ? taskSupplier.get() : null;
+        for (Class<?> type = clue.getClass(); type != null; type = type.getSuperclass()) {
+            Supplier<ClueTask> taskSupplier = taskFactoryMap.get(type);
+            if (taskSupplier != null) {
+                return taskSupplier.get();
+            }
+        }
+        return null;
     }
 
     private void onRequirementsMet() {
@@ -176,7 +181,10 @@ public class ClueSolverScript extends Script {
 
     private void startClueTask(ClueTask task) {
         if (task == null) {
-            log.warn("No task found for clue type: {}", currentClue.getClass().getSimpleName());
+            ClueScroll clue = currentClue;
+            String clueType = clue != null ? clue.getClass().getSimpleName() : "unknown";
+            log.warn("No task found for clue type: {}", clueType);
+            overlay.updateTaskStatus("Unsupported clue type: " + clueType);
             return;
         }
 
