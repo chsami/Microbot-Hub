@@ -21,6 +21,9 @@ import java.util.function.Supplier;
 
 @Slf4j
 public class ClueSolverScript extends Script {
+    static final String STATUS_WAITING = "Waiting for new clue...";
+    static final String STATUS_STOPPED = "Stopped - press Start to resume";
+    static final String STATUS_UNSUPPORTED_PREFIX = "Can't solve this clue (";
     private Future<?> currentTask;
     private Future<?> itemRequirementsTask;
     private volatile ClueTask activeTask;
@@ -69,7 +72,13 @@ public class ClueSolverScript extends Script {
         taskFactoryMap.put(CipherClue.class, () -> new CipherClueTask(client, (CipherClue) currentClue, clueScrollPlugin, clueSolverPlugin, eventBus, executorService));
     }
 
+    void resetForStart() {
+        currentClue = null;
+        overlay.updateTaskStatus(STATUS_WAITING);
+    }
+
     public boolean start() {
+        resetForStart();
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
                 processClues();
@@ -184,7 +193,7 @@ public class ClueSolverScript extends Script {
             ClueScroll clue = currentClue;
             String clueType = clue != null ? clue.getClass().getSimpleName() : "unknown";
             log.warn("No task found for clue type: {}", clueType);
-            overlay.updateTaskStatus("Unsupported clue type: " + clueType);
+            overlay.updateTaskStatus(STATUS_UNSUPPORTED_PREFIX + clueType + ") - solve it yourself, the solver continues with your next clue");
             return;
         }
 
@@ -214,7 +223,7 @@ public class ClueSolverScript extends Script {
     }
 
     private void resetCurrentClue() {
-        overlay.updateTaskStatus("Waiting for new clue...");
+        overlay.updateTaskStatus(STATUS_WAITING);
         currentClue = null;
     }
 
@@ -235,7 +244,7 @@ public class ClueSolverScript extends Script {
         failedClue = null;
         eventBus.unregister(this);
 
-        overlay.updateTaskStatus("Clue Solver Script stopped");
+        overlay.updateTaskStatus(STATUS_STOPPED);
         log.info("Clue Solver Script stopped.");
     }
 

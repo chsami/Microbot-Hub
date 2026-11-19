@@ -12,6 +12,7 @@ import net.runelite.client.plugins.microbot.cluesolver.cluetask.MapClueTask;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
@@ -25,6 +26,7 @@ import static org.mockito.ArgumentMatchers.startsWith;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -124,7 +126,7 @@ class ClueSolverScriptTest {
         script.processClues();
 
         assertNotNull(startedMapTasks.poll(WAIT_SECONDS, TimeUnit.SECONDS));
-        verify(overlay, never()).updateTaskStatus(startsWith("Unsupported clue type"));
+        verify(overlay, never()).updateTaskStatus(startsWith(ClueSolverScript.STATUS_UNSUPPORTED_PREFIX));
     }
 
     @Test
@@ -135,7 +137,25 @@ class ClueSolverScriptTest {
         script.processClues();
         script.processClues();
 
-        verify(overlay, times(1)).updateTaskStatus(startsWith("Unsupported clue type"));
+        verify(overlay, times(1)).updateTaskStatus(startsWith(ClueSolverScript.STATUS_UNSUPPORTED_PREFIX));
+    }
+
+    @Test
+    void startAfterStopShowsWaitingAndPicksUpHeldClueAgain() {
+        ClueScroll unsupportedClue = mock(ClueScroll.class);
+        when(clueScrollPlugin.getClue()).thenReturn(unsupportedClue);
+        script.processClues();
+        script.shutdown();
+        verify(overlay).updateTaskStatus(ClueSolverScript.STATUS_STOPPED);
+
+        script.resetForStart();
+        script.processClues();
+
+        InOrder inOrder = inOrder(overlay);
+        inOrder.verify(overlay).updateTaskStatus(ClueSolverScript.STATUS_STOPPED);
+        inOrder.verify(overlay).updateTaskStatus(ClueSolverScript.STATUS_WAITING);
+        inOrder.verify(overlay).updateTaskStatus(startsWith(ClueSolverScript.STATUS_UNSUPPORTED_PREFIX));
+        verify(overlay, times(2)).updateTaskStatus(startsWith(ClueSolverScript.STATUS_UNSUPPORTED_PREFIX));
     }
 
     private void failHotColdTask() throws InterruptedException {
