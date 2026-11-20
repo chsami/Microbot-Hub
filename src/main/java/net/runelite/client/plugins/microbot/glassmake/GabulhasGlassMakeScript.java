@@ -28,8 +28,11 @@ public class GabulhasGlassMakeScript extends Script {
 
     private boolean oneTimeSpellBookCheck = false;
 
+    private int castFailures = 0;
+
     public boolean run(GabulhasGlassMakeConfig config) {
         oneTimeSpellBookCheck = false;
+        castFailures = 0;
         Rs2Antiban.antibanSetupTemplates.applyUniversalAntibanSetup();
         Rs2AntibanSettings.actionCooldownChance = 0.2;
         currentItem = config.ITEM();
@@ -45,16 +48,18 @@ public class GabulhasGlassMakeScript extends Script {
                         GabulhasGlassMakeInfo.botStatus = GabulhasGlassMakeInfo.states.Banking;
                         break;
                     case Banking:
-                        banking();
-                        GabulhasGlassMakeInfo.botStatus = GabulhasGlassMakeInfo.states.Glassblowing;
+                        if (banking()) {
+                            GabulhasGlassMakeInfo.botStatus = GabulhasGlassMakeInfo.states.Glassblowing;
+                        }
                         break;
                     case Glassblowing:
                         glassblowing();
                         GabulhasGlassMakeInfo.botStatus = GabulhasGlassMakeInfo.states.Picking;
                         break;
                     case Picking:
-                        picking();
-                        GabulhasGlassMakeInfo.botStatus = GabulhasGlassMakeInfo.states.Banking;
+                        if (picking()) {
+                            GabulhasGlassMakeInfo.botStatus = GabulhasGlassMakeInfo.states.Banking;
+                        }
                         break;
 
                 }
@@ -80,18 +85,15 @@ public class GabulhasGlassMakeScript extends Script {
 
     }
 
-    private void banking() {
+    private boolean banking() {
         takeBreak();
 
 
-        while (!Rs2Bank.isOpen()) {
-            Rs2Bank.openBank();
-            sleep(100, 200);
-        }
+        if (!Rs2Bank.isOpen() && (!Rs2Bank.openBank() || !Rs2Bank.isOpen())) return false;
         Rs2Bank.depositAll("Molten Glass");
         sleepUntil(() -> !Rs2Inventory.contains("Molten Glass"), 100);
         if (currentItem == GabulhasGlassMakeInfo.items.GiantSeaweed) {
-            if (Rs2Bank.count("Giant seaweed") < 3 || Rs2Bank.count("Bucket of sand") < 3) {
+            if (!GabulhasGlassMakeInfo.hasMaterials(currentItem, Rs2Bank.count("Giant seaweed"), Rs2Bank.count("Bucket of sand"))) {
                 notifier.notify("Out of materials");
                 while (super.isRunning()) {
                     sleep(1000);
@@ -104,7 +106,7 @@ public class GabulhasGlassMakeScript extends Script {
 
             Rs2Bank.withdrawX("Bucket of sand", 18);
         } else {
-            if (Rs2Bank.count("Seaweed") < 3 || Rs2Bank.count("Bucket of sand") < 3) {
+            if (!GabulhasGlassMakeInfo.hasMaterials(currentItem, Rs2Bank.count(401), Rs2Bank.count("Bucket of sand"))) {
                 notifier.notify("Out of materials");
                 while (super.isRunning()) {
                     sleep(1000);
@@ -124,7 +126,7 @@ public class GabulhasGlassMakeScript extends Script {
             sleep(40, 100);
         }
 
-
+        return true;
     }
 
     private void glassblowing() {
@@ -139,29 +141,40 @@ public class GabulhasGlassMakeScript extends Script {
             oneTimeSpellBookCheck = true;
         }
         if (Rs2Magic.quickCast(MagicAction.SUPERGLASS_MAKE)) {
+            castFailures = 0;
             Rs2Bank.preHover();
             sleep(600 * 2, 600 * 4);
+        } else {
+            castFailures++;
+            if (castFailures >= 3) {
+                Microbot.status = "Cannot cast Superglass Make";
+                notifier.notify("Cannot cast Superglass Make - check Lunar spellbook, astral runes and Magic level");
+                while (super.isRunning()) {
+                    sleep(1000);
+                }
+            }
         }
 
     }
 
 
-    private void picking() {
-        while (!Rs2Bank.isOpen()) {
-            Rs2Bank.openBank();
-            sleep(60, 200);
-        }
+    private boolean picking() {
+        if (!Rs2Bank.isOpen() && (!Rs2Bank.openBank() || !Rs2Bank.isOpen())) return false;
         Rs2Bank.depositAll("Molten Glass");
         sleepUntil(() -> !Rs2Inventory.contains("Molten Glass"), 100);
         if (Rs2GroundItem.exists("Molten Glass", 1)) {
             sleep(60, 100);
             Rs2Bank.closeBank();
-            while (Rs2GroundItem.exists("Molten Glass", 1)) {
-                Rs2GroundItem.loot("Molten Glass", 1);
-                sleep(60, 100);
+            for (int i = 0; i < 5 && isRunning() && Rs2GroundItem.exists("Molten Glass", 1); i++) {
+                if (Rs2GroundItem.loot("Molten Glass", 1)) {
+                    Rs2Inventory.waitForInventoryChanges(1800);
+                } else {
+                    sleep(60, 100);
+                }
             }
         }
 
+        return true;
     }
 }
 
