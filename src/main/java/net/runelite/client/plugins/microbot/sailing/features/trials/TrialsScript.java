@@ -40,6 +40,7 @@ public class TrialsScript {
     private boolean expectedRumState;
     private volatile int rumInteractionTick = -1;
     private volatile boolean stopRequested;
+    private volatile boolean missingRouteNotified;
 
     private final Set<Integer> TRIAL_CRATE_ANIMS = Set.of(8867);
     private final Set<Integer> SPEED_BOOST_ANIMS = Set.of(13159, 13160, 13163);
@@ -144,12 +145,13 @@ public class TrialsScript {
 
             if (info == null) {
                 resetState();
+                TrialRanks targetRank = config.trialsRank();
+                if (missingRouteAction(null, targetRank, config.autoNavigate()) == MissingRouteAction.STOP_FOR_TARGET_RANK) {
+                    stopWithoutRoute(missingTargetRouteMessage(targetRank));
+                    return;
+                }
                 if (config.autoNavigate()) {
-                    if (!TrialRoute.hasRoutes(config.trialsRank())) {
-                        stopWithoutRoute(config.trialsRank());
-                        return;
-                    }
-                    automation.startSelected(config.trialsRank());
+                    automation.startSelected(targetRank);
                 }
                 return;
             }
@@ -160,11 +162,14 @@ public class TrialsScript {
 
             TrialRoute route = TrialRoute.find(info.Location, info.Rank);
             if (route == null) {
-                if (info.Rank != TrialRanks.Unknown && !TrialRoute.hasRoutes(info.Rank)) {
-                    stopWithoutRoute(info.Rank);
-                    return;
+                MissingRouteAction action = missingRouteAction(info.Rank, config.trialsRank(), config.autoNavigate());
+                if (action == MissingRouteAction.STOP_FOR_TRIAL) {
+                    stopWithoutRoute(missingTrialRouteStopMessage(info.Rank));
+                } else if (action == MissingRouteAction.NOTIFY_TRIAL) {
+                    notifyMissingRoute(missingTrialRouteNotice(info.Rank));
+                } else {
+                    log.warn("No route found for location={} rank={}", info.Location, info.Rank);
                 }
-                log.warn("No route found for location={} rank={}", info.Location, info.Rank);
                 return;
             }
 
@@ -206,20 +211,53 @@ public class TrialsScript {
         }
     }
 
-    private void stopWithoutRoute(TrialRanks rank) {
+    enum MissingRouteAction {
+        NONE,
+        STOP_FOR_TARGET_RANK,
+        STOP_FOR_TRIAL,
+        NOTIFY_TRIAL
+    }
+
+    static MissingRouteAction missingRouteAction(TrialRanks trialRank, TrialRanks targetRank, boolean autoNavigate) {
+        if (trialRank == null) {
+            return autoNavigate && !TrialRoute.hasRoutes(targetRank) ? MissingRouteAction.STOP_FOR_TARGET_RANK : MissingRouteAction.NONE;
+        }
+        if (trialRank == TrialRanks.Unknown || TrialRoute.hasRoutes(trialRank)) {
+            return MissingRouteAction.NONE;
+        }
+        return autoNavigate ? MissingRouteAction.STOP_FOR_TRIAL : MissingRouteAction.NOTIFY_TRIAL;
+    }
+
+    private void stopWithoutRoute(String message) {
         if (stopRequested) {
             return;
         }
         stopRequested = true;
         automation.stop();
-        String message = missingRouteMessage(rank);
         log.warn(message);
         Microbot.getClientThread().invokeLater(() -> client.addChatMessage(ChatMessageType.ENGINE, "", message, "", false));
         Microbot.stopPlugin(MSailingPlugin.class);
     }
 
-    static String missingRouteMessage(TrialRanks rank) {
-        return "Sailing trials stopped: Target Rank " + rank + " has no route. Choose Swordfish, Shark or Marlin in Target Rank.";
+    private void notifyMissingRoute(String message) {
+        if (missingRouteNotified) {
+            return;
+        }
+        missingRouteNotified = true;
+        log.info(message);
+        Microbot.getClientThread().invokeLater(() -> client.addChatMessage(ChatMessageType.ENGINE, "", message, "", false));
+    }
+
+    static String missingTargetRouteMessage(TrialRanks rank) {
+        return "Sailing trials stopped: there is no saved route for Target Rank " + rank + ". Set Target Rank to Swordfish, Shark or Marlin, then turn the plugin on again.";
+    }
+
+    static String missingTrialRouteStopMessage(TrialRanks rank) {
+        return "Sailing trials stopped: there is no saved route for this " + rank + " trial. Start a Swordfish, Shark or Marlin trial at Rum-dashed Ralph.";
+    }
+
+    static String missingTrialRouteNotice(TrialRanks rank) {
+        return "There is no saved route for " + rank + " trials. The route overlay shows on Swordfish, Shark and Marlin trials.";
     }
 
     static int getNextWaypointIndex(List<WorldPoint> routePoints, int currentWaypointIndex, WorldPoint boatPosition) {
@@ -276,6 +314,7 @@ public class TrialsScript {
         automation.stop();
         resetState();
         stopRequested = false;
+        missingRouteNotified = false;
     }
 
     private void resetState() {
@@ -735,19 +774,11 @@ public class TrialsScript {
     }
 
     public TrialRoute getActiveTrialRoute() {
-        if (currentTrial == null)
+        TrialInfo trial = currentTrial;
+        if (trial == null)
             return null;
 
-        for (var route : TrialRoute.AllTrialRoutes) {
-            if (route == null) {
-                continue;
-            }
-
-            if (route.Location == currentTrial.Location && route.Rank == currentTrial.Rank) {
-                return route;
-            }
-        }
-        return null;
+        return TrialRoute.find(trial.Location, trial.Rank);
     }
 
     public List<WorldPoint> getVisibleActiveLineForPlayer(final WorldPoint player, final int limit) {

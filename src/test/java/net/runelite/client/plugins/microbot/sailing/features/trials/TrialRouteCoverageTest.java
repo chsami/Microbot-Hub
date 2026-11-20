@@ -1,5 +1,6 @@
 package net.runelite.client.plugins.microbot.sailing.features.trials;
 
+import net.runelite.client.plugins.microbot.sailing.features.trials.TrialsScript.MissingRouteAction;
 import net.runelite.client.plugins.microbot.sailing.features.trials.data.TrialLocations;
 import net.runelite.client.plugins.microbot.sailing.features.trials.data.TrialRanks;
 import net.runelite.client.plugins.microbot.sailing.features.trials.data.TrialRoute;
@@ -46,9 +47,45 @@ class TrialRouteCoverageTest {
     }
 
     @Test
-    void missingRouteMessageNamesRankAndSupportedRanks() {
-        String message = TrialsScript.missingRouteMessage(TrialRanks.Unranked);
-        assertTrue(message.contains("Unranked"));
+    void autoNavigateWithoutTrialStopsWhenTargetRankHasNoRoute() {
+        assertEquals(MissingRouteAction.STOP_FOR_TARGET_RANK, TrialsScript.missingRouteAction(null, TrialRanks.Unranked, true));
+        assertEquals(MissingRouteAction.STOP_FOR_TARGET_RANK, TrialsScript.missingRouteAction(null, TrialRanks.Unknown, true));
+        assertEquals(MissingRouteAction.NONE, TrialsScript.missingRouteAction(null, TrialRanks.Swordfish, true));
+    }
+
+    @Test
+    void withoutAutoNavigateTargetRankWithoutRouteDoesNotStop() {
+        assertEquals(MissingRouteAction.NONE, TrialsScript.missingRouteAction(null, TrialRanks.Unranked, false));
+    }
+
+    @Test
+    void unrankedTrialStopsOnlyWithAutoNavigate() {
+        assertEquals(MissingRouteAction.STOP_FOR_TRIAL, TrialsScript.missingRouteAction(TrialRanks.Unranked, TrialRanks.Swordfish, true));
+        assertEquals(MissingRouteAction.NOTIFY_TRIAL, TrialsScript.missingRouteAction(TrialRanks.Unranked, TrialRanks.Swordfish, false));
+    }
+
+    @Test
+    void rankedOrUnknownTrialNeverStops() {
+        assertEquals(MissingRouteAction.NONE, TrialsScript.missingRouteAction(TrialRanks.Shark, TrialRanks.Unranked, true));
+        assertEquals(MissingRouteAction.NONE, TrialsScript.missingRouteAction(TrialRanks.Unknown, TrialRanks.Swordfish, true));
+    }
+
+    @Test
+    void targetRankMessageNamesSettingAndTellsPlayerToTurnPluginOn() {
+        String message = TrialsScript.missingTargetRouteMessage(TrialRanks.Unranked);
+        assertTrue(message.contains("Target Rank Unranked"));
         assertTrue(message.contains("Swordfish, Shark or Marlin"));
+        assertTrue(message.contains("turn the plugin on again"));
+    }
+
+    @Test
+    void trialMessagesNameTheTrialNotTheSetting() {
+        String stop = TrialsScript.missingTrialRouteStopMessage(TrialRanks.Unranked);
+        assertTrue(stop.contains("this Unranked trial"));
+        assertFalse(stop.contains("Target Rank"));
+        String notice = TrialsScript.missingTrialRouteNotice(TrialRanks.Unranked);
+        assertTrue(notice.contains("Unranked trials"));
+        assertFalse(notice.contains("Target Rank"));
+        assertFalse(notice.contains("stopped"));
     }
 }
