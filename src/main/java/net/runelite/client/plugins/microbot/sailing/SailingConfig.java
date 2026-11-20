@@ -221,7 +221,7 @@ public interface SailingConfig extends Config {
 	@ConfigItem(
 		keyName = "trialsRank",
 		name = "Target Rank",
-		description = "The rank route to follow during trials.",
+		description = "The rank route to follow during trials. Unranked has no route.",
 		position = 1,
 		section = trialsSection
 	)

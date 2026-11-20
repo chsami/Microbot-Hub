@@ -11,6 +11,7 @@ import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.widgets.Widget;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.sailing.features.trials.data.TrialRanks;
+import net.runelite.client.plugins.microbot.sailing.features.trials.data.TrialRoute;
 import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
@@ -29,8 +30,8 @@ final class TrialAutomation {
     private int pitchKey;
 
     void startSelected(TrialRanks rank) {
-        if (rank == null || "Unknown".equalsIgnoreCase(rank.name())) {
-            diagnostic("Choose Unranked, Swordfish, Shark or Marlin in Target Rank.");
+        if (rank == null || !TrialRoute.hasRoutes(rank)) {
+            diagnostic("Choose Swordfish, Shark or Marlin in Target Rank.");
             return;
         }
         long now = System.currentTimeMillis();

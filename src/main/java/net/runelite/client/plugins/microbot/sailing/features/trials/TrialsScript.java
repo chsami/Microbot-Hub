@@ -15,6 +15,7 @@ import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.api.boat.Rs2BoatCache;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
+import net.runelite.client.plugins.microbot.sailing.MSailingPlugin;
 import net.runelite.client.plugins.microbot.sailing.SailingConfig;
 import net.runelite.client.plugins.microbot.sailing.features.trials.data.*;
 import net.runelite.client.plugins.microbot.sailing.features.trials.debug.BoatPathHelper;
@@ -38,6 +39,7 @@ public class TrialsScript {
     private boolean rumActionPending;
     private boolean expectedRumState;
     private volatile int rumInteractionTick = -1;
+    private volatile boolean stopRequested;
 
     private final Set<Integer> TRIAL_CRATE_ANIMS = Set.of(8867);
     private final Set<Integer> SPEED_BOOST_ANIMS = Set.of(13159, 13160, 13163);
@@ -143,6 +145,10 @@ public class TrialsScript {
             if (info == null) {
                 resetState();
                 if (config.autoNavigate()) {
+                    if (!TrialRoute.hasRoutes(config.trialsRank())) {
+                        stopWithoutRoute(config.trialsRank());
+                        return;
+                    }
                     automation.startSelected(config.trialsRank());
                 }
                 return;
@@ -152,8 +158,12 @@ public class TrialsScript {
                 automation.stop();
             }
 
-            TrialRoute route = findRoute(info.Location, info.Rank);
+            TrialRoute route = TrialRoute.find(info.Location, info.Rank);
             if (route == null) {
+                if (info.Rank != TrialRanks.Unknown && !TrialRoute.hasRoutes(info.Rank)) {
+                    stopWithoutRoute(info.Rank);
+                    return;
+                }
                 log.warn("No route found for location={} rank={}", info.Location, info.Rank);
                 return;
             }
@@ -196,13 +206,20 @@ public class TrialsScript {
         }
     }
 
-    private TrialRoute findRoute(TrialLocations location, TrialRanks rank) {
-        for (TrialRoute route : TrialRoute.AllTrialRoutes) {
-            if (route.Location == location && route.Rank == rank) {
-                return route;
-            }
+    private void stopWithoutRoute(TrialRanks rank) {
+        if (stopRequested) {
+            return;
         }
-        return null;
+        stopRequested = true;
+        automation.stop();
+        String message = missingRouteMessage(rank);
+        log.warn(message);
+        Microbot.getClientThread().invokeLater(() -> client.addChatMessage(ChatMessageType.ENGINE, "", message, "", false));
+        Microbot.stopPlugin(MSailingPlugin.class);
+    }
+
+    static String missingRouteMessage(TrialRanks rank) {
+        return "Sailing trials stopped: Target Rank " + rank + " has no route. Choose Swordfish, Shark or Marlin in Target Rank.";
     }
 
     static int getNextWaypointIndex(List<WorldPoint> routePoints, int currentWaypointIndex, WorldPoint boatPosition) {
@@ -258,6 +275,7 @@ public class TrialsScript {
     public void shutdown() {
         automation.stop();
         resetState();
+        stopRequested = false;
     }
 
     private void resetState() {
