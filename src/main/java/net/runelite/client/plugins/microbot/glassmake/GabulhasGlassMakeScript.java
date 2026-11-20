@@ -166,8 +166,11 @@ public class GabulhasGlassMakeScript extends Script {
             sleep(60, 100);
             Rs2Bank.closeBank();
             for (int i = 0; i < 5 && isRunning() && Rs2GroundItem.exists("Molten Glass", 1); i++) {
-                Rs2GroundItem.loot("Molten Glass", 1);
-                sleep(60, 100);
+                if (Rs2GroundItem.loot("Molten Glass", 1)) {
+                    Rs2Inventory.waitForInventoryChanges(1800);
+                } else {
+                    sleep(60, 100);
+                }
             }
         }
 
