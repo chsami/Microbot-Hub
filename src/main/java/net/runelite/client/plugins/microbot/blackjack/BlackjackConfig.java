@@ -93,7 +93,7 @@ public interface BlackjackConfig extends Config
     @Range(min = 1, max = 99)
     @ConfigItem(
             keyName = "healBelowPercent",
-            name = "Heal below % HP",
+            name = "Heal below HP",
             description = "Start drinking wine below this Hitpoints level",
             position = 0,
             section = suppliesSection
@@ -107,7 +107,7 @@ public interface BlackjackConfig extends Config
     @ConfigItem(
             keyName = "healToPercent",
             name = "Heal to HP",
-            description = "Keep drinking wine until this Hitpoints level is reached",
+            description = "Keep drinking wine until this Hitpoints level is reached, capped at your Hitpoints level",
             position = 1,
             section = suppliesSection
     )
