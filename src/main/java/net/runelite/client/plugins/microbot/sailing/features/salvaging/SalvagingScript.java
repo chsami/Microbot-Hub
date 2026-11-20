@@ -1349,7 +1349,7 @@ public class SalvagingScript {
         if (salvagingStation != null) {
             depositAtStation(salvagingStation);
         } else {
-            log.info("No salvaging station found, dropping junk items");
+            log.info("No salvaging station on this boat, dropping junk items");
             dropJunk(config);
         }
     }
@@ -1372,25 +1372,37 @@ public class SalvagingScript {
                 .toList();
         List<Rs2TileObjectModel> merged = mergeDistinctTileObjectLists(fromWorldView, fromDefaultScene);
         Client client = Microbot.getClient();
-        if (client != null) {
-            Player lp = client.getLocalPlayer();
-            if (lp != null) {
-                WorldView wv = lp.getWorldView();
-                if (wv != null) {
-                    merged = mergeDistinctTileObjectLists(
-                            merged,
-                            collectTileObjectsFromWorldViewScene(wv, this::isSalvagingStationTileObject));
-                }
-            }
-        }
-        if (merged.isEmpty()) {
+        if (client == null) {
             return null;
         }
-        WorldPoint player = Rs2Player.getWorldLocation();
-        if (player == null) {
-            return merged.get(0);
+        Player lp = client.getLocalPlayer();
+        if (lp == null) {
+            return null;
         }
-        return merged.stream()
+        WorldView wv = lp.getWorldView();
+        if (wv == null) {
+            return null;
+        }
+        merged = mergeDistinctTileObjectLists(
+                merged,
+                collectTileObjectsFromWorldViewScene(wv, this::isSalvagingStationTileObject));
+        return nearestStationOnWorldView(merged, wv, Rs2Player.getWorldLocation());
+    }
+
+    static Rs2TileObjectModel nearestStationOnWorldView(
+            List<Rs2TileObjectModel> stations,
+            WorldView playerWorldView,
+            WorldPoint player) {
+        List<Rs2TileObjectModel> onPlayerWorldView = stations.stream()
+                .filter(o -> o.getWorldView() != null && o.getWorldView().getId() == playerWorldView.getId())
+                .collect(Collectors.toList());
+        if (onPlayerWorldView.isEmpty()) {
+            return null;
+        }
+        if (player == null) {
+            return onPlayerWorldView.get(0);
+        }
+        return onPlayerWorldView.stream()
                 .min(Comparator.comparingInt(o -> player.distanceTo(o.getWorldLocation())))
                 .orElse(null);
     }

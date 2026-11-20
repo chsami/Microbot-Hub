@@ -5,6 +5,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.2.62]
+
+### Fixed
+- **Full inventory at sea**: The script only uses a salvaging station on your own boat. On a boat without one it now drops the items in your Drop items list instead of trying to walk or teleport to the port salvaging station.
+
+---
+
 ## [2.2.61]
 
 ### Fixed
