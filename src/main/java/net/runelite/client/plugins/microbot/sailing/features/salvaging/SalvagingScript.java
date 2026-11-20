@@ -94,7 +94,9 @@ public class SalvagingScript {
      */
     private static final String CARGO_HOLD_FULL_MESSAGE_CONTAINS = "the cargo hold is full";
     static final String NO_STATION_NOTHING_TO_DROP_MESSAGE =
-            "Inventory is full of salvage and this boat has no salvaging station. Add the salvage names (e.g. Small salvage) to Drop items, turn on Use Cargo Hold, or build a salvaging station on your boat.";
+            "Inventory is full of salvage and this boat has no salvaging station. Add the exact salvage names (e.g. Small salvage) to Drop items, turn on Use Cargo Hold, or build a salvaging station on your boat.";
+    static final String NO_STATION_CARGO_HOLD_FULL_MESSAGE =
+            "Inventory and cargo hold are full of salvage and this boat has no salvaging station. Add the exact salvage names (e.g. Small salvage) to Drop items, or build a salvaging station on your boat.";
     private final Rs2TileObjectCache tileObjectCache;
     @SuppressWarnings("unused")
     private final Rs2BoatCache boatCache;
@@ -256,6 +258,10 @@ public class SalvagingScript {
 
     public List<Rs2TileObjectModel> getInactiveWrecks() {
         return inactiveWreckSnapshot;
+    }
+
+    public boolean isWaitingForDropSetup() {
+        return noStationNothingToDropWarned;
     }
 
     public void run(SailingConfig config) {
@@ -1358,16 +1364,21 @@ public class SalvagingScript {
         }
         String[] dropItems = dropItemNames(config);
         if (dropItems.length == 0 || !Rs2Inventory.hasItem(dropItems, true)) {
-            Microbot.status = NO_STATION_NOTHING_TO_DROP_MESSAGE;
+            String message = noStationNothingToDropMessage(config.useCargoHold());
+            Microbot.status = message;
             if (!noStationNothingToDropWarned) {
                 noStationNothingToDropWarned = true;
-                log.warn(NO_STATION_NOTHING_TO_DROP_MESSAGE);
+                log.warn(message);
             }
             return;
         }
         clearNoStationNothingToDropWarning();
         log.info("No salvaging station on this boat, dropping items from your Drop items list");
         Rs2Inventory.dropAll(dropItems);
+    }
+
+    static String noStationNothingToDropMessage(boolean useCargoHold) {
+        return useCargoHold ? NO_STATION_CARGO_HOLD_FULL_MESSAGE : NO_STATION_NOTHING_TO_DROP_MESSAGE;
     }
 
     private void clearNoStationNothingToDropWarning() {

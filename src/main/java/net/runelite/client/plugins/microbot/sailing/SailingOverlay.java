@@ -68,6 +68,19 @@ public class SailingOverlay extends OverlayPanel {
     }
 
     private void addStatus() {
+        if (config.salvaging() && salvagingScript.isWaitingForDropSetup()) {
+            panelComponent.getChildren().add(LineComponent.builder()
+                    .left("Status:")
+                    .right("Waiting")
+                    .rightColor(Color.ORANGE)
+                    .build());
+            panelComponent.getChildren().add(LineComponent.builder()
+                    .left("Full inventory, no station: add exact salvage names to Drop items")
+                    .leftColor(Color.ORANGE)
+                    .build());
+            return;
+        }
+
         Color statusColor = Microbot.isLoggedIn() ? Color.GREEN : Color.RED;
         String status = config.salvaging() ? "Running" : "Stopped";
 
