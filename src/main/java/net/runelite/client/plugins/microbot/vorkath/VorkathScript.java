@@ -311,8 +311,8 @@ public class VorkathScript extends Script {
                         }
                         drinkPotions();
                         handlePrayer();
-                        Rs2Player.eatAt(75);
                         handleRedBall();
+                        Rs2Player.eatAt(75);
                         if (doesProjectileExistById(whiteProjectileId)) {
                             state = State.ZOMBIE_SPAWN;
                             walkToCenter();
@@ -340,7 +340,9 @@ public class VorkathScript extends Script {
                             while ((currentSpawn = Microbot.getRs2NpcCache().query().withName(ZOMBIFIED_SPAWN).firstOnClientThread()) != null
                                     && !currentSpawn.isDead()
                                     && !doesProjectileExistById(146)) {
-                                Rs2Magic.castOn(MagicAction.CRUMBLE_UNDEAD, currentSpawn);
+                                if (!Rs2Magic.castOn(MagicAction.CRUMBLE_UNDEAD, castTarget(currentSpawn))) {
+                                    log("Crumble Undead on the Zombified Spawn failed, retrying");
+                                }
                                 sleep(600);
                             }
                             Rs2Player.eatAt(75);
@@ -585,6 +587,11 @@ public class VorkathScript extends Script {
                 vorkathNpc.click("Attack");
             }
         }
+    }
+
+    static net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel castTarget(Rs2NpcModel npc) {
+        if (npc == null || npc.getNpc() == null) return null;
+        return new net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel(npc.getNpc());
     }
 
     private void handlePrayer() {
