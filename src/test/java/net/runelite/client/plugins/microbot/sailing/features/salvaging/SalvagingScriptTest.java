@@ -3,11 +3,14 @@ package net.runelite.client.plugins.microbot.sailing.features.salvaging;
 import net.runelite.api.WorldView;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
+import net.runelite.client.plugins.microbot.sailing.SailingConfig;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -67,6 +70,24 @@ class SalvagingScriptTest {
 
         assertNull(SalvagingScript.nearestStationOnWorldView(
                 List.of(station), boat, new WorldPoint(3060, 2990, 1)));
+    }
+
+    @Test
+    void dropItemNamesTrimsAndSkipsEmptyEntries() {
+        var config = mock(SailingConfig.class);
+        when(config.dropItems()).thenReturn(" casket, ,Small salvage ,plank,");
+
+        assertArrayEquals(new String[]{"casket", "Small salvage", "plank"}, SalvagingScript.dropItemNames(config));
+    }
+
+    @Test
+    void dropItemNamesIsEmptyWhenDropListIsBlankOrMissing() {
+        var config = mock(SailingConfig.class);
+        when(config.dropItems()).thenReturn("  ");
+        assertEquals(0, SalvagingScript.dropItemNames(config).length);
+
+        when(config.dropItems()).thenReturn(null);
+        assertEquals(0, SalvagingScript.dropItemNames(config).length);
     }
 
     private static WorldView worldView(int id) {

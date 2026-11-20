@@ -93,6 +93,8 @@ public class SalvagingScript {
      * punctuation or wording after this phrase still matches).
      */
     private static final String CARGO_HOLD_FULL_MESSAGE_CONTAINS = "the cargo hold is full";
+    static final String NO_STATION_NOTHING_TO_DROP_MESSAGE =
+            "Inventory is full of salvage and this boat has no salvaging station. Add the salvage names (e.g. Small salvage) to Drop items, turn on Use Cargo Hold, or build a salvaging station on your boat.";
     private final Rs2TileObjectCache tileObjectCache;
     @SuppressWarnings("unused")
     private final Rs2BoatCache boatCache;
@@ -124,6 +126,7 @@ public class SalvagingScript {
     private long lastCargoHoldInitAttemptMs;
     private long lastCargoHoldInitHintLogMs;
     private long lastCargoHoldWidgetResyncMs;
+    private volatile boolean noStationNothingToDropWarned = false;
 
     @Inject
     public SalvagingScript(Rs2TileObjectCache tileObjectCache, Rs2BoatCache boatCache, EventBus eventBus) {
@@ -133,6 +136,7 @@ public class SalvagingScript {
     }
 
     public void register() {
+        noStationNothingToDropWarned = false;
         eventBus.register(this);
     }
 
@@ -290,12 +294,13 @@ public class SalvagingScript {
             if (isInventoryFull()) {
                 if (config.useCargoHold() && cargoHoldProcessing && hasSalvageItems()) {
                     log.info("Inventory full during cargo-hold processing; processing salvage at station before more withdraws");
-                } else {
+                } else if (!noStationNothingToDropWarned) {
                     log.info("Inventory full, handling before salvaging");
                 }
                 handleFullInventory(config, player);
                 return;
             }
+            clearNoStationNothingToDropWarning();
 
             var nearbyWreck = findNearestWreck(player.getWorldLocation());
             if (nearbyWreck == null) {
@@ -1347,10 +1352,28 @@ public class SalvagingScript {
         var salvagingStation = findSalvagingStation();
 
         if (salvagingStation != null) {
+            clearNoStationNothingToDropWarning();
             depositAtStation(salvagingStation);
-        } else {
-            log.info("No salvaging station on this boat, dropping junk items");
-            dropJunk(config);
+            return;
+        }
+        String[] dropItems = dropItemNames(config);
+        if (dropItems.length == 0 || !Rs2Inventory.hasItem(dropItems, true)) {
+            Microbot.status = NO_STATION_NOTHING_TO_DROP_MESSAGE;
+            if (!noStationNothingToDropWarned) {
+                noStationNothingToDropWarned = true;
+                log.warn(NO_STATION_NOTHING_TO_DROP_MESSAGE);
+            }
+            return;
+        }
+        clearNoStationNothingToDropWarning();
+        log.info("No salvaging station on this boat, dropping items from your Drop items list");
+        Rs2Inventory.dropAll(dropItems);
+    }
+
+    private void clearNoStationNothingToDropWarning() {
+        if (noStationNothingToDropWarned) {
+            noStationNothingToDropWarned = false;
+            Microbot.status = "Salvaging";
         }
     }
 
@@ -1520,16 +1543,20 @@ public class SalvagingScript {
     }
 
     private void dropJunk(SailingConfig config) {
-        var dropItems = config.dropItems();
-        if (dropItems == null || dropItems.isBlank()) return;
-
-        var junkItems = Arrays.stream(dropItems.split(","))
-                .map(String::trim)
-                .filter(item -> !item.isEmpty())
-                .toArray(String[]::new);
-
+        var junkItems = dropItemNames(config);
         if (junkItems.length > 0) {
             Rs2Inventory.dropAll(junkItems);
         }
+    }
+
+    static String[] dropItemNames(SailingConfig config) {
+        var dropItems = config.dropItems();
+        if (dropItems == null || dropItems.isBlank()) {
+            return new String[0];
+        }
+        return Arrays.stream(dropItems.split(","))
+                .map(String::trim)
+                .filter(item -> !item.isEmpty())
+                .toArray(String[]::new);
     }
 }
