@@ -26,6 +26,7 @@ class WildernessAgilityBankingTest {
 
     private static final int KNIFE_ID = 946;
     private static final int COINS_ID = 995;
+    private static final int TELEPORT_ID = 24963;
 
     @Test
     void missingLootingBagDoesNotBlockBanking() throws Exception {
@@ -124,7 +125,7 @@ class WildernessAgilityBankingTest {
             script.handleBanking();
             script.handleBanking();
 
-            String expected = "Stopped: could not take Knife, Coins, Anti-venom+ (4 dose) from the bank after 3 tries. Put them in your bank, or turn off 'Withdraw Knife' / 'Withdraw Coins' / 'Withdraw Venom Protection' in the Banking settings.";
+            String expected = "Stopped: could not withdraw Knife, Coins, Anti-venom+ (4 dose) from the bank after 3 tries. Put them in your bank, or turn off 'Withdraw Knife' / 'Withdraw Coins' / 'Withdraw Venom Protection' under Banking Settings.";
             assertEquals(expected, Microbot.status);
             microbot.verify(() -> Microbot.log("[WildernessAgility] " + expected));
             microbot.verify(() -> Microbot.log(startsWith("[WildernessAgility] No looting bag")), times(1));
@@ -148,6 +149,41 @@ class WildernessAgilityBankingTest {
 
             bank.verify(Rs2Bank::depositAll, never());
             bank.verify(() -> Rs2Bank.withdrawX(COINS_ID, 50000));
+        }
+    }
+
+    @Test
+    void coinStackAboveTargetIsDeposited() throws Exception {
+        WildernessAgilityScript script = bankingScript();
+
+        try (MockedStatic<Microbot> microbot = mockMicrobot();
+             MockedStatic<Rs2Bank> bank = mockStatic(Rs2Bank.class);
+             MockedStatic<Rs2Inventory> inventory = mockStatic(Rs2Inventory.class)) {
+            bank.when(Rs2Bank::isOpen).thenReturn(true);
+            inventory.when(Rs2Inventory::items).thenAnswer(i -> Stream.of(item(KNIFE_ID), item(COINS_ID)));
+            inventory.when(() -> Rs2Inventory.hasItem(KNIFE_ID)).thenReturn(true);
+            inventory.when(() -> Rs2Inventory.hasItem(COINS_ID)).thenReturn(true);
+            inventory.when(() -> Rs2Inventory.itemQuantity(COINS_ID)).thenReturn(1000000);
+
+            script.handleBanking();
+
+            bank.verify(Rs2Bank::depositAll);
+        }
+    }
+
+    @Test
+    void itemForDisabledSettingIsDeposited() throws Exception {
+        WildernessAgilityScript script = bankingScript();
+
+        try (MockedStatic<Microbot> microbot = mockMicrobot();
+             MockedStatic<Rs2Bank> bank = mockStatic(Rs2Bank.class);
+             MockedStatic<Rs2Inventory> inventory = mockStatic(Rs2Inventory.class)) {
+            bank.when(Rs2Bank::isOpen).thenReturn(true);
+            inventory.when(Rs2Inventory::items).thenAnswer(i -> Stream.of(item(KNIFE_ID), item(TELEPORT_ID)));
+
+            script.handleBanking();
+
+            bank.verify(Rs2Bank::depositAll);
         }
     }
 

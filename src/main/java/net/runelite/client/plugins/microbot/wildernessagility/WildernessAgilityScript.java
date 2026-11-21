@@ -1844,7 +1844,23 @@ public final class WildernessAgilityScript extends Script {
         }
         
         // Deposit all
-        Set<Integer> supplyIds = new HashSet<>(Arrays.asList(KNIFE_ID, COINS_ID, TELEPORT_ID, LOOTING_BAG_CLOSED_ID, LOOTING_BAG_OPEN_ID, config.withdrawVenomProtection().getItemId()));
+        Set<Integer> supplyIds = new HashSet<>();
+        if (config.withdrawKnife()) {
+            supplyIds.add(KNIFE_ID);
+        }
+        if (config.withdrawCoins() && Rs2Inventory.itemQuantity(COINS_ID) <= 150000) {
+            supplyIds.add(COINS_ID);
+        }
+        if (config.useIcePlateauTp()) {
+            supplyIds.add(TELEPORT_ID);
+        }
+        if (config.withdrawLootingBag()) {
+            supplyIds.add(LOOTING_BAG_CLOSED_ID);
+            supplyIds.add(LOOTING_BAG_OPEN_ID);
+        }
+        if (config.withdrawVenomProtection().getItemId() != -1) {
+            supplyIds.add(config.withdrawVenomProtection().getItemId());
+        }
         if (!Rs2Inventory.items().allMatch(item -> supplyIds.contains(item.getId()))) {
             Rs2Bank.depositAll();
             sleep(getActionDelay());
@@ -1868,7 +1884,7 @@ public final class WildernessAgilityScript extends Script {
                     Microbot.log("[WildernessAgility] Successfully withdrew open looting bag");
                     needsLootingBagActivation = false; // No need to activate, already open
                 } else if (bankingAttempts == 0) {
-                    Microbot.log("[WildernessAgility] No looting bag in your bank or inventory, so continuing without one. Looting bags are lost when you die in the Wilderness. Get a new one from Wilderness monsters, or turn off 'Withdraw Looting Bag' in the Banking settings to hide this message.");
+                    Microbot.log("[WildernessAgility] No looting bag in your bank or inventory, so continuing without one (loot will go to your inventory). Looting bags are lost when you die in the Wilderness. Get a new one from Wilderness monsters, or turn off 'Withdraw Looting Bag' under Banking Settings to hide this message.");
                 }
             }
         }
@@ -1926,7 +1942,7 @@ public final class WildernessAgilityScript extends Script {
         if (!missing.isEmpty()) {
             bankingAttempts++;
             if (bankingAttempts >= MAX_BANKING_ATTEMPTS) {
-                String reason = "Stopped: could not take " + String.join(", ", missing) + " from the bank after " + bankingAttempts + " tries. Put " + (missing.size() == 1 ? "it" : "them") + " in your bank, or turn off " + String.join(" / ", settings) + " in the Banking settings.";
+                String reason = "Stopped: could not withdraw " + String.join(", ", missing) + " from the bank after " + bankingAttempts + " tries. Put " + (missing.size() == 1 ? "it" : "them") + " in your bank, or turn off " + String.join(" / ", settings) + " under Banking Settings.";
                 Microbot.status = reason;
                 Microbot.log("[WildernessAgility] " + reason);
                 Microbot.stopPlugin(plugin);
