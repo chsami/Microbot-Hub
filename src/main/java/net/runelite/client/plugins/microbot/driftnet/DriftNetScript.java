@@ -85,6 +85,11 @@ public class DriftNetScript extends Script
     private long driftNextDoubleClickAt;
     private DriftNetTravel driftTravel;
 
+    protected boolean runsWhileLoggedOut()
+    {
+        return true;
+    }
+
     public boolean run(DriftNetConfig config)
     {
         this.config = config;
