@@ -21,7 +21,7 @@ import java.awt.*;
 @ConfigGroup(HerbiboarConfig.GROUP)
 public interface HerbiboarConfig extends Config {
 
-    String GROUP = "AutoHerbiboar";
+    String GROUP = "HerbiHunter";
     String INFO_PANEL_KEY = "infoPanel";
 
     enum InfoPanel {
@@ -212,7 +212,7 @@ public interface HerbiboarConfig extends Config {
             keyName = "logDetail",
             name = "Log detail",
             description = "How much Herbi Hunter writes to client.log. Normal: one line per catch plus banking and recoveries."
-                    + " Detailed: everything, set this before reporting a bug. Quiet: problems only.",
+                    + " Detailed: everything, set this before reporting a bug. Quiet: problems, plus one line when a run starts and stops.",
             section = SETUP_SECTION,
             position = 9
     )

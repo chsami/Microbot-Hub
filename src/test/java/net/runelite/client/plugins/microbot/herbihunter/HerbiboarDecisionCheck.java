@@ -8,8 +8,11 @@ public final class HerbiboarDecisionCheck
     private static int checks;
     private static int failures;
 
-    public static void main(String[] args)
+    /** Runs every check and returns how many failed. */
+    static int run()
     {
+        checks = 0;
+        failures = 0;
         travelStartsOnlyOffTheIsland();
         firstStallIsToleratedAsNormalWalkerExit();
         theWayBackGoesStraightToTheNextTarget();
@@ -66,10 +69,7 @@ public final class HerbiboarDecisionCheck
         System.out.println(failures == 0
             ? "ALL " + checks + " CHECKS PASSED"
             : failures + " of " + checks + " CHECKS FAILED");
-        if (failures > 0)
-        {
-            System.exit(1);
-        }
+        return failures;
     }
 
     private static void firstStallIsToleratedAsNormalWalkerExit()
@@ -225,6 +225,28 @@ public final class HerbiboarDecisionCheck
         check("restock affordable from inventory + bank coins", true, HerbiboarScript.canAfford(1_200_000, 1_100_000));
         check("restock short of coins logs out", false, HerbiboarScript.canAfford(900_000, 1_100_000));
         check("an offer over the max cash stack is refused", false, HerbiboarScript.canAfford(Long.MAX_VALUE, 3_000_000_000L));
+        check("the slot holds our offer: same item, amount and price", true, HerbiboarScript.isRestockOffer(12625, 100, 11002, false, 12625, 100, 11002));
+        check("a changed amount is not our offer", false, HerbiboarScript.isRestockOffer(12625, 2000, 11002, false, 12625, 100, 11002));
+        check("another item in the slot is not our offer", false, HerbiboarScript.isRestockOffer(3016, 100, 11002, false, 12625, 100, 11002));
+        check("a sell offer in its place is not our offer", false, HerbiboarScript.isRestockOffer(12625, 100, 11002, true, 12625, 100, 11002));
+        check("a buy at another price is not our offer", false, HerbiboarScript.isRestockOffer(12625, 100, 9000, false, 12625, 100, 11002));
+        check("a slot that is not our buy is left alone, not cancelled", HerbiboarScript.RestockWait.GONE,
+            HerbiboarScript.restockWait(false, false, false, 200_000));
+        check("a climb that never crossed is tried again", false, HerbiboarScript.walksRoundAfterHoleFails(2));
+        check("after three climbs that never crossed, walk round", true, HerbiboarScript.walksRoundAfterHoleFails(3));
+        check("the open bank pauses the stuck clock", true, HerbiboarScript.stuckClockPaused(HerbiboarState.BANK, true));
+        check("walking to the bank does not", false, HerbiboarScript.stuckClockPaused(HerbiboarState.BANK, false));
+        check("the trail does not", false, HerbiboarScript.stuckClockPaused(HerbiboarState.TRAIL, false));
+        check("the G.E. trip does", true, HerbiboarScript.stuckClockPaused(HerbiboarState.RESTOCK, false));
+        check("our offer still buying: wait", HerbiboarScript.RestockWait.WAIT, HerbiboarScript.restockWait(true, false, false, 60_000));
+        check("our offer bought: collect it", HerbiboarScript.RestockWait.COLLECT, HerbiboarScript.restockWait(true, true, false, 60_000));
+        check("bought but still in the slot after a collect: collect again", HerbiboarScript.RestockWait.COLLECT,
+            HerbiboarScript.restockWait(true, true, true, 60_000));
+        check("slot empty after our collect: done", HerbiboarScript.RestockWait.DONE, HerbiboarScript.restockWait(false, false, true, 60_000));
+        check("slot not yet showing a just-placed offer: wait", HerbiboarScript.RestockWait.WAIT,
+            HerbiboarScript.restockWait(false, false, false, 1_000));
+        check("our offer gone without our collect: stop", HerbiboarScript.RestockWait.GONE, HerbiboarScript.restockWait(false, false, false, 60_000));
+        check("unfilled past the limit: cancel", HerbiboarScript.RestockWait.TIMED_OUT, HerbiboarScript.restockWait(true, false, false, 180_001));
         check("minimap hop aims in the outer band (low draw)", 16, HerbiboarScript.minimapReach(18, false, 0.0));
         check("minimap hop aims in the outer band (high draw)", 18, HerbiboarScript.minimapReach(18, false, 0.999));
         check("a short minimap hop can come down to the floor", 7, HerbiboarScript.minimapReach(18, true, 0.0));
@@ -472,6 +494,12 @@ public final class HerbiboarDecisionCheck
             HerbiHunterPlugin.routeAheadFrom(route, new net.runelite.api.coords.WorldPoint(3703, 3874, 0)));
         check("no route, nothing drawn", -1,
             HerbiHunterPlugin.routeAheadFrom(java.util.Collections.emptyList(), new net.runelite.api.coords.WorldPoint(3702, 3872, 0)));
+        check("a route we stay near is kept", true, HerbiboarScript.reusesRoute(true, 20, 2, 60_000));
+        check("a route we left is asked for again", false, HerbiboarScript.reusesRoute(true, 20, 5, 100));
+        check("arrived at the end of the route: kept", true, HerbiboarScript.reusesRoute(true, 20, -1, 60_000));
+        check("a new target always gets a new route", false, HerbiboarScript.reusesRoute(false, 20, 0, 0));
+        check("an empty route is not asked for again at once", true, HerbiboarScript.reusesRoute(true, 0, -1, 1_000));
+        check("an empty route is asked for again after a while", false, HerbiboarScript.reusesRoute(true, 0, -1, 3_000));
     }
 
     private static void everyConfigOptionDoesWhatItSays()
@@ -512,10 +540,17 @@ public final class HerbiboarDecisionCheck
             HerbiboarScript.itemsToDrop(new HerbiboarConfig() { @Override public boolean dropGuam() { return true; } }));
         check("drop torstol adds only torstol", java.util.Collections.singletonList(net.runelite.api.gameval.ItemID.UNIDENTIFIED_TORSTOL),
             HerbiboarScript.itemsToDrop(new HerbiboarConfig() { @Override public boolean dropTorstol() { return true; } }));
-        check("drop small fossil adds the unidentified and all 5 identified", 6,
-            HerbiboarScript.itemsToDrop(new HerbiboarConfig() { @Override public boolean dropSmallFossil() { return true; } }).size());
-        check("drop rare fossil adds the unidentified and all 6 identified", 7,
-            HerbiboarScript.itemsToDrop(new HerbiboarConfig() { @Override public boolean dropRareFossil() { return true; } }).size());
+        check("drop small fossil drops only the unidentified one", java.util.Collections.singletonList(net.runelite.api.gameval.ItemID.FOSSIL_SMALL_UNID),
+            HerbiboarScript.itemsToDrop(new HerbiboarConfig() { @Override public boolean dropSmallFossil() { return true; } }));
+        check("drop medium fossil drops only the unidentified one", java.util.Collections.singletonList(net.runelite.api.gameval.ItemID.FOSSIL_MEDIUM_UNID),
+            HerbiboarScript.itemsToDrop(new HerbiboarConfig() { @Override public boolean dropMediumFossil() { return true; } }));
+        check("drop large fossil drops only the unidentified one", java.util.Collections.singletonList(net.runelite.api.gameval.ItemID.FOSSIL_LARGE_UNID),
+            HerbiboarScript.itemsToDrop(new HerbiboarConfig() { @Override public boolean dropLargeFossil() { return true; } }));
+        check("drop rare fossil drops only the unidentified one", java.util.Collections.singletonList(net.runelite.api.gameval.ItemID.FOSSIL_RARE_UNID),
+            HerbiboarScript.itemsToDrop(new HerbiboarConfig() { @Override public boolean dropRareFossil() { return true; } }));
+        check("the unidentified fossil ids are the game's", java.util.Arrays.asList(21562, 21564, 21566, 21568),
+            java.util.Arrays.asList(net.runelite.api.gameval.ItemID.FOSSIL_SMALL_UNID, net.runelite.api.gameval.ItemID.FOSSIL_MEDIUM_UNID,
+                net.runelite.api.gameval.ItemID.FOSSIL_LARGE_UNID, net.runelite.api.gameval.ItemID.FOSSIL_RARE_UNID));
         int dropOptions = 0;
         java.util.Set<Integer> seen = new java.util.HashSet<>();
         for (java.lang.reflect.Method m : HerbiboarConfig.class.getDeclaredMethods())
@@ -643,6 +678,21 @@ public final class HerbiboarDecisionCheck
             check("a finished session comes back intact", 61, back.get(0).caught);
             check("the crashed one is labelled", "client closed or crashed", back.get(1).stopReason);
             check("the checkpoint is gone once filed", false, HerbiboarSession.checkpointFile(dir).exists());
+            // As if the delete after a good append had failed: the next start must not file it again.
+            HerbiboarSession.checkpoint(dir, gson, running);
+            HerbiboarSession.recoverCheckpoint(dir, gson);
+            check("a checkpoint already in the history is not filed twice", 2, HerbiboarSession.loadHistory(dir, gson).size());
+            check("and it is cleared", false, HerbiboarSession.checkpointFile(dir).exists());
+            // A stop mid-append leaves half a line: the next record must start on its own line.
+            java.nio.file.Files.write(HerbiboarSession.historyFile(dir).toPath(), "{\"startMs\":12".getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                java.nio.file.StandardOpenOption.APPEND);
+            HerbiboarSession later = new HerbiboarSession(t0 + 5 * 60 * 60_000L);
+            later.recordCatch(t0 + 5 * 60 * 60_000L + 1000);
+            HerbiboarSession.checkpoint(dir, gson, later);
+            HerbiboarSession.recoverCheckpoint(dir, gson);
+            java.util.List<HerbiboarSession> afterPartial = HerbiboarSession.loadHistory(dir, gson);
+            check("a session recovered after a half-written line is kept", 3, afterPartial.size());
+            check("and it is the recovered one", later.startMs, afterPartial.get(2).startMs);
         }
         catch (java.io.IOException e)
         {
@@ -1230,10 +1280,8 @@ public final class HerbiboarDecisionCheck
 
     private static void aBreakIsNotWaitedForUnderAttack()
     {
-        // Seen live 2026-11-14: the handler waits for "not in combat", a crab kept hitting the idle character,
-        // and the break never began.
-        // Walking on to the next rock did not shake the crab either: the plugin sat there until its own stuck check
-        // logged out. Breaks now only ever start at the bank.
+        // The handler waits for "not in combat", and a crab keeps hitting an idle character, so the break never
+        // begins; walking on to the next rock does not shake the crab either. Breaks only ever start at the bank.
         check("handler on and its timer has run out: a break is looming", true, HerbiboarScript.breakLooming(true, 0, false));
         check("handler on, two minutes to go: not yet", false, HerbiboarScript.breakLooming(true, 120, false));
         check("handler off: its timer means nothing", false, HerbiboarScript.breakLooming(false, 0, false));
@@ -1248,12 +1296,12 @@ public final class HerbiboarDecisionCheck
 
     private static void givingUpAndComingBackLookHuman()
     {
-        // Seen live twice on 2026-11-14: the stuck check fired on the shore, a crab was attacking, the game refused
-        // the logout, and the character was left standing there with the plugin stopped.
+        // A stuck check on the shore with a crab attacking: the game refuses the logout, and the character is left
+        // standing there with the plugin stopped.
         check("giving up out on the island: walk to the bank first", true, HerbiboarScript.walksToBankBeforeLogout(true, 60));
         check("already at the bank: log out here", false, HerbiboarScript.walksToBankBeforeLogout(true, 8));
         check("off the island (the G.E.): log out here", false, HerbiboarScript.walksToBankBeforeLogout(false, 60));
-        // Seen live 17:05: the six-hour logout was answered in the same second.
+        // A disconnect must not be answered in the same second.
         check("the quickest return from a disconnect is five seconds", 5000L, HerbiboarScript.reloginWaitMs(0.0));
         check("the slowest is forty", 40000L, HerbiboarScript.reloginWaitMs(1.0));
         check("most are short: the middle roll waits under fourteen seconds", 13750L, HerbiboarScript.reloginWaitMs(0.5));
@@ -1262,10 +1310,9 @@ public final class HerbiboarDecisionCheck
 
     private static void aMinimapStepOnlyEverWalks()
     {
-        // Seen live 2026-11-14 14:48: a step toward a spot 57 tiles east landed on the world map orb beside the
-        // minimap, the floating map covered the view, and the run ended in the stuck check three minutes later.
+        // A far step can land on the world map orb beside the minimap; the floating map then covers the view.
         check("the minimap offers Walk here: click", true, HerbiboarScript.minimapClickIsAWalk("Walk here"));
-        // Seen live on 1.3.5: over the minimap itself the menu holds only Cancel, and the click still walks.
+        // Over the minimap itself the menu holds only Cancel, and the click still walks.
         check("over the bare minimap the menu reads Cancel: click", true, HerbiboarScript.minimapClickIsAWalk("Cancel"));
         check("the cursor is over the world map orb: do not click", false,
             HerbiboarScript.minimapClickIsAWalk("Floating <col=ff9040>World Map</col>"));

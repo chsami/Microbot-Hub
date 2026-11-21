@@ -5,6 +5,7 @@ import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
+import net.runelite.api.GrandExchangeOfferState;
 import net.runelite.api.MenuAction;
 import net.runelite.api.widgets.Widget;
 import net.runelite.api.MenuEntry;
@@ -25,6 +26,7 @@ import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.MicrobotConfig;
 import net.runelite.client.plugins.microbot.Script;
+import net.runelite.client.plugins.microbot.ScriptPauseController;
 import net.runelite.client.plugins.microbot.breakhandler.BreakHandlerPlugin;
 import net.runelite.client.plugins.microbot.breakhandler.BreakHandlerScript;
 import net.runelite.client.plugins.microbot.breakhandler.BreakPreparation;
@@ -41,7 +43,9 @@ import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
+import net.runelite.client.plugins.microbot.util.grandexchange.GrandExchangeSlots;
 import net.runelite.client.plugins.microbot.util.grandexchange.Rs2GrandExchange;
+import net.runelite.client.plugins.microbot.util.grandexchange.models.GrandExchangeOfferDetails;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
@@ -55,7 +59,6 @@ import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.walker.WalkerState;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 import net.runelite.client.plugins.microbot.globval.enums.InterfaceTab;
-import org.slf4j.event.Level;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -954,7 +957,7 @@ public class HerbiboarScript extends Script {
 
     /**
      * A spot in click range but off screen is behind or beside the camera. Walking to it first costs about 3.5 s
-     * more than clicking it (measured 2026-11-14); a watching player turns to look. Pure.
+     * more than clicking it; a watching player turns to look. Pure.
      */
     static boolean turnsToFollow(boolean onScreen, int distance, int clickRange, double chance, double roll) {
         return !onScreen && distance > CAMERA_TURN_MAX_TILES && distance <= clickRange && roll < chance;
@@ -996,6 +999,7 @@ public class HerbiboarScript extends Script {
 
     private WorldPoint holeDecisionTarget;
     private boolean holeDecision;
+    private int holeFails;
 
     private boolean useHole(WorldPoint from, WorldPoint to) {
         if (from == null || to == null || !crossesHole(from, to)) return false;
@@ -1004,6 +1008,7 @@ public class HerbiboarScript extends Script {
             List<WorldPoint> path = Rs2Walker.getWalkPath(from, to);
             holeDecision = path.isEmpty() ? shouldUseHole(from, to) : pathJumpsHole(path);
             holeDecisionTarget = to;
+            holeFails = 0;
             hbLog.detail("START", (holeDecision ? "Using the hole" : "Walking round, not the hole")
                     + " to " + to + " (route " + path.size() + " tiles)");
         }
@@ -1039,10 +1044,8 @@ public class HerbiboarScript extends Script {
     private boolean preHoverBoarSpot(WorldPoint tunnel) {
         WorldPoint tile = tunnel == null ? null : boarTiles.get(tunnel);
         WorldPoint me = Rs2Player.getWorldLocation();
-        // Aimed earlier, the camera follows the player and the spot is far off.
-        // Aimed earlier, the camera follows the player and the spot is far off. Tried again for Focused on
-        // 2026-11-14 (aim from 3-6 tiles out, while running): the cursor ended up outside the boar on most catches
-        // and the Harvest click came about 0.4 s later, over 51 catches. Only aim once standing at the tunnel.
+        // Aimed earlier (3-6 tiles out, while running), the camera follows the player and the cursor ends up outside
+        // the boar, so the Harvest click comes later. Only aim once standing at the tunnel.
         String why = tile == null ? "tile unknown" : me == null ? "no player" : me.distanceTo(tunnel) > 2 ? "not at the tunnel yet"
                 : Rs2Player.isMoving() ? "moving" : herbiboarAt(tunnel) != null ? "boar already out" : null;
         if (why != null) {
@@ -1257,6 +1260,38 @@ public class HerbiboarScript extends Script {
         }
     }
     
+    /** The bank's side-panel lock options: "show lock option" and "ignore locks". Each button flips its setting. */
+    private static void setBankSideLockOptions(int showOp, int ignoreLocks) {
+        if (Microbot.getVarbitValue(VarbitID.BANK_SIDE_SLOT_SHOWOP) == showOp
+                && Microbot.getVarbitValue(VarbitID.BANK_SIDE_SLOT_IGNOREINVLOCKS) == ignoreLocks) return;
+        Rs2Widget.clickWidget(InterfaceID.Bankmain.MENU_BUTTON);
+        sleepUntil(() -> Rs2Widget.isWidgetVisible(InterfaceID.Bankmain.MENU_CONTAINER), 2000);
+        Rs2Widget.clickWidget(InterfaceID.Bankmain.LOCKS);
+        sleepUntil(() -> Rs2Widget.isWidgetVisible(InterfaceID.BankSideLocks.DONE), 2000);
+        if (Microbot.getVarbitValue(VarbitID.BANK_SIDE_SLOT_IGNOREINVLOCKS) != ignoreLocks) {
+            Rs2Widget.clickWidget(InterfaceID.BankSideLocks.IGNORELOCKS);
+            sleepUntil(() -> Microbot.getVarbitValue(VarbitID.BANK_SIDE_SLOT_IGNOREINVLOCKS) == ignoreLocks, 2000);
+        }
+        if (Microbot.getVarbitValue(VarbitID.BANK_SIDE_SLOT_SHOWOP) != showOp) {
+            Rs2Widget.clickWidget(InterfaceID.BankSideLocks.EXTRAOPTIONS);
+            sleepUntil(() -> Microbot.getVarbitValue(VarbitID.BANK_SIDE_SLOT_SHOWOP) == showOp, 2000);
+        }
+        Rs2Widget.clickWidget(InterfaceID.BankSideLocks.DONE);
+        sleepUntil(() -> !Rs2Widget.isWidgetVisible(InterfaceID.BankSideLocks.DONE), 2000);
+        Rs2Widget.clickWidget(InterfaceID.Bankmain.MENU_BUTTON);
+    }
+
+    private static void unlockSlots(List<Integer> slots) {
+        for (int slot : slots) {
+            Rs2ItemModel locked = Rs2Inventory.getItemInSlot(slot);
+            // toggleItemLock(name) acts on the FIRST item of that name: only when that is this slot.
+            Rs2ItemModel first = locked == null ? null : Rs2Inventory.get(locked.getName(), true);
+            if (first != null && first.getSlot() == slot && Rs2Bank.isLockedSlot(slot)) {
+                Rs2Bank.toggleItemLock(locked.getName(), true);
+            }
+        }
+    }
+
     /** Only an open herb sack catches herbs as they are harvested. */
     private void openHerbSack(HerbiboarConfig config) {
         if (!config.useHerbSack()) return;
@@ -1276,14 +1311,10 @@ public class HerbiboarScript extends Script {
     static List<Integer> itemsToDrop(HerbiboarConfig config) {
         List<Integer> ids = new ArrayList<>();
         if (config.dropEmptyVials()) ids.add(ItemID.VIAL_EMPTY);
-        if (config.dropSmallFossil()) ids.addAll(Arrays.asList(ItemID.FOSSIL_SMALL_UNID, ItemID.FOSSIL_SMALL_1,
-                ItemID.FOSSIL_SMALL_2, ItemID.FOSSIL_SMALL_3, ItemID.FOSSIL_SMALL_4, ItemID.FOSSIL_SMALL_5));
-        if (config.dropMediumFossil()) ids.addAll(Arrays.asList(ItemID.FOSSIL_MEDIUM_UNID, ItemID.FOSSIL_MEDIUM_1,
-                ItemID.FOSSIL_MEDIUM_2, ItemID.FOSSIL_MEDIUM_3, ItemID.FOSSIL_MEDIUM_4, ItemID.FOSSIL_MEDIUM_5));
-        if (config.dropLargeFossil()) ids.addAll(Arrays.asList(ItemID.FOSSIL_LARGE_UNID, ItemID.FOSSIL_LARGE_1,
-                ItemID.FOSSIL_LARGE_2, ItemID.FOSSIL_LARGE_3, ItemID.FOSSIL_LARGE_4, ItemID.FOSSIL_LARGE_5));
-        if (config.dropRareFossil()) ids.addAll(Arrays.asList(ItemID.FOSSIL_RARE_UNID, ItemID.FOSSIL_RARE_1,
-                ItemID.FOSSIL_RARE_2, ItemID.FOSSIL_RARE_3, ItemID.FOSSIL_RARE_4, ItemID.FOSSIL_RARE_5, ItemID.FOSSIL_RARE_6));
+        if (config.dropSmallFossil()) ids.add(ItemID.FOSSIL_SMALL_UNID);
+        if (config.dropMediumFossil()) ids.add(ItemID.FOSSIL_MEDIUM_UNID);
+        if (config.dropLargeFossil()) ids.add(ItemID.FOSSIL_LARGE_UNID);
+        if (config.dropRareFossil()) ids.add(ItemID.FOSSIL_RARE_UNID);
         if (config.dropGuam()) ids.add(ItemID.UNIDENTIFIED_GUAM);
         if (config.dropMarrentill()) ids.add(ItemID.UNIDENTIFIED_MARENTILL);
         if (config.dropTarromin()) ids.add(ItemID.UNIDENTIFIED_TARROMIN);
@@ -1326,11 +1357,10 @@ public class HerbiboarScript extends Script {
 
     private boolean hasRequiredInventorySetup(HerbiboarConfig config) {
         return setupOk(hasEnergyItems(config), config.useHerbSack(), Rs2Inventory.contains(HERB_SACKS),
-                config.useMagicSecateurs(), Rs2Equipment.isWearing(ItemID.FAIRY_ENCHANTED_SECATEURS)
-                        || Rs2Inventory.contains(ItemID.FAIRY_ENCHANTED_SECATEURS));
+                config.useMagicSecateurs(), Rs2Equipment.isWearing(ItemID.FAIRY_ENCHANTED_SECATEURS));
     }
 
-    /** Takes the herb sack and secateurs from the open bank when they are turned on and not carried. */
+    /** Takes the herb sack from the open bank when it is turned on and not carried, and puts the secateurs on. */
     private void withdrawMissingSetup(HerbiboarConfig config) {
         if (config.useHerbSack() && !Rs2Inventory.contains(HERB_SACKS)) {
             for (int sack : HERB_SACKS) {
@@ -1341,13 +1371,14 @@ public class HerbiboarScript extends Script {
             }
             Rs2Inventory.waitForInventoryChanges(1000);
         }
-        if (config.useMagicSecateurs() && !Rs2Equipment.isWearing(ItemID.FAIRY_ENCHANTED_SECATEURS)
-                && !Rs2Inventory.contains(ItemID.FAIRY_ENCHANTED_SECATEURS)) {
-            if (Rs2Bank.hasItem(ItemID.FAIRY_ENCHANTED_SECATEURS)) {
+        if (config.useMagicSecateurs() && !Rs2Equipment.isWearing(ItemID.FAIRY_ENCHANTED_SECATEURS)) {
+            if (!Rs2Inventory.contains(ItemID.FAIRY_ENCHANTED_SECATEURS) && Rs2Bank.hasItem(ItemID.FAIRY_ENCHANTED_SECATEURS)) {
                 Rs2Bank.withdrawOne(ItemID.FAIRY_ENCHANTED_SECATEURS);
                 Rs2Inventory.waitForInventoryChanges(1000);
+            }
+            if (Rs2Inventory.contains(ItemID.FAIRY_ENCHANTED_SECATEURS)) {
                 Rs2Bank.wearItem(ItemID.FAIRY_ENCHANTED_SECATEURS);
-                Rs2Inventory.waitForInventoryChanges(1000);
+                sleepUntil(() -> Rs2Equipment.isWearing(ItemID.FAIRY_ENCHANTED_SECATEURS), 1800);
             }
         }
     }
@@ -1777,15 +1808,27 @@ public class HerbiboarScript extends Script {
     }
 
     private WorldPoint routeFor;
+    private long routeAskedAt;
+    private static final long ROUTE_RETRY_MS = 3000;
 
     private void showRoute(WorldPoint to) {
         WorldPoint me = Rs2Player.getWorldLocation();
         if (to == null || me == null) return;
         List<WorldPoint> shown = plugin.getWalkRoute();
         int at = HerbiHunterPlugin.routeAheadFrom(shown, me);
-        if (to.equals(routeFor) && (at < 0 || shown.get(at).distanceTo(me) <= 3)) return;
+        long now = System.currentTimeMillis();
+        if (reusesRoute(to.equals(routeFor), shown == null ? 0 : shown.size(),
+                at < 0 ? -1 : shown.get(at).distanceTo(me), now - routeAskedAt)) return;
         routeFor = to;
+        routeAskedAt = now;
         plugin.setWalkRoute(Rs2Walker.getWalkPath(me, to));
+    }
+
+    /** Kept while we stay within 3 tiles of it (or have arrived); a route that came back empty is asked for again now and then. Pure. */
+    static boolean reusesRoute(boolean sameTarget, int routeSize, int tilesOffRoute, long sinceAskedMs) {
+        if (!sameTarget) return false;
+        if (routeSize < 2) return sinceAskedMs < ROUTE_RETRY_MS;
+        return tilesOffRoute <= 3;
     }
 
     private void clearRoute() {
@@ -1878,6 +1921,13 @@ public class HerbiboarScript extends Script {
     }
 
     private int stuckMinutes;
+
+    /** States where standing still is expected. Pure. */
+    static boolean stuckClockPaused(HerbiboarState state, boolean bankOpen) {
+        return state == HerbiboarState.RESET || state == HerbiboarState.INITIALIZING
+                || state == HerbiboarState.CHECK_AUTO_RETALIATE || state == HerbiboarState.RESTOCK
+                || (state == HerbiboarState.BANK && bankOpen);
+    }
 
     /** Only a 99 gained this session logs out: a character that started at 99 ticked the box by habit. Pure. */
     static boolean logOutAt99(boolean enabled, int levelAtStart, int levelNow) {
@@ -2016,7 +2066,6 @@ public class HerbiboarScript extends Script {
         }
     }
 
-    /** Ends the run for good: the client's auto-login is told this logout is meant, and no further pass acts. */
     /** Out on the island an idle character is attacked, and the game refuses a logout in combat. Pure. */
     static boolean walksToBankBeforeLogout(boolean onIsland, int tilesFromBank) {
         return onIsland && tilesFromBank > 8;
@@ -2027,6 +2076,7 @@ public class HerbiboarScript extends Script {
         return 5000 + (long) (roll * roll * 35000);
     }
 
+    /** Ends the run for good: the client's auto-login is told this logout is meant, and no further pass acts. */
     private void logOutAndStop() {
         stopping = true;
         BreakHandlerScript.setLockState(false);
@@ -2043,7 +2093,7 @@ public class HerbiboarScript extends Script {
             }
             dropWalkerRoute();
         }
-        // The game refuses a logout within ten seconds of a hit: seen live, the first click did nothing.
+        // The game refuses a logout within ten seconds of a hit, so the first click can do nothing.
         for (int tries = 0; tries < 4 && Microbot.isLoggedIn(); tries++) {
             Rs2Player.logoutWithoutAutoLogin();
             if (Microbot.isLoggedIn()) sleep(Rs2Random.betweenInclusive(3500, 5000));
@@ -2090,8 +2140,8 @@ public class HerbiboarScript extends Script {
     }
 
     /**
-     * Locked everywhere but the bank. Seen live 2026-11-14: a character that stands still on the shore is attacked
-     * by crabs, the handler will not begin a break in combat, and the wait ended in the stuck check logging out.
+     * Locked everywhere but the bank: a character that stands still on the shore is attacked by crabs, the handler
+     * will not begin a break in combat, and the wait ends in the stuck check logging out.
      */
     static boolean breaksLocked(HerbiboarState s) {
         return s != HerbiboarState.BANK;
@@ -2164,9 +2214,22 @@ public class HerbiboarScript extends Script {
         logStep("click");
         hbLog.detail("START", "Clicking the hole to climb through it");
         // Crossing the divide is the proof the climb happened.
-        sleepUntil(() -> crossesHole(before, Rs2Player.getWorldLocation()), HOLE_CLIMB_TIMEOUT_MS);
+        if (!sleepUntil(() -> crossesHole(before, Rs2Player.getWorldLocation()), HOLE_CLIMB_TIMEOUT_MS)) {
+            holeFails++;
+            if (walksRoundAfterHoleFails(holeFails) && holeDecisionTarget != null) {
+                holeDecision = false;
+                hbLog.event("RECOVER", "The hole did not take us across " + holeFails + " times; walking round to " + holeDecisionTarget);
+            }
+            return false;
+        }
+        holeFails = 0;
         stalledWalks = 0;
         return true;
+    }
+
+    /** Climbs that never crossed: past this many for one target, the walk round is used instead. Pure. */
+    static boolean walksRoundAfterHoleFails(int fails) {
+        return fails >= 3;
     }
 
     /** [HB-T] timing lines: where the delay between a step landing and our next action goes. */
@@ -2228,15 +2291,16 @@ public class HerbiboarScript extends Script {
         hbLog.detail("PACE", String.format("%s", pace().describe()));
         hbLog.detail("HABITS", String.format("%s", habits.describe()));
         cameraFramed = false;
-        // The Hunter template switches micro breaks off; whether to take them is the user's choice.
+        // Saved before the Hunter template writes any of them, so shutdown gives back the user's own values.
         savedTakeMicroBreaks = Rs2AntibanSettings.takeMicroBreaks;
+        savedMoveMouseRandomly = Rs2AntibanSettings.moveMouseRandomly;
+        savedMoveMouseOffScreen = Rs2AntibanSettings.moveMouseOffScreen;
+        savedSimulateMistakes = Rs2AntibanSettings.simulateMistakes;
+        // The Hunter template switches micro breaks off; whether to take them is the user's choice.
         Rs2Antiban.antibanSetupTemplates.applyHunterSetup();
         Rs2AntibanSettings.takeMicroBreaks = savedTakeMicroBreaks;
         Rs2Antiban.setActivity(Activity.HUNTING_HERBIBOARS);
         // Our pace owns the mouse; the client's own random moves, off-screen trips and slips would fight it.
-        savedMoveMouseRandomly = Rs2AntibanSettings.moveMouseRandomly;
-        savedMoveMouseOffScreen = Rs2AntibanSettings.moveMouseOffScreen;
-        savedSimulateMistakes = Rs2AntibanSettings.simulateMistakes;
         Rs2AntibanSettings.moveMouseRandomly = false;
         Rs2AntibanSettings.moveMouseOffScreen = false;
         Rs2AntibanSettings.simulateMistakes = false;
@@ -2252,6 +2316,13 @@ public class HerbiboarScript extends Script {
             try {
                 // An interrupted thread makes every natural-mouse sleep return at once: moves teleport.
                 if (Thread.interrupted()) hbLog.problem("PROBLEM", "Script thread was interrupted; cleared so the mouse moves naturally");
+                // super.run() gates the pause only further down: the login and the welcome screen would still get input.
+                if (ScriptPauseController.isPaused()) {
+                    super.run();
+                    answerBreakRequest(!Microbot.isLoggedIn());
+                    notePaused();
+                    return;
+                }
                 if (!Microbot.isLoggedIn()) {
                     // A region load (LOADING) is not a logout: it happens every ~40s out here.
                     if (Microbot.getClient().getGameState() != GameState.LOADING) wasLoggedOut = true;
@@ -2312,6 +2383,11 @@ public class HerbiboarScript extends Script {
                 if (relogPending) {
                     relogPending = false;
                     Rs2Player.logout();
+                    // The game refuses a logout in combat: let the same spot ask for a relog again.
+                    if (!sleepUntil(() -> !Microbot.isLoggedIn(), 3000)) {
+                        relogTriedFor = null;
+                        hbLog.event("RECOVER", "The logout for a fresh trail was refused; carrying on");
+                    }
                     return;
                 }
                 if (state != lastPolledState) {
@@ -2378,11 +2454,11 @@ public class HerbiboarScript extends Script {
                     lastMove = Instant.now();
                     lastLocation = Rs2Player.getWorldLocation();
                     stuckMinutes = 0;
+                } else if (stuckClockPaused(state, Rs2Bank.isOpen())) {
+                    // Time spent here is not standing still: the clock starts again when we leave.
+                    lastMove = Instant.now();
                 } else if (config.resetIfStuck() && lastMove != null
-                        && Instant.now().isAfter(lastMove.plusSeconds(60))
-                        && state != HerbiboarState.RESET && state != HerbiboarState.INITIALIZING
-                        && state != HerbiboarState.CHECK_AUTO_RETALIATE && state != HerbiboarState.RESTOCK
-                        && !(state == HerbiboarState.BANK && Rs2Bank.isOpen())) {
+                        && Instant.now().isAfter(lastMove.plusSeconds(60))) {
                     stuckMinutes++;
                     if (giveUpWhenStuck(stuckMinutes)) {
                         hbLog.problem("PROBLEM", "Stuck in " + state + " at " + Rs2Player.getWorldLocation()
@@ -2662,26 +2738,6 @@ public class HerbiboarScript extends Script {
                             // The one opening for a break: bank open, nothing left hanging.
                             if (!trailLive()) BreakHandlerScript.setLockState(false);
                             withdrawMissingSetup(config);
-                            // Lock the sack and secateurs so deposit-all keeps them.
-                            if (Microbot.getVarbitValue(VarbitID.BANK_SIDE_SLOT_SHOWOP) != 1 ||
-                            Microbot.getVarbitValue(VarbitID.BANK_SIDE_SLOT_IGNOREINVLOCKS) != 0) {
-                                Rs2Widget.clickWidget(InterfaceID.Bankmain.MENU_BUTTON);
-                                sleepUntil(()->Rs2Widget.isWidgetVisible(InterfaceID.Bankmain.MENU_CONTAINER), 2000);
-                                Rs2Widget.clickWidget(InterfaceID.Bankmain.LOCKS);
-                                sleepUntil(()->Rs2Widget.isWidgetVisible(InterfaceID.BankSideLocks.DONE), 2000);
-                                if (Microbot.getVarbitValue(VarbitID.BANK_SIDE_SLOT_IGNOREINVLOCKS) != 0) {
-                                    Rs2Widget.clickWidget(InterfaceID.BankSideLocks.IGNORELOCKS);
-                                    sleepUntil(() -> Microbot.getVarbitValue(VarbitID.BANK_SIDE_SLOT_IGNOREINVLOCKS) == 0, 2000);
-                                }
-                                if (Microbot.getVarbitValue(VarbitID.BANK_SIDE_SLOT_SHOWOP) != 1){
-                                    Rs2Widget.clickWidget(InterfaceID.BankSideLocks.EXTRAOPTIONS);
-                                    sleepUntil(()->Microbot.getVarbitValue(VarbitID.BANK_SIDE_SLOT_SHOWOP) == 1, 2000);
-                                }
-                                Rs2Widget.clickWidget(InterfaceID.BankSideLocks.DONE);
-                                sleepUntil(()->!Rs2Widget.isWidgetVisible(InterfaceID.BankSideLocks.DONE), 2000);
-                                Rs2Widget.clickWidget(InterfaceID.Bankmain.MENU_BUTTON);
-                            }
-
                             ArrayList<Integer> slotsToLock = new ArrayList<>();
                             if (config.useHerbSack() && Rs2Inventory.contains(HERB_SACKS)) {
                                 slotsToLock.add(Rs2Inventory.get(HERB_SACKS).getSlot());
@@ -2690,12 +2746,27 @@ public class HerbiboarScript extends Script {
                                     && Rs2Inventory.contains(ItemID.FAIRY_ENCHANTED_SECATEURS) ) {
                                 slotsToLock.add(Rs2Inventory.get(ItemID.FAIRY_ENCHANTED_SECATEURS).getSlot());
                             }
+                            // Lock the sack and secateurs so deposit-all keeps them; the lock options are the player's, put back after.
+                            int showOpBefore = Microbot.getVarbitValue(VarbitID.BANK_SIDE_SLOT_SHOWOP);
+                            int ignoreLocksBefore = Microbot.getVarbitValue(VarbitID.BANK_SIDE_SLOT_IGNOREINVLOCKS);
+                            if (!slotsToLock.isEmpty()) setBankSideLockOptions(1, 0);
 
                             // Only unlock the slots we lock: toggleAllLocks undoes the player's own locks too.
                             List<Integer> lockedBefore = Rs2Bank.findLockedSlots();
                             slotsToLock.removeAll(lockedBefore);
                             if (!slotsToLock.isEmpty()) {
-                                sleepUntil(() -> Rs2Bank.lockAllBySlot(slotsToLock.stream().mapToInt(Integer::intValue).toArray()), 2000);
+                                int[] slots = slotsToLock.stream().mapToInt(Integer::intValue).toArray();
+                                // lockAllBySlot is true once any slot locks; deposit-all would bank whichever did not.
+                                for (int tries = 0; tries < 2 && !slotsToLock.stream().allMatch(Rs2Bank::isLockedSlot); tries++) {
+                                    Rs2Bank.lockAllBySlot(slots);
+                                    sleepUntil(() -> slotsToLock.stream().allMatch(Rs2Bank::isLockedSlot), 2000);
+                                }
+                                if (!slotsToLock.stream().allMatch(Rs2Bank::isLockedSlot)) {
+                                    hbLog.problem("PROBLEM", "Could not lock the herb sack or secateurs slot; not depositing this pass");
+                                    unlockSlots(slotsToLock);
+                                    setBankSideLockOptions(showOpBefore, ignoreLocksBefore);
+                                    break;
+                                }
                             }
 
                             boolean sackFirst = config.useHerbSack() && Rs2Inventory.contains(HERB_SACKS) && habits.emptiesSackFirst(paceRng);
@@ -2712,14 +2783,8 @@ public class HerbiboarScript extends Script {
                             }
                             Rs2Inventory.waitForInventoryChanges(1000);
                             sleep(reactionMs());
-                            for (int slot : slotsToLock) {
-                                Rs2ItemModel locked = Rs2Inventory.getItemInSlot(slot);
-                                // toggleItemLock(name) acts on the FIRST item of that name: only when that is this slot.
-                                Rs2ItemModel first = locked == null ? null : Rs2Inventory.get(locked.getName(), true);
-                                if (first != null && first.getSlot() == slot && Rs2Bank.isLockedSlot(slot)) {
-                                    Rs2Bank.toggleItemLock(locked.getName(), true);
-                                }
-                            }
+                            unlockSlots(slotsToLock);
+                            setBankSideLockOptions(showOpBefore, ignoreLocksBefore);
 
                             // Again now there is room: a full inventory refused the first try.
                             withdrawMissingSetup(config);
@@ -2827,18 +2892,39 @@ public class HerbiboarScript extends Script {
     enum RestockStep { COINS, TO_GE, BUY, WAIT, TO_CAMP }
 
     private RestockStep restockStep = RestockStep.COINS;
+    // The offer as checked at COINS: kept until it is resolved, whatever the settings do meanwhile.
+    private int restockItemId;
     private int restockPrice;
+    private int restockAmount;
     private String restockItem;
+    private GrandExchangeSlots restockSlot;
+    private boolean restockCollecting;
     private long restockOfferAt;
     private int restockWalkFails;
     private static final int RESTOCK_OFFER_TIMEOUT_MS = 180_000;
+
+    enum RestockWait { WAIT, COLLECT, DONE, GONE, TIMED_OUT }
+
+    /** What the WAIT step does with the slot our offer went into. Pure. */
+    static RestockWait restockWait(boolean slotHoldsOurOffer, boolean bought, boolean collecting, long sincePlacedMs) {
+        // The slot reads empty once collected; just after placing, the offer may not have shown yet.
+        if (!slotHoldsOurOffer) return collecting ? RestockWait.DONE : sincePlacedMs > 5000 ? RestockWait.GONE : RestockWait.WAIT;
+        if (bought) return RestockWait.COLLECT;
+        return sincePlacedMs > RESTOCK_OFFER_TIMEOUT_MS ? RestockWait.TIMED_OUT : RestockWait.WAIT;
+    }
+
+    /** The slot still holds the buy this restock placed: same item, amount and price. Pure. */
+    static boolean isRestockOffer(int slotItemId, int slotTotal, long slotPrice, boolean selling, int itemId, int amount, int price) {
+        return !selling && slotItemId == itemId && slotTotal == amount && slotPrice == price;
+    }
 
     static boolean canAfford(long coins, long cost) {
         return cost > 0 && cost <= Integer.MAX_VALUE && coins >= cost;
     }
 
     private static int bankedDoses(HerbiboarConfig.RunEnergyOption option) {
-        if (!Rs2Bank.hasBankMirrorSnapshot()) return -1;
+        // A snapshot restored from an earlier session can be out of date; only a bank seen this session counts.
+        if (Rs2Bank.getBankLiveEpoch() == 0) return -1;
         int[] ids = doseIds(option);
         if (ids.length == 0) return -1;
         int doses = 0;
@@ -2870,9 +2956,14 @@ public class HerbiboarScript extends Script {
         WorldPoint me = Rs2Player.getWorldLocation();
         switch (restockStep) {
             case COINS: {
-                // The client keeps the bank's last contents per account; without that copy, look once at the camp bank.
-                if (!Rs2Bank.hasBankMirrorSnapshot() && !Rs2Bank.isOpen()) {
+                // Coins and potions are read from the bank as seen this session; until then, look once at the camp bank.
+                if (Rs2Bank.getBankLiveEpoch() == 0 && !Rs2Bank.isOpen()) {
                     Rs2Bank.walkToBankAndUseBank(BankLocation.FOSSIL_ISLAND);
+                    return;
+                }
+                if (bankedDoses(config.runEnergyOption()) > 0) {
+                    hbLog.event("RESTOCK", "The bank has " + config.runEnergyOption() + " after all; banking instead of buying");
+                    setState(HerbiboarState.BANK);
                     return;
                 }
                 restockItem = Microbot.getClientThread().runOnClientThreadOptional(
@@ -2891,6 +2982,8 @@ public class HerbiboarScript extends Script {
                             + " each, have " + coins + " (inventory + bank)", herbiboarPlugin);
                     return;
                 }
+                restockItemId = potion;
+                restockAmount = amount;
                 // No withdrawal: a G.E. buy offer takes the coins from the bank itself (inventory coins first).
                 hbLog.event("RESTOCK", "Restock: " + amount + " " + restockItem + " at " + restockPrice + " ("
                         + cost + " coins of " + coins + "); walking to the G.E.");
@@ -2914,12 +3007,16 @@ public class HerbiboarScript extends Script {
                 return;
             case BUY:
                 if (Rs2GrandExchange.isOpen() || Rs2GrandExchange.openExchange()) {
-                    if (Rs2GrandExchange.getAvailableSlot() == null) {
-                        Rs2GrandExchange.collectAllToBank();
-                        sleepUntil(Rs2GrandExchange::isAllSlotsEmpty, 3000);
+                    // buyItem fills the first free slot
+                    restockSlot = Rs2GrandExchange.getAvailableSlot();
+                    // The other offers are the player's: collecting or cancelling them is not ours to do.
+                    if (restockSlot == null) {
+                        stopRestock("every G.E. slot is in use; free one and start again", herbiboarPlugin);
+                        return;
                     }
-                    if (Rs2GrandExchange.buyItem(restockItem, restockPrice, amount)) {
+                    if (Rs2GrandExchange.buyItem(restockItem, restockPrice, restockAmount)) {
                         restockWalkFails = 0;
+                        restockCollecting = false;
                         restockOfferAt = System.currentTimeMillis();
                         restockStep = RestockStep.WAIT;
                         return;
@@ -2927,22 +3024,42 @@ public class HerbiboarScript extends Script {
                 }
                 if (++restockWalkFails >= 5) stopRestock("could not place the G.E. offer (5 tries failed)", herbiboarPlugin);
                 return;
-            case WAIT:
-                if (Rs2GrandExchange.hasFinishedBuyingOffers()) {
-                    if (!Rs2GrandExchange.isOpen()) Rs2GrandExchange.openExchange();
-                    Rs2GrandExchange.collectAllToBank();
-                    sleepUntil(Rs2GrandExchange::isAllSlotsEmpty, 5000);
-                    Rs2GrandExchange.closeExchange();
-                    hbLog.event("RESTOCK", "Restock: bought " + amount + " " + restockItem + "; back to Fossil Island");
-                    microBreakHere(trailLive(), "at the G.E.");
-                    restockWalkFails = 0;
-                    restockStep = RestockStep.TO_CAMP;
-                } else if (System.currentTimeMillis() - restockOfferAt > RESTOCK_OFFER_TIMEOUT_MS) {
-                    Rs2GrandExchange.abortOffer(restockItem, true);
-                    stopRestock("the offer for " + amount + " " + restockItem + " at " + restockPrice
-                            + " did not fill in " + (RESTOCK_OFFER_TIMEOUT_MS / 60000) + " minutes", herbiboarPlugin);
+            case WAIT: {
+                GrandExchangeOfferDetails offer = Rs2GrandExchange.getOfferDetails(restockSlot);
+                boolean ours = offer != null && isRestockOffer(offer.getItemId(), offer.getTotalQuantity(), offer.getPrice(),
+                        offer.isSelling(), restockItemId, restockAmount, restockPrice);
+                switch (restockWait(ours, ours && offer.getState() == GrandExchangeOfferState.BOUGHT, restockCollecting,
+                        System.currentTimeMillis() - restockOfferAt)) {
+                    case COLLECT:
+                        if ((Rs2GrandExchange.isOpen() || Rs2GrandExchange.openExchange())
+                                && Rs2GrandExchange.collectOffer(restockSlot, true)) {
+                            restockCollecting = true;
+                            sleepUntil(() -> Rs2GrandExchange.getOfferDetails(restockSlot) == null, 5000);
+                        }
+                        if (Rs2GrandExchange.getOfferDetails(restockSlot) != null && ++restockWalkFails >= 5) {
+                            stopRestock("could not collect the " + restockAmount + " " + restockItem + " (5 tries failed)", herbiboarPlugin);
+                        }
+                        return;
+                    case DONE:
+                        Rs2GrandExchange.closeExchange();
+                        hbLog.event("RESTOCK", "Restock: bought " + restockAmount + " " + restockItem + "; back to Fossil Island");
+                        microBreakHere(trailLive(), "at the G.E.");
+                        restockWalkFails = 0;
+                        restockStep = RestockStep.TO_CAMP;
+                        return;
+                    case GONE:
+                        stopRestock("the offer for " + restockAmount + " " + restockItem + " left " + restockSlot
+                                + " without being collected here", herbiboarPlugin);
+                        return;
+                    case TIMED_OUT:
+                        Rs2GrandExchange.cancelSpecificOffers(Collections.singletonList(restockSlot), true);
+                        stopRestock("the offer for " + restockAmount + " " + restockItem + " at " + restockPrice
+                                + " did not fill in " + (RESTOCK_OFFER_TIMEOUT_MS / 60000) + " minutes", herbiboarPlugin);
+                        return;
+                    default:
+                        return;
                 }
-                return;
+            }
             case TO_CAMP:
                 if (me != null && me.distanceTo(CAMP_BANK) <= 5) {
                     setState(HerbiboarState.BANK);
@@ -3149,6 +3266,7 @@ public class HerbiboarScript extends Script {
 
     @Override
     public void shutdown() {
+        stopping = true;
         if (savedMushtrees != null) {
             Microbot.getConfigManager().setConfiguration(WALKER_CONFIG, MUSHTREES, savedMushtrees);
             savedMushtrees = null;
@@ -3168,15 +3286,29 @@ public class HerbiboarScript extends Script {
         }
         resetHerbisCaught();
         BreakHandlerScript.setLockState(false);
-        // Antiban settings are process-wide statics: give the user's own values back before the reset.
+        // Antiban settings are process-wide statics: the user's own values go back after the reset, which clears them.
+        Rs2Antiban.resetAntibanSettings();
         if (savedMoveMouseRandomly != null) {
             Rs2AntibanSettings.moveMouseRandomly = savedMoveMouseRandomly;
             Rs2AntibanSettings.moveMouseOffScreen = savedMoveMouseOffScreen;
             Rs2AntibanSettings.simulateMistakes = savedSimulateMistakes;
+            Rs2AntibanSettings.takeMicroBreaks = savedTakeMicroBreaks;
             savedMoveMouseRandomly = null;
         }
-        Rs2Antiban.resetAntibanSettings();
-        Rs2AntibanSettings.takeMicroBreaks = savedTakeMicroBreaks;
         super.shutdown();
+    }
+
+    /** Waits up to maxMs for a pass already running to return. Not on the client thread: that pass may be waiting on it. */
+    void awaitPassEnd(long maxMs) {
+        if (Microbot.getClient().isClientThread()) return;
+        long until = System.currentTimeMillis() + maxMs;
+        while (passRunning.get() && System.currentTimeMillis() < until) {
+            try {
+                Thread.sleep(20);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
     }
 }

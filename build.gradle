@@ -343,28 +343,3 @@ tasks.register('validateJdkVersion') {
         }
     }
 }
-
-// Herbi Hunter self-check: pure decision logic, run with ./gradlew runHerbiboarDecisionCheck -PpluginList=HerbiHunterPlugin.
-sourceSets {
-    herbiboarCheck {
-        java {
-            srcDirs = ['src/check/java']
-        }
-    }
-}
-
-afterEvaluate {
-    def herbiboar = sourceSets.findByName('herbihunter')
-    if (herbiboar != null) {
-        sourceSets.herbiboarCheck.compileClasspath += herbiboar.output + configurations.microbotRuntime
-        sourceSets.herbiboarCheck.runtimeClasspath += herbiboar.output + configurations.microbotRuntime
-    }
-}
-
-tasks.register('runHerbiboarDecisionCheck', JavaExec) {
-    group = 'verification'
-    description = 'Self-check: herbiboar decisions, pace and per-session habits.'
-    dependsOn 'herbiboarCheckClasses'
-    classpath = sourceSets.herbiboarCheck.runtimeClasspath
-    mainClass = 'net.runelite.client.plugins.microbot.herbihunter.HerbiboarDecisionCheck'
-}

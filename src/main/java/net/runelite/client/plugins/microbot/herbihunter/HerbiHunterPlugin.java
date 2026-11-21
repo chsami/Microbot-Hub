@@ -42,7 +42,6 @@ import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.util.menu.NewMenuEntry;
-import org.slf4j.event.Level;
 import net.runelite.client.plugins.microbot.PluginConstants;
 import net.runelite.client.ui.overlay.OverlayManager;
 import org.apache.commons.lang3.ArrayUtils;
@@ -59,7 +58,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
         tags = {"herbiboar", "herbi hunter", "herbi", "hunter", "herblore", "fossil island", "skilling", "irked"},
         authors = {"Igor", "chsami", "Kavraka91", "irkedMATT"},
         version = HerbiHunterPlugin.version,
-        minClientVersion = "2.6.54",
+        minClientVersion = "2.6.60",
         iconUrl = "https://chsami.github.io/Microbot-Hub/HerbiHunterPlugin/assets/icon.png",
         cardUrl = "https://chsami.github.io/Microbot-Hub/HerbiHunterPlugin/assets/card.png",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -184,7 +183,7 @@ public class HerbiHunterPlugin extends Plugin {
 
     @Getter
     private int finishId;
-    // The finish varbit as last read: resetTrailData zeroes finishId while the varbit is still set, which reopened TUNNEL over the BOAR step.
+    // The finish varbit as last read: resetTrailData zeroes finishId while the varbit is still set, which would reopen TUNNEL over the BOAR step.
     private int finishVarbitSeen;
 
     private boolean started;
@@ -204,6 +203,7 @@ public class HerbiHunterPlugin extends Plugin {
     @Setter
     private volatile String stopReason;
     private long lastCheckpointMs;
+    private volatile int runId;
     private static final long CHECKPOINT_MS = 5 * 60_000L;
 
     @Override
@@ -253,8 +253,11 @@ public class HerbiHunterPlugin extends Plugin {
 
         if (client.getGameState() == GameState.LOGGED_IN)
         {
+            // A stop before this runs unregisters the handlers but leaves it queued: it must not refill a stopped run.
+            final int run = runId;
             clientThread.invokeLater(() ->
             {
+                if (run != runId) return;
                 inHerbiboarArea = checkArea();
                 // A tunnel already found before we started is not a new step for the [HB-T] clock.
                 finishVarbitSeen = client.getVarbitValue(VarbitID.HUNTING_TRAIL_ENDS_FOSSIL);
@@ -288,8 +291,12 @@ public class HerbiHunterPlugin extends Plugin {
     }
     @Override
     protected void shutDown() {
+        runId++;
         subscribers.forEach(eventBus::unregister);
         subscribers.clear();
+        // The script first: a pass still running would act, or write to the session, after it is filed.
+        script.shutdown();
+        script.awaitPassEnd(2000);
         HerbiboarSession ending = session;
         String why = stopReason == null ? "stopped" : stopReason;
         finishSession();
@@ -305,7 +312,6 @@ public class HerbiHunterPlugin extends Plugin {
         inHerbiboarArea = false;
         if (coreShowTrail == null) Microbot.getConfigManager().unsetConfiguration(CORE_GROUP, CORE_SHOW_TRAIL);
         else Microbot.getConfigManager().setConfiguration(CORE_GROUP, CORE_SHOW_TRAIL, coreShowTrail);
-        script.shutdown();
         // Last, so nothing of this run is written after its stop line.
         hbLog.stop(ending == null ? 0 : (System.currentTimeMillis() - ending.startMs) / 60_000,
             ending == null ? 0 : ending.caught, why);

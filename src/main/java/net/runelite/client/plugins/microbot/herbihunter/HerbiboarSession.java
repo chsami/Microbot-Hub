@@ -128,11 +128,21 @@ public class HerbiboarSession {
     static void saveFinished(File dir, Gson gson, HerbiboarSession s) {
         try {
             Files.createDirectories(dir.toPath());
-            Files.write(historyFile(dir).toPath(), (gson.toJson(s) + System.lineSeparator()).getBytes(StandardCharsets.UTF_8),
+            // A stop mid-append can leave a last line with no newline: this record must not join it.
+            String start = endsMidLine(historyFile(dir)) ? System.lineSeparator() : "";
+            Files.write(historyFile(dir).toPath(), (start + gson.toJson(s) + System.lineSeparator()).getBytes(StandardCharsets.UTF_8),
                     StandardOpenOption.CREATE, StandardOpenOption.APPEND);
             Files.deleteIfExists(checkpointFile(dir).toPath());
         } catch (IOException e) {
             log.warn("Could not save the Herbiboar session to {}: {}", dir, e.getMessage());
+        }
+    }
+
+    private static boolean endsMidLine(File f) throws IOException {
+        if (!f.isFile() || f.length() == 0) return false;
+        try (java.io.RandomAccessFile r = new java.io.RandomAccessFile(f, "r")) {
+            r.seek(f.length() - 1);
+            return r.read() != '\n';
         }
     }
 
@@ -149,13 +159,20 @@ public class HerbiboarSession {
         }
     }
 
+    /** A session is known by its start time. Pure. */
+    static boolean filed(List<HerbiboarSession> history, long startMs) {
+        for (HerbiboarSession h : history) if (h.startMs == startMs) return true;
+        return false;
+    }
+
     static void recoverCheckpoint(File dir, Gson gson) {
         File f = checkpointFile(dir);
         if (!f.isFile()) return;
         try {
             HerbiboarSession s = gson.fromJson(new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8),
                     HerbiboarSession.class);
-            if (s != null && s.caught > 0) {
+            // A filed session whose checkpoint delete failed would otherwise be filed twice.
+            if (s != null && s.caught > 0 && !filed(loadHistory(dir, gson), s.startMs)) {
                 if (s.endMs <= 0) s.endMs = f.lastModified();
                 s.resume(s.endMs);
                 s.stopReason = "client closed or crashed";

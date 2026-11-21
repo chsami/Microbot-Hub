@@ -4,7 +4,6 @@ import net.runelite.api.Client;
 import net.runelite.api.Experience;
 import net.runelite.api.MenuAction;
 import net.runelite.api.Skill;
-import net.runelite.api.gameval.ItemID;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
@@ -182,7 +181,7 @@ public class HerbiboarOverlay extends Overlay {
         g.setFont(regular);
         FontMetrics fm = g.getFontMetrics();
         String rate = "-".equals(s.perHour) ? "" : "  ·  " + s.perHour + "/hr";
-        String main = s.caught + " caught" + rate;
+        String main = s.state.getDescription() + "  ·  " + s.caught + " caught" + rate;
         int w = PAD + STRIP + 4 + 8 + 6 + fm.stringWidth(main) + 10 + g.getFontMetrics(small).stringWidth(s.runTime) + PAD;
         int h = fm.getHeight() + 8;
         frame(g, w, h, status);
