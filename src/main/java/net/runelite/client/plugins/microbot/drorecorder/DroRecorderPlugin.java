@@ -438,6 +438,15 @@ public class DroRecorderPlugin extends Plugin
             return;
         }
 
+        if ("openOutputFolder".equals(event.getKey()))
+        {
+            if (event.getNewValue() != null && !event.getNewValue().equals(event.getOldValue()))
+            {
+                openOutputFolder();
+            }
+            return;
+        }
+
         if ("autoArenaRecording".equals(event.getKey()))
         {
             long expected = generation;

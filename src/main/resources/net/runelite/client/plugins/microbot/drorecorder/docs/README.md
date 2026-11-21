@@ -10,8 +10,7 @@ Disable compression in settings to use plain `.jsonl` on the next recording.
 ## Independent arena capture
 
 Enable **Automatic arena recording** in the local Recorder settings to opt in.
-Recorder can enable itself and wait for Inferno, Colosseum, or Fight Caves entry.
-Enabling Recorder manually also arms it immediately.
+Keep the Recorder plugin enabled: it then waits for Inferno, Colosseum or Fight Caves entry and starts recording on its own. A disabled Recorder never records.
 
 Recorder detects the instance's template tiles independently of any arena scripts.
 A session starts on entry, survives loading, human takeover, and script pause/stop,
@@ -20,7 +19,7 @@ outside game ticks, or logout. Zero HP on a reliable game tick is a death fallba
 Death/completion is captured before finalization; the same arena visit cannot
 immediately create another recording. Recorder rearms after confirmed exit/logout,
 ready for the next attempt.
-Explicitly disabling Recorder also closes it. The Recorder pause hotkey remains
+Explicitly disabling Recorder also closes it. The Recorder pause hotkey (Ctrl+F10) remains
 available for an intentional recording pause.
 Automatic sessions always use full capture defaults and gzip, under
 `inferno-YYYYMMDD-HHMMSS-SSS-<unique>/` or `colosseum-.../` or `firecape-.../`.
@@ -70,5 +69,5 @@ Event records:
 - `mouse_move`, `mouse_drag`, `mouse_press`, `mouse_release`, `mouse_wheel`: Cursor position, button modifiers, click count. While an arena server session is connected, mouse sampling captures every single move vector without throttling.
 - `network_ping`: Round-trip latency to the game world every 5 seconds.
 - `window_focus` / `canvas_focus`: Focus gained/lost transitions.
-- `annotation`: Tactical markers via F7 (SAFESPOT), F8 (MISTAKE), F9 (IMPORTANT).
+- `annotation`: Tactical markers via Ctrl+F7 (SAFESPOT), Ctrl+F8 (MISTAKE), Ctrl+F9 (IMPORTANT), and Ctrl+F10 (PAUSE/RESUME).
 - Diagnostic records: `arena_command`, `arena_state_sent`, `arena_safety_net`, `arena_server_ping`, `arena_input_command`, `firecape_hit`, etc.

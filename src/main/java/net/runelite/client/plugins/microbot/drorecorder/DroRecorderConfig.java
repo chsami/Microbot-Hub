@@ -2,17 +2,18 @@ package net.runelite.client.plugins.microbot.drorecorder;
 
 import net.runelite.client.config.*;
 
+import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 
 @ConfigGroup(DroRecorderConfig.GROUP)
 @ConfigInformation("<b>DRO's Recorder</b> passively records gameplay for later AI/script analysis: player/NPC state, LOS/pathing, inventory/equipment/prayers, combat, graphics, ground items, dialogue, activity changes, mouse/camera activity, and tactical markers.<br><br>" +
-        "Starting this plugin manually records immediately anywhere, even with Automatic arena recording enabled. Stop the plugin to finish and save. Restoring the plugin at client startup does not start a manual recording.<br><br>Use <b>Open Output Folder</b> below to view recordings.<br><br>" +
+        "With Automatic arena recording off, this plugin records everywhere for as long as it is enabled, including when the client turns it back on at startup. With Automatic arena recording on, it only records inside Inferno, Colosseum and Fight Caves. Disable the plugin to finish and save the current recording.<br><br>Use <b>Open Output Folder</b> below to view recordings.<br><br>" +
         "<b>Automatic arenas:</b> Enable this Recorder plugin and Automatic arena recording on your own client. It records Inferno/Colosseum/Firecape independently of other scripts, including while a script is paused or stopped. Off by default.<br><br>" +
         "<b>Marker timing:</b><br>" +
-        "<b>F7 Safe</b> - press AFTER you have reached the safespot/anchor and the situation is stable.<br>" +
-        "<b>F8 Mistake</b> - press immediately after a mistake/bad position so it is marked as something not to learn.<br>" +
-        "<b>F9 Important</b> - press immediately after an important tactical decision/action.<br>" +
-        "<b>F10 Pause/Resume</b> - temporarily stops/continues recording without disabling the plugin.<br><br>" +
+        "<b>Ctrl+F7 Safe</b> - press AFTER you have reached the safespot/anchor and the situation is stable.<br>" +
+        "<b>Ctrl+F8 Mistake</b> - press immediately after a mistake/bad position so it is marked as something not to learn.<br>" +
+        "<b>Ctrl+F9 Important</b> - press immediately after an important tactical decision/action.<br>" +
+        "<b>Ctrl+F10 Pause/Resume</b> - temporarily stops/continues recording without disabling the plugin.<br><br>" +
         "<b>Output folder:</b> ~/.runelite/dro-recorder/<br>" +
         "If Open Output Folder does not work: Finder -> Go -> Go to Folder (Cmd+Shift+G), then paste that path.")
 public interface DroRecorderConfig extends Config
@@ -22,7 +23,7 @@ public interface DroRecorderConfig extends Config
     @ConfigItem(
         keyName = "autoArenaRecording",
         name = "Automatic arena recording",
-        description = "On this client, arm Recorder for Inferno/Colosseum/Firecape entry. Continues through script pauses/stops; ends on death, completion, confirmed exit/logout or client close. Manual Start records anywhere regardless of this preference.",
+        description = "With Automatic arena recording off, this plugin records everywhere for as long as it is enabled, including when the client turns it back on at startup. With Automatic arena recording on, it only records inside Inferno, Colosseum and Fight Caves. Disable the plugin to finish and save the current recording.",
         position = -1
     )
     default boolean autoArenaRecording()
@@ -246,7 +247,7 @@ public interface DroRecorderConfig extends Config
     )
     default Keybind safespotHotkey()
     {
-        return new Keybind(KeyEvent.VK_F7, 0);
+        return new Keybind(KeyEvent.VK_F7, InputEvent.CTRL_DOWN_MASK);
     }
 
     @ConfigItem(
@@ -257,7 +258,7 @@ public interface DroRecorderConfig extends Config
     )
     default Keybind mistakeHotkey()
     {
-        return new Keybind(KeyEvent.VK_F8, 0);
+        return new Keybind(KeyEvent.VK_F8, InputEvent.CTRL_DOWN_MASK);
     }
 
     @ConfigItem(
@@ -268,7 +269,7 @@ public interface DroRecorderConfig extends Config
     )
     default Keybind importantHotkey()
     {
-        return new Keybind(KeyEvent.VK_F9, 0);
+        return new Keybind(KeyEvent.VK_F9, InputEvent.CTRL_DOWN_MASK);
     }
 
     @ConfigItem(
@@ -279,6 +280,6 @@ public interface DroRecorderConfig extends Config
     )
     default Keybind pauseHotkey()
     {
-        return new Keybind(KeyEvent.VK_F10, 0);
+        return new Keybind(KeyEvent.VK_F10, InputEvent.CTRL_DOWN_MASK);
     }
 }
