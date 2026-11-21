@@ -151,6 +151,7 @@ public class DroZulrahScript extends Script
     private long sceneTransitionGraceUntil;
     private boolean boatClickPending;
     private long boatClickIssuedAt;
+    private boolean boatBoardConfirmPending;
     private boolean awaitingFightStart;
     private boolean fightContinueClicked;
     private boolean reengageAfterMovement;
@@ -237,6 +238,7 @@ public class DroZulrahScript extends Script
         this.sceneTransitionGraceUntil = 0L;
         this.boatClickPending = false;
         this.boatClickIssuedAt = 0L;
+        this.boatBoardConfirmPending = false;
         this.awaitingFightStart = false;
         this.fightContinueClicked = false;
         this.inFight = false;
@@ -448,6 +450,11 @@ public class DroZulrahScript extends Script
             {
                 state = DroZulrahState.BOARDING;
                 status = "Running to / boarding sacrificial boat";
+                if (boatBoardConfirmPending && clientRead(() -> Rs2Dialogue.hasDialogueOption("Yes"), false))
+                {
+                    boatBoardConfirmPending = false;
+                    Rs2Dialogue.clickOption("Yes");
+                }
                 return;
             }
             // No observed instance transition: retry through a nearby randomized approach.
@@ -1099,8 +1106,11 @@ public class DroZulrahScript extends Script
             }
             return;
         }
+        ObjectComposition composition = boat.getObjectComposition();
+        String boardAction = ZulrahBoatRoute.boardAction(composition == null ? null : composition.getActions());
+        boatBoardConfirmPending = "Board".equals(boardAction);
         state = DroZulrahState.BOARDING;
-        status = "Quick-boarding Zulrah - one click";
+        status = boatBoardConfirmPending ? "Boarding Zulrah boat" : "Quick-boarding Zulrah - one click";
         boatApproachRequired = false;
         // Latch before invoking: tile-object click return values do not reliably indicate whether
         // the menu action was dispatched. This prevents the 100 ms loop from spam-clicking.
@@ -1112,7 +1122,7 @@ public class DroZulrahScript extends Script
         fightContinueClicked = false;
         entryGate.reset();
         operation = "boat click";
-        tripAction(() -> boat.click("Quick-board"));
+        tripAction(() -> boat.click(boardAction));
     }
 
     private boolean entryReady(Rs2NpcModel boss)
@@ -2522,7 +2532,7 @@ public class DroZulrahScript extends Script
         private GearChoice(int id, String name, int slot, boolean twoHanded, int magicScore, int rangeScore)
         {
             this.id = id;
-            this.name = name == null ? "" : name;
+            this.name = ZulrahGearName.base(name);
             this.slot = slot;
             this.twoHanded = twoHanded;
             this.magicScore = magicScore;
