@@ -70,6 +70,7 @@ open Skills, hover a randomly selected Ranged, Magic or Hitpoints skill for
 These are separate from Smart breaks and keep their selection during recovery.
 
 At Zul-andra, a visible sacrificial boat is Quick-boarded from the teleport spot.
+If the boat has no Quick-board option, the script clicks Board instead and answers Yes to the boarding prompt.
 Otherwise the script attempts a bounded, slightly variable camera turn and retains
 the existing boat approach fallback. The ordinary one-click boarding latch stays
 in place. Travel and recovery inputs use BaseProfileDro; loading and breaks pause
