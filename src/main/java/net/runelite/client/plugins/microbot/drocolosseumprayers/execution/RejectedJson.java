@@ -7,7 +7,7 @@ import java.util.function.Consumer;
 final class RejectedJson {
     private static final Set<String> SECRETS=Set.of("code","key","license","licence","licensekey","licencekey","apikey","pass","token","resume","resumetoken","authorization","hwid","username","ip");
     static void log(Consumer<String> log,String reason,JsonElement payload) {
-        log.accept("[inferno-local] stage=REJECTED_JSON reason="+reason+" json="+clean(payload));
+        log.accept("[colosseum-local] stage=REJECTED_JSON reason="+reason+" json="+clean(payload));
     }
     private static JsonElement clean(JsonElement source) {
         if(source==null)return JsonNull.INSTANCE;

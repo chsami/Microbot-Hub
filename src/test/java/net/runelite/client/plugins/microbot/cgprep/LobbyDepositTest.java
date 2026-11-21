@@ -9,35 +9,47 @@ import org.junit.jupiter.api.Test;
 class LobbyDepositTest
 {
 	@Test
-	void depositsLootLeftInTheBagOnceTheChestIsEmptied()
+	void keepsTheLootAndGearWhenTheGameDoesNotRefuse()
 	{
-		assertTrue(LobbyDeposit.needed(false, 24, 5, 0, 4, false));
+		// 1.8.5: no banking every run (looked scripted); runs with loot in the bag get in fine
+		assertFalse(LobbyDeposit.needed(false, 24, 5, 0, 4, false, false));
+		assertFalse(LobbyDeposit.needed(false, 28, 5, 0, 0, true, false));
 	}
 
 	@Test
-	void depositsWornItemsBeforeGoingIn()
+	void banksAfterTheGameRefusesEntry()
 	{
-		assertTrue(LobbyDeposit.needed(false, 28, 5, 0, 0, true));
+		assertTrue(LobbyDeposit.needed(false, 24, 5, 0, 4, false, true));
+		assertTrue(LobbyDeposit.needed(false, 28, 5, 0, 0, true, true));
 	}
 
 	@Test
 	void goesStraightInWithNothingCarried()
 	{
-		assertFalse(LobbyDeposit.needed(false, 28, 5, 0, 0, false));
+		assertFalse(LobbyDeposit.needed(false, 28, 5, 0, 0, false, true));
+		assertFalse(LobbyDeposit.needed(false, 28, 5, 0, 0, false, false));
 	}
 
 	@Test
 	void opensTheChestFirstWhileThereIsRoom()
 	{
-		assertFalse(LobbyDeposit.needed(true, 24, 5, 0, 4, false));
+		assertFalse(LobbyDeposit.needed(true, 24, 5, 0, 4, false, false));
 	}
 
 	@Test
 	void makesRoomBeforeTheChestWhenTheBagIsNearlyFull()
 	{
-		assertTrue(LobbyDeposit.needed(true, 4, 5, 0, 24, false));
-		assertTrue(LobbyDeposit.needed(true, 7, 5, 2, 21, false));
-		assertFalse(LobbyDeposit.needed(true, 7, 5, 1, 21, false));
+		assertTrue(LobbyDeposit.needed(true, 4, 5, 0, 24, false, false));
+		assertTrue(LobbyDeposit.needed(true, 7, 5, 2, 21, false, false));
+		assertFalse(LobbyDeposit.needed(true, 7, 5, 1, 21, false, false));
+	}
+
+	@Test
+	void wornItemsOnlyGoInAfterARefusal()
+	{
+		assertFalse(LobbyDeposit.depositWorn(false, true));
+		assertTrue(LobbyDeposit.depositWorn(true, true));
+		assertFalse(LobbyDeposit.depositWorn(true, false));
 	}
 
 	@Test

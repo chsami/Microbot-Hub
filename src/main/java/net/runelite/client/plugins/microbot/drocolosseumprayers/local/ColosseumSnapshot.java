@@ -14,23 +14,16 @@ final class ColosseumSnapshot
 {
     final JsonObject raw, player;
     final long tick, time;
-    final int x, y, hp, maxHp, prayer, maxPrayer, magic, baseMagic, ranged, baseRanged, bloodLevel, baseDefence;
-    final int runEnergy, specEnergy, animation, interacting, plane, poison;
-    final int frailty, myopia, blasphemy, mantimayhem, effectiveMaxHp;
-    final boolean instance, moving, runOn, specOn, spellSelected;
+    final int x, y, hp, maxHp, prayer, maxPrayer, magic, baseMagic, ranged, baseRanged;
+    final int runEnergy, animation, interacting, plane;
+    final int mantimayhem;
+    final boolean instance, moving, runOn;
     final List<Npc> npcs = new ArrayList<>();
-    final List<Item> inventory = new ArrayList<>(), equipment = new ArrayList<>();
-    final JsonArray events, projectiles, ground;
+    final List<Item> equipment = new ArrayList<>();
+    final JsonArray events, projectiles;
     final Set<String> prayers = new HashSet<>();
 
-    final Set<ColosseumCollision.Tile> sand = new HashSet<>();
-
     ColosseumSnapshot(JsonObject raw)
-    {
-        this(raw,Map.of());
-    }
-
-    ColosseumSnapshot(JsonObject raw,Map<String,Integer> inferredModifiers)
     {
         this.raw = raw;
         player = object(raw, "player");
@@ -38,50 +31,28 @@ final class ColosseumSnapshot
         time = longValue(raw, "t", 0);
         x = integer(player, "tx", -1); y = integer(player, "ty", -1);
         hp = integer(player, "hp", 0); maxHp = integer(player, "maxHp", 0);
-        JsonObject nativeModifiers=object(player,"modifiers");
-        frailty=Math.max(0,Math.min(3,integer(nativeModifiers,"frailty",inferredModifiers.getOrDefault("frailty",0))));
-        myopia=Math.max(0,Math.min(3,integer(nativeModifiers,"myopia",inferredModifiers.getOrDefault("myopia",0))));
-        blasphemy=Math.max(0,Math.min(3,integer(nativeModifiers,"blasphemy",inferredModifiers.getOrDefault("blasphemy",0))));
-        mantimayhem=Math.max(0,Math.min(3,integer(nativeModifiers,"mantimayhem",inferredModifiers.getOrDefault("mantimayhem",0))));
-        int reduction=frailty==3?40:frailty*10;
-        effectiveMaxHp=maxHp-maxHp*reduction/100;
+        JsonObject nativeModifiers = object(player, "modifiers");
+        mantimayhem = Math.max(0, Math.min(3, integer(nativeModifiers, "mantimayhem", 0)));
         prayer = integer(player, "prayer", 0); plane = integer(player, "plane", 0);
         JsonObject skills = object(player, "skills");
         JsonObject boosted = object(skills, "boosted"), real = object(skills, "real");
         maxPrayer = integer(real, "prayer", 0);
         magic = integer(boosted, "magic", 0); baseMagic = integer(real, "magic", magic);
-        bloodLevel = bool(player, "ancientSpellbook", false) && bool(player, "bloodAutocast", false)
-            ? supportedBloodLevel(integer(player, "bloodAutocastLevel", 0)) : 0;
         ranged = integer(boosted, "ranged", 0); baseRanged = integer(real, "ranged", ranged);
-        baseDefence = integer(real, "defence", 99);
-        runEnergy = integer(player, "runEnergy", 0); specEnergy = integer(player, "specEnergy", 0);
+        runEnergy = integer(player, "runEnergy", 0);
         animation = integer(player, "anim", -1); interacting = integer(player, "interacting", -1);
-        poison = integer(player, "poison", 0);
         instance = bool(player, "instance", false); moving = bool(player, "moving", false);
-        runOn = bool(player, "runOn", false); specOn = bool(player, "specOn", false);
-        spellSelected = bool(player, "spellSelected", false);
+        runOn = bool(player, "runOn", false);
         for (JsonElement e : array(raw, "npcs")) if (e.isJsonObject()) npcs.add(new Npc(e.getAsJsonObject()));
-        for (JsonElement e : array(raw, "inventory")) if (e.isJsonObject()) inventory.add(new Item(e.getAsJsonObject(), false));
         for (JsonElement e : array(raw, "equipment")) if (e.isJsonObject()) equipment.add(new Item(e.getAsJsonObject(), true));
         for (JsonElement e : array(raw, "prayers")) if (e.isJsonPrimitive()) prayers.add(e.getAsString());
-        events = array(raw, "events"); projectiles = array(raw, "projectiles"); ground = array(raw, "ground");
-        for (JsonElement e : array(raw, "objects"))
-        {
-            if (!e.isJsonObject()) continue;
-            JsonObject o = e.getAsJsonObject();int id = integer(o, "id", -1);
-            if (id >= 50743 && id <= 50746) sand.add(new ColosseumCollision.Tile(integer(o, "tx", -1), integer(o, "ty", -1)));
-        }
+        events = array(raw, "events"); projectiles = array(raw, "projectiles");
     }
 
     boolean playable()
     {
         return tick >= 0 && instance && hp > 0 && maxHp > 0 && plane == 0
             && x >= 1792 && x <= 1855 && y >= 3072 && y <= 3135;
-    }
-
-    static int supportedBloodLevel(int level)
-    {
-        return level == 56 || level == 68 || level == 80 || level == 92 ? level : 0;
     }
 
     Npc npc(int index)

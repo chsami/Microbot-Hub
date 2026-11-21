@@ -64,24 +64,14 @@ final class ColosseumCollision
 
     boolean step(Tile from, Tile to)
     {
-        return step(from, to, true);
-    }
-
-    boolean playerStep(Tile from, Tile to)
-    {
-        return step(from, to, false);
-    }
-
-    private boolean step(Tile from, Tile to, boolean npcBlocks)
-    {
         int dx = to.x - from.x, dy = to.y - from.y;
-        if (Math.abs(dx) > 1 || Math.abs(dy) > 1 || !passable(to.x, to.y, npcBlocks)) return false;
+        if (Math.abs(dx) > 1 || Math.abs(dy) > 1 || !passable(to.x, to.y, true)) return false;
         if (dx == 0 && dy == 0) return true;
         if (dx == 0 || dy == 0) return cardinal(from.x, from.y, to.x, to.y);
         int outgoing = dx < 0 ? (dy > 0 ? 1 : 64) : (dy > 0 ? 4 : 16);
         int incoming = dx < 0 ? (dy > 0 ? 16 : 4) : (dy > 0 ? 64 : 1);
         return (flag(from.x, from.y) & outgoing) == 0 && (flag(to.x, to.y) & incoming) == 0
-            && passable(from.x + dx, from.y, npcBlocks) && passable(from.x, from.y + dy, npcBlocks)
+            && passable(from.x + dx, from.y, true) && passable(from.x, from.y + dy, true)
             && cardinal(from.x, from.y, from.x + dx, from.y)
             && cardinal(from.x, from.y, from.x, from.y + dy)
             && cardinal(from.x + dx, from.y, to.x, to.y)
@@ -399,8 +389,6 @@ final class ColosseumCollision
 
     Paths paths(Tile start, int maxDistance) { return new Paths(start, maxDistance); }
 
-    Paths movementPaths(Tile start, int maxDistance) { return new Paths(start, maxDistance, false); }
-
     final class Paths
     {
         private final int[] previous = new int[flags.length], distances = new int[flags.length];
@@ -408,17 +396,11 @@ final class ColosseumCollision
         final Tile start;
         Paths(Tile start, int maxDistance)
         {
-            this(start, maxDistance, true);
-        }
-        Paths(Tile start, int maxDistance, boolean npcBlocks)
-        {
             this.start = start;
             Arrays.fill(previous, -1); Arrays.fill(distances, -1);
             if (!open(start.x, start.y)) return;
             int[] queue = new int[flags.length]; int head = 0, tail = 0, origin = index(start.x, start.y);
-            int[][] directions = npcBlocks
-                ? new int[][] {{-1,-1},{0,-1},{1,-1},{-1,0},{1,0},{-1,1},{0,1},{1,1}}
-                : new int[][] {{-1,0},{1,0},{0,-1},{0,1},{-1,-1},{1,-1},{-1,1},{1,1}};
+            int[][] directions = new int[][] {{-1,-1},{0,-1},{1,-1},{-1,0},{1,0},{-1,1},{0,1},{1,1}};
             previous[origin] = origin; distances[origin] = 0; queue[tail++] = origin;
             while (head < tail)
             {
@@ -427,7 +409,7 @@ final class ColosseumCollision
                 for (int[] direction : directions)
                 {
                     Tile to = new Tile(from.x + direction[0], from.y + direction[1]);
-                    if (!inside(to.x, to.y) || previous[index(to.x, to.y)] >= 0 || !step(from, to, npcBlocks)) continue;
+                    if (!inside(to.x, to.y) || previous[index(to.x, to.y)] >= 0 || !step(from, to)) continue;
                     int next = index(to.x, to.y); previous[next] = at; distances[next] = distances[at] + 1;
                     queue[tail++] = next;
                 }
@@ -435,7 +417,6 @@ final class ColosseumCollision
         }
         int distance(Tile target) { return inside(target.x, target.y) ? distances[index(target.x, target.y)] : -1; }
 
-        boolean playerStep(Tile from, Tile to) { return ColosseumCollision.this.playerStep(from, to); }
         List<Tile> to(Tile target)
         {
             if (distance(target) < 0) return Collections.emptyList();

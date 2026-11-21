@@ -26,6 +26,8 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @PluginDescriptor(
@@ -41,10 +43,11 @@ import java.util.Map;
 )
 public class SalamanderPlugin extends Plugin {
 
-    public final static String version = "1.1.0";
+    public final static String version = "1.1.1";
 
     @Getter
     private final Map<WorldPoint, HunterTrap> traps = new HashMap<>();
+    private final Set<WorldPoint> abandonedTraps = ConcurrentHashMap.newKeySet();
     @Inject
     private Client client;
     @Inject
@@ -89,6 +92,23 @@ public class SalamanderPlugin extends Plugin {
         return scriptStartTime != null ? TimeUtils.getFormattedDurationBetween(scriptStartTime, Instant.now()) : "";
     }
 
+    boolean abandonTrap(WorldPoint location) {
+        return abandonedTraps.add(location);
+    }
+
+    int getActiveTrapCount() {
+        return traps.size() - (int) abandonedTraps.stream().filter(traps::containsKey).count();
+    }
+
+    private HunterTrap transitioningTrapNextTo(WorldPoint location) {
+        for (Map.Entry<WorldPoint, HunterTrap> entry : traps.entrySet()) {
+            if (entry.getValue().getState() == HunterTrap.State.TRANSITION && entry.getKey().distanceTo(location) <= 1) {
+                return entry.getValue();
+            }
+        }
+        return null;
+    }
+
     @Subscribe
     public void onGameObjectSpawned(GameObjectSpawned event) {
         final GameObject gameObject = event.getGameObject();
@@ -101,24 +121,27 @@ public class SalamanderPlugin extends Plugin {
             case ObjectID.HUNTING_SAPLING_NET_SET_RED: // Net trap placed at Red salamanders
             case ObjectID.HUNTING_SAPLING_NET_SET_BLACK: // Net trap placed at Black salamanders
             case ObjectID.HUNTING_SAPLING_NET_SET_MOUNTAIN: // Net trap placed at Tecu salamanders
-                if (lastTickLocalPlayerLocation != null
-                        && trapLocation.distanceTo(lastTickLocalPlayerLocation) == 0) {
-                    // Net traps facing to the north and east must have their tile translated.
-                    // As otherwise, the wrong tile is stored.
-                    Direction trapOrientation = new Angle(gameObject.getOrientation()).getNearestDirection();
-                    WorldPoint translatedTrapLocation = trapLocation;
+                // Net traps facing to the north and east must have their tile translated.
+                // As otherwise, the wrong tile is stored.
+                Direction trapOrientation = new Angle(gameObject.getOrientation()).getNearestDirection();
+                WorldPoint translatedTrapLocation = trapLocation;
 
-                    switch (trapOrientation) {
-                        case SOUTH:
-                            translatedTrapLocation = trapLocation.dy(-1);
-                            break;
-                        case WEST:
-                            translatedTrapLocation = trapLocation.dx(-1);
-                            break;
-                    }
+                switch (trapOrientation) {
+                    case SOUTH:
+                        translatedTrapLocation = trapLocation.dy(-1);
+                        break;
+                    case WEST:
+                        translatedTrapLocation = trapLocation.dx(-1);
+                        break;
+                }
 
+                final HunterTrap previousTrap = traps.get(translatedTrapLocation);
+                final boolean resetOwnFailedTrap = previousTrap != null && previousTrap.getState() == HunterTrap.State.EMPTY;
+                if (resetOwnFailedTrap || (lastTickLocalPlayerLocation != null
+                        && trapLocation.distanceTo(lastTickLocalPlayerLocation) == 0)) {
                     log.debug("Trap placed by \"{}\" on {} facing {}", localPlayer.getName(), translatedTrapLocation, trapOrientation);
                     traps.put(translatedTrapLocation, new HunterTrap(gameObject));
+                    abandonedTraps.remove(translatedTrapLocation);
                 }
                 break;
 
@@ -137,10 +160,25 @@ public class SalamanderPlugin extends Plugin {
                 }
 
                 break;
+            case ObjectID.HUNTING_SAPLING_FAILED_SWAMP:
+            case ObjectID.HUNTING_SAPLING_FAILED_ORANGE:
+            case ObjectID.HUNTING_SAPLING_FAILED_RED:
+            case ObjectID.HUNTING_SAPLING_FAILED_BLACK:
             case ObjectID.HUNTING_SAPLING_FAILED_MOUNTAIN: //Empty net trap
-                if (myTrap != null) {
-                    myTrap.setState(HunterTrap.State.EMPTY);
-                    myTrap.resetTimer();
+            case ObjectID.HUNTING_SAPLING_NET_RESET_SWAMP:
+            case ObjectID.HUNTING_SAPLING_NET_RESET_ORANGE:
+            case ObjectID.HUNTING_SAPLING_NET_RESET_RED:
+            case ObjectID.HUNTING_SAPLING_NET_RESET_BLACK:
+            case ObjectID.HUNTING_SAPLING_NET_RESET_MOUNTAIN:
+            case ObjectID.HUNTING_SAPLING_UP_RESET_SWAMP:
+            case ObjectID.HUNTING_SAPLING_UP_RESET_ORANGE:
+            case ObjectID.HUNTING_SAPLING_UP_RESET_RED:
+            case ObjectID.HUNTING_SAPLING_UP_RESET_BLACK:
+            case ObjectID.HUNTING_SAPLING_UP_RESET_MOUNTAIN:
+                final HunterTrap failedTrap = myTrap != null ? myTrap : transitioningTrapNextTo(trapLocation);
+                if (failedTrap != null) {
+                    failedTrap.setState(HunterTrap.State.EMPTY);
+                    failedTrap.resetTimer();
                 }
 
                 break;
@@ -233,6 +271,7 @@ public class SalamanderPlugin extends Plugin {
             }
         }
 
+        abandonedTraps.retainAll(traps.keySet());
         lastTickLocalPlayerLocation = client.getLocalPlayer().getWorldLocation();
     }
 }

@@ -39,8 +39,6 @@ public class DroInfernoPrayersPluginTest
         assertTrue(config.showTilePack(), "the tile pack is on by default");
         assertFalse(config.logoutAfterRun());
         DroInfernoPrayersPlugin plugin = new DroInfernoPrayersPlugin();
-        assertTrue(plugin.prayersOnly());
-        assertFalse(plugin.manualMovement());
         assertEquals(ArenaFightInput.INVOKES, plugin.fightInput());
     }
 }

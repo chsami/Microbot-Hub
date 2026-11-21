@@ -47,6 +47,8 @@ The **Blastoise Furnace Plugin** is an automation tool for Old School RuneScape,
 
 5. **Failsafes:**  
    Pauses or stops if requirements are not met, or if unexpected events occur.
+    - If the conveyor belt opens an option prompt, the script picks the Yes option and writes the question and the chosen option to the log.
+    - Stops after 3 trips in a row where ore did not go on the belt, logs out and shows a message with the reason.
 
 ---
 

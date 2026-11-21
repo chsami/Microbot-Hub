@@ -15,8 +15,21 @@ import net.runelite.client.plugins.microbot.util.shop.Rs2Shop;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
 import java.util.concurrent.TimeUnit;
+import java.util.function.IntPredicate;
 
 public class MoonlightMothScript extends Script {
+
+    static final int[] NET_IDS = {ItemID.HUNTING_BUTTERFLY_NET, ItemID.II_MAGIC_BUTTERFLY_NET};
+    static final String NO_NET_MESSAGE = "MoonlightMoth stopped: no Insect net or Magic insect net equipped, in your inventory or in the bank. Get a net and start the plugin again.";
+
+    static int findNet(IntPredicate hasItem) {
+        for (int id : NET_IDS) {
+            if (hasItem.test(id)) {
+                return id;
+            }
+        }
+        return -1;
+    }
 
     public int totalCaught = 0;
     public long pricePerMoth = 0;
@@ -77,7 +90,7 @@ public class MoonlightMothScript extends Script {
 
         boolean hasCoins = config.actionPreference().equals(MoonlightMothConfig.ActionPreference.SHOP) && Rs2Inventory.contains("Coins");
         boolean hasButterflyJars = Rs2Inventory.contains("Butterfly jar");
-        boolean hasButterflyNetEquipped = Rs2Equipment.isWearing("Butterfly net");
+        boolean hasButterflyNetEquipped = Rs2Equipment.isWearing(NET_IDS);
 
         logOnceToChat("Inventory contains Butterfly jar: " + hasButterflyJars, true);
         logOnceToChat("Wearing Butterfly net: " + hasButterflyNetEquipped, true);
@@ -122,8 +135,23 @@ public class MoonlightMothScript extends Script {
             equipGraceful(config);
         }
 
-        if (!Rs2Equipment.isWearing("Butterfly net")) {
-            Rs2Bank.withdrawAndEquip("Butterfly net");
+        if (!Rs2Equipment.isWearing(NET_IDS)) {
+            if (!Rs2Bank.isOpen()) {
+                return;
+            }
+            int carriedNet = findNet(id -> Rs2Inventory.hasItem(id));
+            int bankedNet = findNet(id -> Rs2Bank.hasItem(id));
+            if (carriedNet != -1) {
+                Rs2Bank.wearItem(carriedNet);
+            } else if (bankedNet != -1) {
+                Rs2Bank.withdrawAndEquip(bankedNet);
+            } else {
+                Rs2Bank.closeBank();
+                logOnceToChat(NO_NET_MESSAGE, false);
+                Microbot.showMessage(NO_NET_MESSAGE);
+                Microbot.stopPlugin(MoonlightMothPlugin.class);
+                return;
+            }
         }
 
         if (config.actionPreference().equals(MoonlightMothConfig.ActionPreference.BANK)) {

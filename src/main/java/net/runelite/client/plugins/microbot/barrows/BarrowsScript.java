@@ -655,10 +655,15 @@ public class BarrowsScript extends Script {
                         }
                         stopFutureWalker();
 
-                        if(barrowsChest.click("Open")){
-                            sleepUntil(() -> findTunnelBrother() != null, Rs2Random.between(4000,6000));
-                        } else {
-                            return;
+                        ObjectComposition chestComposition = barrowsChest.getObjectComposition();
+                        boolean chestAlreadyOpen = BarrowsTunnelRules.isChestAlreadyOpen(
+                                chestComposition == null ? null : chestComposition.getActions());
+                        if(!chestAlreadyOpen){
+                            if(barrowsChest.click("Open")){
+                                sleepUntil(() -> findTunnelBrother() != null, Rs2Random.between(4000,6000));
+                            } else {
+                                return;
+                            }
                         }
 
                         if(findTunnelBrother() != null){

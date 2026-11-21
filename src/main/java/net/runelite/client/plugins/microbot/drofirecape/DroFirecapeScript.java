@@ -59,7 +59,7 @@ public class DroFirecapeScript extends Script {
     /** Room drop for the main set's two-handed weapon: last request tick and requests since the last restore. */
     protected int roomDropTick=-100,roomDropAttempts,restoreSince=-1;
     /** Magic stall guard: when a wanted spell started waiting, and spells paused until. */
-    protected int magicWantedSince=-1,magicPausedUntil=-1;
+    protected int magicWantedSince=-1,magicPausedUntil=-1,magicLevelNeeded;
     /** Freeze checks: cast tick and settled tile per NPC; a frozen bat is shot next. */
     protected final Map<Integer,Integer> freezeCastTick=new HashMap<>();
     protected final Map<Integer,FcModel.Tile> freezeTile=new HashMap<>();
@@ -215,7 +215,7 @@ public class DroFirecapeScript extends Script {
         config=FcRuntimeConfig.resolve(configuration);if(pointerLease!=null)pointerLease.close();arenaInput.release();
         pointerLease=null;autocastSteps=rapidSteps=0;resetVariantRun();lureResetAfterReturn=false;rangePrepot.reset();sweetCancelTick=sweetProgressTick=sweetRetryTick=-1;supplyAck.reset();supplyPreparation.reset();jadActions.reset();lastFailedMoveTick=-1;movement.reset();lures.reset();bowPrayer.reset();requestedCaveProtection=Protection.NONE;caveBaseX=caveBaseY=Integer.MIN_VALUE;cavePlane=-1;actions.reset();actions.observeOnly(observeOnly());actions.manualMovement(this::manualMovement);
         frozenUntil.clear();mainSet.clear();switchAttempts.reset();lastCastTick=-100;switchTick=-1;
-        magicWantedSince=magicPausedUntil=-1;freezeCastTick.clear();freezeTile.clear();frozenBat=-1;
+        magicWantedSince=magicPausedUntil=-1;magicLevelNeeded=0;freezeCastTick.clear();freezeTile.clear();frozenBat=-1;
         bloodHealing=false;roomDropTick=-100;roomDropAttempts=0;restoreSince=-1;
         tickPrayers=createTickPrayers();
         actions.tickPrayerDriver(tickPrayers);
@@ -1146,6 +1146,7 @@ public class DroFirecapeScript extends Script {
     protected boolean magicStep(FcFrame f,Snapshot model,boolean early) {
         if(observeOnly()||f==null||!f.cave||!early&&movement.pending())return false;
         FcMagicSwitch.Spells spells=FcActions.read(()->FcMagicSwitch.spells(client),FcMagicSwitch.Spells.NONE);
+        magicLevelNeeded=spells.level;
         bloodHealing=MagicTactics.healing(bloodHealing,f.hp,f.maxHp);
         checkFreezes(f,model);
         MagicTactics.Cast cast=spells.any()&&f.tick>=magicPausedUntil?MagicTactics.decide(model,spells.ice>0,spells.blood>0,bloodHealing,frozenUntil):null;
@@ -1714,6 +1715,11 @@ public class DroFirecapeScript extends Script {
     protected boolean combatStatsDrained(FcFrame f) {
         return f.ranged<f.baseRanged;
     }
+    protected boolean magicRestoreNeeded(FcFrame f) {
+        return f.cave&&FcMagicSwitch.restoreNow(f.magic,magicLevelNeeded,
+            f.inventory.stream().anyMatch(i->i.name().toLowerCase(Locale.ROOT).startsWith("super restore(")),
+            FcSupplyPolicy.criticalHealth(f.model,f.hp,f.maxHp));
+    }
     protected boolean combatBoostNeeded(FcFrame f,String name) {
         String n=name.toLowerCase(Locale.ROOT);
         return FcSupplyPolicy.rangedPotion(n)&&!combatStatsDrained(f)
@@ -2126,10 +2132,11 @@ public class DroFirecapeScript extends Script {
         }
         boolean healingFinished=f.hp*100>f.maxHp*config.eatPercent()
             ||f.inventory.stream().noneMatch(i->i.name().toLowerCase(Locale.ROOT).startsWith("saradomin brew("));
-        if(item==null&&(f.prayer<=config.restorePrayer()||(combatStatsDrained(f)&&(brewDebt>=3||healingFinished||sweets&&!FcSupplyPolicy.criticalHealth(f.model,f.hp,f.maxHp))&&f.inventory.stream().anyMatch(i->i.name().toLowerCase(Locale.ROOT).startsWith("super restore("))))) {
+        boolean magicRestore=magicRestoreNeeded(f);
+        if(item==null&&(f.prayer<=config.restorePrayer()||magicRestore||(combatStatsDrained(f)&&(brewDebt>=3||healingFinished||sweets&&!FcSupplyPolicy.criticalHealth(f.model,f.hp,f.maxHp))&&f.inventory.stream().anyMatch(i->i.name().toLowerCase(Locale.ROOT).startsWith("super restore("))))) {
             // Prefer a super restore after brews, but never ignore remaining prayer
             // potions when prayer is low simply because ranged stats are also drained.
-            if(combatStatsDrained(f))item=f.inventory.stream()
+            if(combatStatsDrained(f)||magicRestore)item=f.inventory.stream()
                 .filter(i->i.name().toLowerCase(Locale.ROOT).startsWith("super restore("))
                 .findFirst().orElse(null);
             if(item==null&&f.prayer<=config.restorePrayer())item=f.inventory.stream()

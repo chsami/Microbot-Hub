@@ -17,7 +17,7 @@ final class CommandPolicy {
         if(e==null||!e.isJsonPrimitive()||!e.getAsJsonPrimitive().isString())return "INVALID";
         String op=e.getAsString();
         switch(op) {
-            case "prayer.set":case "prayer.flick":return op;
+            case "prayer.set":return op;
             default:return "UNKNOWN";
         }
     }
@@ -25,7 +25,6 @@ final class CommandPolicy {
         if (op==null || a==null) reject();
         switch(op) {
             case "prayer.set": keys(a,"prayer","on"); text(a,"prayer",80); bool(a,"on",true); break;
-            case "prayer.flick": keys(a,"prayer"); text(a,"prayer",80); break;
             default:reject("UNKNOWN_OPERATION");
         }
     }

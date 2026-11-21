@@ -9,8 +9,8 @@ public interface ClueSolverConfig extends Config {
 
     @ConfigItem(
             keyName = "enableClueSolver",
-            name = "Enable Clue Solver",
-            description = "Enable the clue solver plugin",
+            name = "Run solver",
+            description = "Runs the solver. Same as the Start/Stop button on the overlay. If left on, the solver starts automatically when the plugin is turned on.",
             position = 1
     )
     default boolean enableClueSolver() {

@@ -1,20 +1,16 @@
 package net.runelite.client.plugins.microbot.droinfernoprayers.execution;
 
 import net.runelite.client.plugins.microbot.droinfernoprayers.ArenaInputDiagnostics;
-import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Consumer;
 import net.runelite.client.plugins.microbot.droinfernoprayers.plugins.common.Commands;
-import net.runelite.client.plugins.microbot.droinfernoprayers.plugins.inferno.InfernoCommands;
 
 final class CommandRunner
 {
 	Commands commands;
-	InfernoCommands infernoCommands;
-    net.runelite.client.plugins.microbot.droinfernoprayers.ColosseumUi colosseumUi;
 
 	private final Consumer<Runnable> gameThread;
 	private final Consumer<String> log;
@@ -59,7 +55,7 @@ final class CommandRunner
 
     private net.runelite.client.plugins.microbot.droinfernoprayers.ArenaInputScope.ClickHandler handler(String op){
         var mode=fightInput.get();
-        if(mode==net.runelite.client.plugins.microbot.droinfernoprayers.ArenaFightInput.INVOKES&&!"movement.tile".equals(op))return invoke;
+        if(mode==net.runelite.client.plugins.microbot.droinfernoprayers.ArenaFightInput.INVOKES)return invoke;
         return null;
     }
     private final java.util.concurrent.ConcurrentHashMap<String,Desired> desired=new java.util.concurrent.ConcurrentHashMap<>();
@@ -179,16 +175,12 @@ final class CommandRunner
         if(c.deadlineMs<0||c.deadlineMs>600)CommandPolicy.reject("DEADLINE_OUT_OF_RANGE");
         if(scheduled.size()>=128)CommandPolicy.reject("QUEUE_LIMIT");
         CommandPolicy.validate(c.op,c.args,product);
-        if(c.op.equals("prayer.set")||c.op.equals("prayer.flick"))
-            c.prayerTrace=prayers.received(c.id,c.op,str(c.args,"prayer"),c.op.equals("prayer.flick")||c.args.get("on").getAsBoolean(),c.tick,tick,c.deadlineMs);
+        if(c.op.equals("prayer.set"))
+            c.prayerTrace=prayers.received(c.id,c.op,str(c.args,"prayer"),c.args.get("on").getAsBoolean(),c.tick,tick,c.deadlineMs);
         c.arrival=arrivals.incrementAndGet();c.priority=priority(c.op,m);
-        c.desiredKey=c.op.equals("movement.tile")||c.op.equals("camera.set")||c.op.equals("equipment.set")?c.op:
-            c.prayerTrace!=null?"prayer:"+Commands.prayerEnum(str(c.args,"prayer")):null;
+        c.desiredKey=c.prayerTrace!=null?"prayer:"+Commands.prayerEnum(str(c.args,"prayer")):null;
         if(c.desiredKey!=null){
-            String signature=c.prayerTrace!=null?Boolean.toString(c.op.equals("prayer.flick")||c.args.get("on").getAsBoolean()):
-                c.op.equals("movement.tile")?num(c.args,"x")+":"+num(c.args,"y")+":"+num(c.args,"plane")+":"+flag(c.args,"screenOnly"):
-                c.op.equals("equipment.set")?String.valueOf(c.args.get("name")):
-                maybe(c.args,"yaw")+":"+maybe(c.args,"pitch")+":"+maybe(c.args,"zoom");
+            String signature=Boolean.toString(c.args.get("on").getAsBoolean());
             c.desiredVersion=desired.compute(c.desiredKey,(key,old)->old!=null&&old.signature.equals(signature)?old:new Desired(signature,c.arrival)).version;
         }
         c.inputTrace=new ArenaInputDiagnostics.Trace(c.id,c.op,values->{
@@ -241,7 +233,7 @@ final class CommandRunner
         if(c.prayerTrace==null||!fresh(c)||!protectionPrayer(str(c.args,"prayer")))return false;
         Boolean active=motionClock.getAsLong()-protectionStateNanos>1_200_000_000L?null
             :protectionState.get(Commands.prayerEnum(str(c.args,"prayer")));
-        return active==null||active!=(c.op.equals("prayer.flick")||c.args.get("on").getAsBoolean());
+        return active==null||active!=c.args.get("on").getAsBoolean();
     }
     private void submit(Command c){
         if(urgentPrayer(c))prayerUrgency.incrementAndGet();
@@ -259,9 +251,6 @@ final class CommandRunner
         if(c.prayerTrace!=null&&c.dispatchStarted)
             return motionClock.getAsLong()-c.dispatchNanos<=java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(600);
 
-        if("equipment.set".equals(c.op)&&c.dispatchStarted)
-            return motionClock.getAsLong()-c.dispatchNanos<=java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(1200)
-                &&c.motionUrgency==prayerUrgency.get();
         return fresh(c)&&(!c.dispatchStarted||c.motionUrgency==prayerUrgency.get());
     }
     private boolean queueGesture(Command c,Runnable gesture){
@@ -277,7 +266,7 @@ final class CommandRunner
             if(c.prayerTrace!=null){
                 Boolean active=commands.prayerActive(str(c.args,"prayer"));
                 if(active==null){ArenaInputDiagnostics.event("PRAYER_STATE_UNAVAILABLE","PRAYER_STATE_UNAVAILABLE");prayers.gesture(c.prayerTrace,"PRAYER_STATE_UNAVAILABLE");return;}
-                if(active==(c.op.equals("prayer.flick")||c.args.get("on").getAsBoolean())){
+                if(active==c.args.get("on").getAsBoolean()){
                     ArenaInputDiagnostics.event("PRAYER_ALREADY_APPLIED","PRAYER_ALREADY_APPLIED");prayers.gesture(c.prayerTrace,"PRAYER_ALREADY_APPLIED");return;
                 }
             }
@@ -302,8 +291,7 @@ final class CommandRunner
         try{if(message.has("priority")&&message.get("priority").isJsonPrimitive()&&message.get("priority").getAsJsonPrimitive().isNumber())metadata=Math.max(0,Math.min(100,message.get("priority").getAsBigDecimal().intValueExact()));}
         catch(ArithmeticException|NumberFormatException ignored){ }
 
-        int tier=op.startsWith("prayer.")?(protectionPrayer(prayerArg(message))?4:3)
-            :op.startsWith("inventory.")||op.equals("equipment.set")?2:op.equals("movement.tile")?1:0;
+        int tier=protectionPrayer(prayerArg(message))?4:3;
         return tier*101+metadata;
     }
 
@@ -342,7 +330,7 @@ final class CommandRunner
                     Boolean active=commands.prayerActive(str(c.args,"prayer"));
                     if(active==null){ArenaInputDiagnostics.event("PRAYER_STATE_UNAVAILABLE","PRAYER_STATE_UNAVAILABLE");prayers.gesture(c.prayerTrace,"PRAYER_STATE_UNAVAILABLE");return false;}
                     c.prayerTrace.cachedBefore(active);
-                    boolean desired=c.op.equals("prayer.flick")||c.args.get("on").getAsBoolean();
+                    boolean desired=c.args.get("on").getAsBoolean();
                     if (active==desired) ArenaInputDiagnostics.event("PRAYER_ALREADY_APPLIED","PREPRESS_ALREADY_SATISFIED");
                     return active!=desired;
                 }
@@ -376,8 +364,6 @@ final class CommandRunner
 		{
 			case "prayer.set":
 				return commands.prayerSet(str(a, "prayer"), a.get("on").getAsBoolean());
-			case "prayer.flick":
-				return commands.prayerFlick(str(a, "prayer"));
 			default:
 				throw new IllegalArgumentException("unknown op " + op);
         }
@@ -416,24 +402,4 @@ final class CommandRunner
 		}
 		return a.get(key).getAsString();
 	}
-
-	private static int num(JsonObject a, String key)
-	{
-		if (!a.has(key))
-		{
-			throw new IllegalArgumentException("missing " + key);
-		}
-		return a.get(key).getAsInt();
-	}
-
-	private static Integer maybe(JsonObject a, String key)
-	{
-		return a.has(key) && !a.get(key).isJsonNull() ? a.get(key).getAsInt() : null;
-	}
-
-	private static boolean flag(JsonObject a, String key)
-	{
-		return a.has(key) && a.get(key).getAsBoolean();
-	}
-
 }

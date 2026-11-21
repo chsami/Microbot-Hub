@@ -3,6 +3,7 @@ package net.runelite.client.plugins.microbot.shootingstar;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -289,7 +290,7 @@ public class ShootingStarScript extends Script
 
 						if (hasSelectedStar())
 						{
-							if (!currentStar.equals(plugin.getSelectedStar()))
+							if (!Objects.equals(currentStar, plugin.getSelectedStar()))
 							{
 								return;
 							}
@@ -458,7 +459,7 @@ public class ShootingStarScript extends Script
 		return ShootingStarState.WAITING_FOR_STAR;
 	}
 
-	private ShootingStarState updateStarState()
+	ShootingStarState updateStarState()
 	{
 		if (state == null)
 		{
@@ -483,6 +484,7 @@ public class ShootingStarScript extends Script
 					}
 				}
 			}
+			currentStar = plugin.getSelectedStar();
 			return getState();
 		}
 
@@ -498,7 +500,7 @@ public class ShootingStarScript extends Script
 			return ShootingStarState.WAITING_FOR_STAR;
 		}
 
-		if (!currentStar.equals(selectedStar))
+		if (!Objects.equals(currentStar, selectedStar))
 		{
 			currentStar = selectedStar;
 			if (state == ShootingStarState.MINING)
@@ -556,7 +558,7 @@ public class ShootingStarScript extends Script
 		return ShootingStarState.MINING;
 	}
 
-	private boolean hasStateChanged()
+	boolean hasStateChanged()
 	{
 		// If no state (on plugin start)
 		if (state == null)
@@ -574,7 +576,7 @@ public class ShootingStarScript extends Script
 			return true;
 		}
 		// If the instance of the current star in the script does not equal the selected star in the plugin (only based on world & location)
-		if (!currentStar.equals(plugin.getSelectedStar()))
+		if (!Objects.equals(currentStar, plugin.getSelectedStar()))
 		{
 			return true;
 		}
