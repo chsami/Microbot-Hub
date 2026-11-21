@@ -183,7 +183,10 @@ public final class WildernessAgilityScript extends Script {
     
     // Looting bag tracking
     private boolean needsLootingBagActivation = false;
-    
+
+    private int bankingAttempts = 0;
+    private static final int MAX_BANKING_ATTEMPTS = 3;
+
     // Drop location tracking for random mode
     private boolean shouldDropAfterDispenser = false;
     
@@ -415,7 +418,8 @@ public final class WildernessAgilityScript extends Script {
         
         // Reset looting bag variables
         needsLootingBagActivation = false;
-        
+        bankingAttempts = 0;
+
         // Reset drop location variables
         shouldDropAfterDispenser = false;
         
@@ -451,6 +455,7 @@ public final class WildernessAgilityScript extends Script {
         }
         sleep(10000);
         Rs2Bank.walkToBank();
+        bankingAttempts = 0;
         currentState = ObstacleState.BANKING;
     }
 
@@ -1801,7 +1806,7 @@ public final class WildernessAgilityScript extends Script {
         currentState = ObstacleState.PIPE;
     }
 
-    private void handleBanking() {
+    void handleBanking() {
         // Single-step banking logic
         if (!Rs2Bank.isOpen()) {
             Rs2Bank.openBank();
@@ -1839,8 +1844,11 @@ public final class WildernessAgilityScript extends Script {
         }
         
         // Deposit all
-        Rs2Bank.depositAll();
-        sleep(getActionDelay());
+        Set<Integer> supplyIds = new HashSet<>(Arrays.asList(KNIFE_ID, COINS_ID, TELEPORT_ID, LOOTING_BAG_CLOSED_ID, LOOTING_BAG_OPEN_ID, config.withdrawVenomProtection().getItemId()));
+        if (!Rs2Inventory.items().allMatch(item -> supplyIds.contains(item.getId()))) {
+            Rs2Bank.depositAll();
+            sleep(getActionDelay());
+        }
 
         // Withdraw Looting Bag (if enabled) - ORDER 1
         if (config.withdrawLootingBag() && !Rs2Inventory.hasItem(LOOTING_BAG_CLOSED_ID) && !Rs2Inventory.hasItem(LOOTING_BAG_OPEN_ID)) {
@@ -1861,7 +1869,7 @@ public final class WildernessAgilityScript extends Script {
                     Microbot.log("[WildernessAgility] Successfully withdrew open looting bag");
                     needsLootingBagActivation = false; // No need to activate, already open
                 } else {
-                    Microbot.log("[WildernessAgility] Failed to withdraw looting bag in any state");
+                    Microbot.log("[WildernessAgility] No looting bag in bank or inventory - continuing without it. If you died, reclaim it from your gravestone");
                 }
             }
         }
@@ -1897,12 +1905,22 @@ public final class WildernessAgilityScript extends Script {
         boolean venomPresent = config.withdrawVenomProtection() == WildernessAgilityConfig.VenomProtectionOption.None || 
             (config.withdrawVenomProtection().getItemId() != -1 && Rs2Inventory.hasItem(config.withdrawVenomProtection().getItemId()));
         
-        boolean allPresent = (!config.withdrawKnife() || Rs2Inventory.hasItem(KNIFE_ID))
-            && (!config.withdrawCoins() || Rs2Inventory.hasItem(COINS_ID))
-            && (!config.useIcePlateauTp() || Rs2Inventory.hasItem(TELEPORT_ID))
-            && (!config.withdrawLootingBag() || Rs2Inventory.hasItem(LOOTING_BAG_CLOSED_ID) || Rs2Inventory.hasItem(LOOTING_BAG_OPEN_ID))
-            && venomPresent;
-        if (!allPresent) return;
+        List<String> missing = new ArrayList<>();
+        if (config.withdrawKnife() && !Rs2Inventory.hasItem(KNIFE_ID)) missing.add("Knife");
+        if (config.withdrawCoins() && !Rs2Inventory.hasItem(COINS_ID)) missing.add("Coins");
+        if (config.useIcePlateauTp() && !Rs2Inventory.hasItem(TELEPORT_ID)) missing.add("Ice Plateau teleport");
+        if (!venomPresent) missing.add("Venom protection");
+        if (!missing.isEmpty()) {
+            bankingAttempts++;
+            if (bankingAttempts >= MAX_BANKING_ATTEMPTS) {
+                String reason = "[WildernessAgility] Stopped: could not withdraw " + String.join(", ", missing) + " after " + bankingAttempts + " bank attempts. Add them to your bank or turn off the matching withdraw option";
+                Microbot.status = reason;
+                Microbot.log(reason);
+                Microbot.stopPlugin(plugin);
+            }
+            return;
+        }
+        bankingAttempts = 0;
 
         Rs2Bank.closeBank();
         sleep(getActionDelay());
