@@ -31,7 +31,7 @@ import java.awt.*;
 )
 @Slf4j
 public class NmzPlugin extends Plugin {
-    final static String version = "2.4.7";
+    final static String version = "2.4.8";
     @Inject
     private NmzConfig config;
 
@@ -56,20 +56,19 @@ public class NmzPlugin extends Plugin {
             overlayManager.add(nmzOverlay);
         }
         nmzScript.run();
-        if (config.togglePrayerPotions()) {
-            prayerPotionScript.run(config);
-        }
+        prayerPotionScript.run(config, () -> nmzScript.isRunning() && !nmzScript.isOutside());
     }
 
     protected void shutDown() {
         nmzScript.shutdown();
+        prayerPotionScript.shutdown();
         overlayManager.remove(nmzOverlay);
         NmzScript.setHasSurge(false);
     }
 
     @Subscribe
     public void onActorDeath(ActorDeath actorDeath) {
-        if (config.stopAfterDeath() && actorDeath.getActor() == Microbot.getClient().getLocalPlayer()) {
+        if (!config.repeatRounds() && config.stopAfterDeath() && actorDeath.getActor() == Microbot.getClient().getLocalPlayer()) {
             Microbot.getClientThread().runOnSeperateThread(() -> {
                 Global.sleepUntil(nmzScript::isOutside, 10000);
                 Microbot.stopPlugin(this);
