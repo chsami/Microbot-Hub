@@ -47,7 +47,7 @@ import net.runelite.client.plugins.microbot.drocolosseumprayers.execution.Messag
     isExternal = PluginConstants.IS_EXTERNAL)
 public class DroColosseumPrayersPlugin extends Plugin implements ArenaActivity
 {
-    static final String version = "1.0.101";
+    static final String version = "1.0.102";
 	private static final Logger log = LoggerFactory.getLogger(DroColosseumPrayersPlugin.class);
 
 	@Inject
