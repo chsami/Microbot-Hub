@@ -30,8 +30,6 @@ import org.slf4j.LoggerFactory;
 import net.runelite.client.plugins.microbot.droinfernoprayers.plugins.common.Commands;
 import net.runelite.client.plugins.microbot.droinfernoprayers.execution.LocalInfernoState;
 import net.runelite.client.plugins.microbot.droinfernoprayers.plugins.common.NpcSpawnDiagnostics;
-import net.runelite.client.plugins.microbot.droinfernoprayers.plugins.inferno.InfernoCommands;
-import net.runelite.client.plugins.microbot.droinfernoprayers.plugins.inferno.InfernoState;
 import net.runelite.client.plugins.microbot.droinfernoprayers.execution.LocalInfernoSession;
 import net.runelite.client.plugins.microbot.droinfernoprayers.execution.Events;
 import net.runelite.client.plugins.microbot.droinfernoprayers.execution.Messages;
@@ -158,16 +156,7 @@ public class DroInfernoPrayersPlugin extends Plugin implements ArenaActivity
     protected String configGroup(){return DroInfernoPrayersConfig.PRAYERS_GROUP;}
     protected DroInfernoPrayersConfig config(){return config;}
 
-    protected boolean prayersOnly(){return true;}
-    protected boolean manualMovement(){return false;}
-
     protected ArenaFightInput fightInput(){return ArenaFightInput.INVOKES;}
-
-
-    private static int localSupplySetting(int value,int fallback,int maximum){return value<=0?fallback:Math.min(maximum,value);}
-
-    void normalizeSupplySettings(){
-    }
 
 	@Override
 	protected void startUp()
@@ -177,7 +166,6 @@ public class DroInfernoPrayersPlugin extends Plugin implements ArenaActivity
         if(ArenaInputLease.active()){
             active=false;terminalStatus="Stop the active arena before starting Inferno";return;
         }
-        normalizeSupplySettings();
         ArenaFightInput.migrate(configManager,configGroup());
         inputState.clear();active=true;session++;
         npcDiagnostics=new NpcSpawnDiagnostics(client, ArenaProduct.INFERNO, values -> {
@@ -234,17 +222,14 @@ public class DroInfernoPrayersPlugin extends Plugin implements ArenaActivity
         localSession = new LocalInfernoSession(task -> { if(expected==session)task.run(); },
             line -> log.info("[Inferno local] {}",line),this::inputAllowed,new InfernoDecisionEngine())
             .input(actions)
-            .fightInput(this::fightInput).prayersOnly(this::prayersOnly).manualMovement(this::manualMovement)
-			.common(new LocalInfernoState(client, npcDiagnostics), new Commands(client, this::inputAllowed).prayersOnly(this::prayersOnly))
-			.inferno(new InfernoState(client), new InfernoCommands(client, this::inputAllowed))
+            .fightInput(this::fightInput)
+			.common(new LocalInfernoState(client, npcDiagnostics), new Commands(client, this::inputAllowed))
 			.settings(runSettings());
 		localSession.start();
 	}
 
     private Map<String,Object> runSettings(){
-        Map<String,Object> options=new java.util.LinkedHashMap<>();
-        options.put("prayersOnly",prayersOnly());options.put("manualMovement",manualMovement());
-        return options;
+        return Map.of();
     }
 
     @Subscribe public void onClientTick(net.runelite.api.events.ClientTick event){
@@ -290,24 +275,9 @@ public class DroInfernoPrayersPlugin extends Plugin implements ArenaActivity
         replaceEndedSession();
         beginSessionIfReady();
         if (localSession!=null) {
-            localSession.spellState(
-                net.runelite.client.plugins.microbot.util.magic.Rs2Magic.isSpellbook(
-                    net.runelite.client.plugins.microbot.util.magic.Rs2Spellbook.ANCIENT),localBloodAutocastLevel());
-            localSession.iceRunes(net.runelite.client.plugins.microbot.droinfernoprayers.plugins.inferno.InfernoCommands.iceRuneTiers());
             localSession.observePrayers(client);localSession.onGameTick();
         }
 	}
-
-    private int localBloodAutocastLevel(){
-        if(!net.runelite.client.plugins.microbot.util.magic.Rs2Magic.isSpellbook(
-            net.runelite.client.plugins.microbot.util.magic.Rs2Spellbook.ANCIENT))return 0;
-        var spell=net.runelite.client.plugins.microbot.util.magic.Rs2Magic.getCurrentAutoCastSpell();
-        if(spell==null||client.getVarbitValue(net.runelite.api.Varbits.DEFENSIVE_CASTING_MODE)!=0)return 0;
-        switch(spell){
-            case BLOOD_RUSH:case BLOOD_BURST:case BLOOD_BLITZ:case BLOOD_BARRAGE:return spell.getRequiredLevel();
-            default:return 0;
-        }
-    }
 
     @Subscribe public void onActorDeath(net.runelite.api.events.ActorDeath event) {
         if(!arenaRunProtected())return;
@@ -397,7 +367,7 @@ public class DroInfernoPrayersPlugin extends Plugin implements ArenaActivity
 
 	@Subscribe
 	public void onChatMessage(ChatMessage e)
-    {
+	{
         if(active&&InfernoBoundary.inside(client)&&(e.getType()==ChatMessageType.GAMEMESSAGE||e.getType()==ChatMessageType.SPAM))
         {
             if(hudTracker==null)updateHud(true);

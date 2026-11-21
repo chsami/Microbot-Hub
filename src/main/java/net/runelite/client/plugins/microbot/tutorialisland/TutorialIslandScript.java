@@ -43,6 +43,9 @@ public class TutorialIslandScript extends Script {
     final int CharacterCreation = 679;
     final int[] CharacterCreation_Arrows = new int[]{13, 17, 21, 25, 29, 33, 37, 44, 48, 52, 56, 60};
     private static final int MIN_RANDOMIZATION_ROUNDS = 8;
+    private static final int QUEST_SCROLL = 153;
+    private static final int QUEST_SCROLL_CLOSE = 16;
+    private static final int BRONZE_SWORD = net.runelite.api.gameval.ItemID.BRONZE_SWORD;
     private final TutorialIslandPlugin plugin;
     private final int NameCreation = 558;
     private boolean toggledSettings = false;
@@ -73,6 +76,12 @@ public class TutorialIslandScript extends Script {
 
                 if (Rs2Widget.isWidgetVisible(929, 5)) {
                     Rs2Widget.clickWidget(929, 5);
+                    Rs2Random.waitEx(1200, 300);
+                    return;
+                }
+
+                if (Rs2Widget.isWidgetVisible(QUEST_SCROLL, 0)) {
+                    Rs2Widget.clickWidget(QUEST_SCROLL, QUEST_SCROLL_CLOSE);
                     Rs2Random.waitEx(1200, 300);
                     return;
                 }
@@ -675,12 +684,12 @@ public class TutorialIslandScript extends Script {
                 return;
             }
             if (Microbot.getClient().getLocalPlayer().isInteracting() || Rs2Player.isAnimating()) return;
-            if (Rs2Equipment.isWearing("Bronze sword")) {
+            if (Rs2Equipment.isWearing(BRONZE_SWORD)) {
                 walkAndAttackRat();
-            } else if (Rs2Inventory.hasItem("Bronze sword")) {
+            } else if (Rs2Inventory.hasItem(BRONZE_SWORD)) {
                 Rs2Tab.switchTo(InterfaceTab.INVENTORY);
                 Rs2Random.waitEx(600, 100);
-                Rs2Inventory.wield("Bronze sword");
+                Rs2Inventory.wield(BRONZE_SWORD);
                 Rs2Random.waitEx(600, 100);
                 Rs2Inventory.wield("Wooden shield");
             } else {

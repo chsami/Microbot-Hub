@@ -30,7 +30,7 @@ import java.awt.*;
 )
 @Slf4j
 public class AutoBuyerPlugin extends Plugin {
-    static final String version = "1.0.0";
+    static final String version = "1.0.1";
     @Inject
     private net.runelite.client.plugins.microbot.autobuyer.AutoBuyerConfig config;
 

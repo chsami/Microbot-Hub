@@ -14,6 +14,29 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 public class DroSlayerBankSuppliesTest {
+    @Test public void prayerThresholdNeverExceedsWhatTheLastBankTripSupplied() {
+        assertEquals(4, DroSlayerBankSupplies.prayerRestockThreshold(4, -1));
+        assertEquals(0, DroSlayerBankSupplies.prayerRestockThreshold(4, 0));
+        assertEquals(2, DroSlayerBankSupplies.prayerRestockThreshold(4, 2));
+        assertEquals(4, DroSlayerBankSupplies.prayerRestockThreshold(4, 12));
+        assertEquals(0, DroSlayerBankSupplies.prayerRestockThreshold(0, 8));
+    }
+    @Test public void prayerLoadoutNoticeOnlyWhenTheSetupCarriesFewerDosesThanTheThreshold() {
+        assertNull(DroSlayerBankSupplies.prayerLoadoutNotice(4, -1));
+        assertNull(DroSlayerBankSupplies.prayerLoadoutNotice(4, 4));
+        assertNull(DroSlayerBankSupplies.prayerLoadoutNotice(4, 12));
+        assertNull(DroSlayerBankSupplies.prayerLoadoutNotice(0, 0));
+        String none = DroSlayerBankSupplies.prayerLoadoutNotice(4, 0);
+        assertTrue(none.contains("no prayer potions or super restores"));
+        assertTrue(none.contains("will not bank for prayer"));
+        assertTrue(none.contains("Prayer Potion Threshold is 4"));
+        assertFalse(none.contains("below 0"));
+        String some = DroSlayerBankSupplies.prayerLoadoutNotice(4, 2);
+        assertTrue(some.contains("only carries 2 prayer doses"));
+        assertTrue(some.contains("Prayer Potion Threshold (4)"));
+        assertTrue(some.contains("fewer than 2 left"));
+        assertTrue(DroSlayerBankSupplies.prayerLoadoutNotice(4, 1).contains("only carries 1 prayer dose,"));
+    }
     @Test public void cannonSuppliesFollowNextTaskInsteadOfPreviousTask() {
         for (String name : List.of("Cannon base","Cannon stand","Cannon barrels","Cannon furnace","Steel cannonball")) {
             assertTrue(keep(name,true,true,null));

@@ -138,7 +138,7 @@ public class AttackNpcScript extends Script {
 
 
                 attackableArea = new Rs2WorldArea(config.centerLocation().toWorldArea());
-                attackableArea = attackableArea.offset(config.attackRadius());
+                attackableArea = attackableArea.offset(AIOFighterConfig.boundedAttackRadius(config.attackRadius()));
                 final Set<String> npcsToAttack = Arrays.stream(config.attackableNpcs().split(","))
                         .map(x -> x.trim().toLowerCase())
                         .filter(x -> !x.isEmpty())

@@ -107,6 +107,18 @@ class BarrowsTunnelRulesTest
     }
 
     @Test
+    void openChestSkipsTheOpenClickAndGoesToSearch()
+    {
+        assertTrue(BarrowsTunnelRules.isChestAlreadyOpen(new String[]{"Search", "Close", null, null, null}));
+        assertTrue(BarrowsTunnelRules.isChestAlreadyOpen(new String[]{null, "search", null}));
+        assertFalse(BarrowsTunnelRules.isChestAlreadyOpen(new String[]{"Open", null, null, null, null}));
+        assertFalse(BarrowsTunnelRules.isChestAlreadyOpen(new String[]{"Open", "Search"}));
+        assertFalse(BarrowsTunnelRules.isChestAlreadyOpen(new String[]{null, null, null, null, null}));
+        assertFalse(BarrowsTunnelRules.isChestAlreadyOpen(new String[0]));
+        assertFalse(BarrowsTunnelRules.isChestAlreadyOpen(null));
+    }
+
+    @Test
     void tunnelMonstersCountAsCombatLockAggressors()
     {
         assertTrue(BarrowsTunnelRules.isCombatLockAggressorName("Skeleton"));

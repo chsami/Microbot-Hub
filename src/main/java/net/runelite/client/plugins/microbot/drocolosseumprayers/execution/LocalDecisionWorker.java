@@ -27,7 +27,6 @@ final class LocalDecisionWorker implements AutoCloseable
         List<JsonObject> decide(JsonObject snapshot);
         void onResult(JsonObject result);
         String status();
-        default boolean readyForFirstWave(){return false;}
     }
 
     private static final long MAX_AGE_NANOS = TimeUnit.MILLISECONDS.toNanos(600);
@@ -49,7 +48,6 @@ final class LocalDecisionWorker implements AutoCloseable
     private final ConcurrentLinkedQueue<Long> outstandingOrder = new ConcurrentLinkedQueue<>();
     private volatile Map<String, Object> options = Collections.emptyMap();
     private volatile boolean accepting;
-    private volatile boolean readyForFirstWave;
     private volatile boolean closed;
     private volatile String status = "Stopped";
     private volatile java.util.function.BooleanSupplier inputAllowed = () -> true;
@@ -73,7 +71,7 @@ final class LocalDecisionWorker implements AutoCloseable
     {
         this(engine, commands, currentTick, failure, System::nanoTime,
             Executors.newSingleThreadExecutor(task -> {
-                Thread thread = new Thread(task, "dro-inferno-local-decisions");
+                Thread thread = new Thread(task, "dro-colosseum-local-decisions");
                 thread.setDaemon(true);
                 return thread;
             }));
@@ -120,7 +118,6 @@ final class LocalDecisionWorker implements AutoCloseable
     synchronized void stop()
     {
         accepting = false;
-        readyForFirstWave = false;
         generation.incrementAndGet();
         waiting.set(null);
         receipts.clear();
@@ -128,8 +125,6 @@ final class LocalDecisionWorker implements AutoCloseable
         outstandingOrder.clear();
         status = "Stopped";
     }
-
-    boolean readyForFirstWave(){return accepting&&!closed&&readyForFirstWave;}
 
     String status()
     {
@@ -224,7 +219,6 @@ final class LocalDecisionWorker implements AutoCloseable
                         engine.reset();
                         engine.configure(frame.options);
                         initializedGeneration = frame.generation;
-                        synchronized(this){if(current(frame))readyForFirstWave=true;}
                     }
                     if (frame.snapshot == null)
                     {

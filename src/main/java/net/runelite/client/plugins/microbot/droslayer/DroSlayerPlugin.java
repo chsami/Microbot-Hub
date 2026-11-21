@@ -32,7 +32,7 @@ import java.awt.*;
         name = PluginConstants.DRO + "AIO Slayer",
         description = "Gets a task from any Slayer master, travels there with [Dro] Efficient Walker, fights with the matching gear, prayers and cannon, banks for supplies and returns for the next task. Krystilia Wilderness tasks are supported. Requires [Dro] Efficient Walker from the Microbot Hub.",
         tags = {"dro", "slayer", "aio", "combat", "task", "efficientwalker", "microbot"},
-        authors = {"Big L", "Dro"},
+        authors = {"droplugins"},
         version = DroSlayerPlugin.version,
         minClientVersion = "2.6.55",
         iconUrl = "https://chsami.github.io/Microbot-Hub/DroSlayerPlugin/assets/icon.png",
@@ -43,7 +43,7 @@ import java.awt.*;
 @Slf4j
 public class DroSlayerPlugin extends Plugin {
 
-    public static final String version = "1.3.95";
+    public static final String version = "1.3.97";
 
     @Inject
     private DroSlayerConfig config;
@@ -145,17 +145,43 @@ public class DroSlayerPlugin extends Plugin {
 
     @Inject
     void registerPrayerSettings(net.runelite.client.eventbus.EventBus eventBus) {
-        eventBus.register(new PrayerSettingsActions(DroSlayerPlugin::openTaskPrayerEditor));
+        eventBus.register(new PrayerSettingsActions(eventBus, DroSlayerPlugin::isInstalled,
+                DroSlayerPlugin::openTaskPrayerEditor, DroSlayerPlugin::closeTaskPrayerEditor));
     }
 
     static final class PrayerSettingsActions {
+        private final net.runelite.client.eventbus.EventBus eventBus;
+        private final java.util.function.BooleanSupplier installed;
         private final Runnable open;
-        PrayerSettingsActions(Runnable open) { this.open = open; }
+        private final Runnable close;
+        PrayerSettingsActions(net.runelite.client.eventbus.EventBus eventBus,
+                java.util.function.BooleanSupplier installed, Runnable open, Runnable close) {
+            this.eventBus = eventBus;
+            this.installed = installed;
+            this.open = open;
+            this.close = close;
+        }
         @Subscribe
         public void onConfigChanged(ConfigChanged event) {
-            if (DroSlayerConfig.GROUP.equals(event.getGroup()) && "editTaskPrayers".equals(event.getKey()))
-                open.run();
+            if (!DroSlayerConfig.GROUP.equals(event.getGroup()) || !"editTaskPrayers".equals(event.getKey())) return;
+            if (!installed.getAsBoolean()) {
+                eventBus.unregister(this);
+                close.run();
+                return;
+            }
+            open.run();
         }
+    }
+
+    private static volatile boolean prayerEditorOpened;
+
+    static boolean isInstalled() {
+        return Microbot.getPlugin(DroSlayerPlugin.class) != null;
+    }
+
+    static void closeTaskPrayerEditor() {
+        if (!prayerEditorOpened) return;
+        javax.swing.SwingUtilities.invokeLater(() -> DroSlayerPrayerEditor.close());
     }
 
     @Provides
@@ -218,10 +244,13 @@ public class DroSlayerPlugin extends Plugin {
 
     /** Settings remain usable while the plugin is stopped and unsubscribed. */
     public static void openTaskPrayerEditor() {
-        javax.swing.SwingUtilities.invokeLater(() -> DroSlayerPrayerEditor.open((prayers, offensive) -> {
-            DroSlayerPlugin plugin = Microbot.getPlugin(DroSlayerPlugin.class);
-            if (plugin != null) plugin.slayerScript.updateTaskPrayers(prayers, offensive);
-        }));
+        javax.swing.SwingUtilities.invokeLater(() -> {
+            prayerEditorOpened = true;
+            DroSlayerPrayerEditor.open(DroSlayerPlugin::isInstalled, (prayers, offensive) -> {
+                DroSlayerPlugin plugin = Microbot.getPlugin(DroSlayerPlugin.class);
+                if (plugin != null) plugin.slayerScript.updateTaskPrayers(prayers, offensive);
+            });
+        });
     }
 
     @Subscribe

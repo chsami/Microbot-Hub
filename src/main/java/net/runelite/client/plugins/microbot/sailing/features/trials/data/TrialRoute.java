@@ -885,6 +885,19 @@ public class TrialRoute {
                                         new TrialRoute(TrialLocations.GwenithGlide, TrialRanks.Marlin, GwenithGlideMarlinBestLine, null, null, GwenithGlideMarlinPortalDirections)//
                         ));
 
+        public static TrialRoute find(TrialLocations location, TrialRanks rank) {
+                for (TrialRoute route : AllTrialRoutes) {
+                        if (route != null && route.Location == location && route.Rank == rank) {
+                                return route;
+                        }
+                }
+                return null;
+        }
+
+        public static boolean hasRoutes(TrialRanks rank) {
+                return AllTrialRoutes.stream().anyMatch(route -> route != null && route.Rank == rank);
+        }
+
         public static final void AddGwenithGlideRoutes() {
                 AllTrialRoutes.add(new TrialRoute(TrialLocations.GwenithGlide, TrialRanks.Swordfish, GwenithGlideSwordfishBestLine, null, null, GwenithGlideSwordfishPortalDirections));
                 AllTrialRoutes.add(new TrialRoute(TrialLocations.GwenithGlide, TrialRanks.Shark, GwenithGlideSharkBestLine, null, null, GwenithGlideSharkPortalDirections));

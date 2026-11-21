@@ -11,7 +11,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import net.runelite.client.plugins.microbot.droinfernoprayers.local.InfernoCollision.Tile;
-import net.runelite.client.plugins.microbot.droinfernoprayers.local.InfernoLoadout.Mode;
 import net.runelite.client.plugins.microbot.droinfernoprayers.local.InfernoSnapshot.Npc;
 import net.runelite.client.plugins.microbot.droinfernoprayers.local.InfernoSnapshot.Role;
 import net.runelite.client.plugins.microbot.droinfernoprayers.local.InfernoThreats.Guard;
@@ -48,21 +47,7 @@ public final class InfernoDecisionEngine
 
     public List<JsonObject> decide(JsonObject snapshot)
     {
-        return commandOrder(prayersOnly(snapshot, plan(snapshot)));
-    }
-
-    private List<JsonObject> prayersOnly(JsonObject snapshot, List<JsonObject> plan)
-    {
-        List<JsonObject> kept = new ArrayList<>();
-        for (JsonObject c : plan)
-        {
-            String op = InfernoSnapshot.string(c, "op", "");
-            if (op.startsWith("prayer.") && InfernoSnapshot.string(c.getAsJsonObject("args"), "prayer", "").startsWith("PROTECT_")) kept.add(c);
-        }
-        InfernoSnapshot f = new InfernoSnapshot(snapshot);
-        if (!f.playable()) return kept;
-        offense(f, offensive(f, false), kept);
-        return kept;
+        return commandOrder(plan(snapshot));
     }
 
     static List<JsonObject> commandOrder(List<JsonObject> commands)
@@ -98,25 +83,27 @@ public final class InfernoDecisionEngine
         boolean hostiles = f.npcs.stream().anyMatch(Npc::enemy);
         if (hostiles) emptySince = -1;
         else if (emptySince < 0) emptySince = f.tick;
-            Npc observedZuk = first(f, Role.ZUK);
-            if (observedZuk != null)
+        Npc observedZuk = first(f, Role.ZUK);
+        if (observedZuk != null)
+        {
+            InfernoThreats.Track observedClock = threats.track(observedZuk);
+            if (observedClock != null && observedClock.lastAttack >= 0)
             {
-                InfernoThreats.Track observedClock = threats.track(observedZuk);
-                if (observedClock != null && observedClock.lastAttack >= 0)
-                {
-                    if (lastZukAttack >= 0 && observedClock.lastAttack - lastZukAttack == 7) zukFinal = true;
-                    lastZukAttack = observedClock.lastAttack;
-                }
+                if (lastZukAttack >= 0 && observedClock.lastAttack - lastZukAttack == 7) zukFinal = true;
+                lastZukAttack = observedClock.lastAttack;
             }
+        }
         lastTick = f.tick; lastTime = f.time;
         if (!InfernoSnapshot.bool(snapshot, "inputAllowed", true))
         { status = "Inferno Prayers paused"; return Collections.emptyList(); }
         Npc zuk = first(f, Role.ZUK);
         List<JsonObject> out = new ArrayList<>();
-            if (sawZuk && f.npcs.stream().anyMatch(n -> n.role == Role.ZUK && (n.dead || n.animation == 7562)))
+        if (sawZuk && f.npcs.stream().anyMatch(n -> n.role == Role.ZUK && (n.dead || n.animation == 7562)))
         {
             completed = true; status = "Inferno complete: observed Zuk death";
-            protection(f, Guard.NONE, out); return out;
+            protection(f, Guard.NONE, out, true);
+            offense(f, offensive(f), out);
+            return out;
         }
         if (completed) return Collections.emptyList();
         if (zuk != null) { sawZuk = true; wave = observedWave = 69; }
@@ -125,22 +112,29 @@ public final class InfernoDecisionEngine
         Tile here = new Tile(f.x, f.y);
         if (zuk != null || sawZuk)
         {
-            protection(f, threats.choose(f, enemies, grid, Collections.singletonList(here), zuk != null ? 69 : wave).guard, out);
+            protection(f, threats.choose(f, enemies, grid, here, zuk != null ? 69 : wave).guard, out, false);
+            offense(f, offensive(f), out);
             status = zuk != null ? "Zuk: protecting" : "Zuk temporarily unobserved; protecting";
             return out;
         }
         if (enemies.isEmpty() && f.npcs.stream().anyMatch(n -> n.role == Role.BLOB && n.dead))
         {
             status = "Wave " + wave + ": waiting for the Jal-Ak split";
-            protection(f, Guard.NONE, out); return out;
+            protection(f, Guard.NONE, out, false);
+            offense(f, offensive(f), out);
+            return out;
         }
         if (enemies.isEmpty())
         {
             status = "Wave " + wave + ": between waves";
-            protection(f, prespawn(f), out); return out;
+            Guard prespawnGuard = prespawn(f);
+            protection(f, prespawnGuard, out, prespawnGuard == Guard.NONE);
+            offense(f, offensive(f), out);
+            return out;
         }
         status = "Wave " + wave;
-        protection(f, threats.choose(f, enemies, grid, Collections.singletonList(here), wave).guard, out);
+        protection(f, threats.choose(f, enemies, grid, here, wave).guard, out, false);
+        offense(f, offensive(f), out);
         return out;
     }
 
@@ -179,16 +173,14 @@ public final class InfernoDecisionEngine
         return Guard.NONE;
     }
 
-    private String offensive(InfernoSnapshot f, boolean requesting)
+    private String offensive(InfernoSnapshot f)
     {
-        if (requesting) return "";
         Npc shot = f.npc(f.interacting);
         if (shot == null || !shot.alive()) return "";
         boolean worthwhile = shot.role == Role.MELEE || shot.role == Role.MAGE || shot.role == Role.JAD || shot.role == Role.ZUK;
-        if (!worthwhile || !offenseClock.needed(f, false)) return "";
+        if (!worthwhile || !offenseClock.needed(f)) return "";
         if (shot.role == Role.MAGE && otherAttacker(f, shot)) return "";
-        Mode style = InfernoLoadout.weaponType(f.weapon());
-        return f.offensive(style == Mode.BLOOD || style == Mode.ICE);
+        return f.offensive(InfernoLoadout.isMagicWeapon(f.weapon()));
     }
 
     private boolean otherAttacker(InfernoSnapshot f, Npc shot)
@@ -203,18 +195,27 @@ public final class InfernoDecisionEngine
         return false;
     }
 
-    private static void protection(InfernoSnapshot f, Guard desired, List<JsonObject> out)
+    private static void protection(InfernoSnapshot f, Guard desired, List<JsonObject> out, boolean releasing)
     {
         if (desired != Guard.NONE)
         {
-            if (!f.prayers.contains(desired.prayer)) out.add(command("prayer.set", "prayer", desired.prayer, "on", true));
-            else out.add(command("prayer.flick", "prayer", desired.prayer));
+            if (!f.prayers.contains(desired.prayer))
+            {
+                out.add(command("prayer.set", "prayer", desired.prayer, "on", true));
+            }
             return;
         }
-        for (Guard guard : Guard.values()) if (guard != Guard.NONE && f.prayers.contains(guard.prayer))
+        if (releasing)
         {
-            JsonObject release = command("prayer.set", "prayer", guard.prayer, "on", false);
-            release.addProperty("deadlineMs", 350); out.add(release);
+            for (Guard guard : Guard.values())
+            {
+                if (guard != Guard.NONE && f.prayers.contains(guard.prayer))
+                {
+                    JsonObject release = command("prayer.set", "prayer", guard.prayer, "on", false);
+                    release.addProperty("deadlineMs", 350);
+                    out.add(release);
+                }
+            }
         }
     }
 
@@ -242,5 +243,4 @@ public final class InfernoDecisionEngine
         }
         message.add("args", args); return message;
     }
-
 }

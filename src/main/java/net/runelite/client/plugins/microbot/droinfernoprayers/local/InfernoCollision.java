@@ -3,11 +3,8 @@ package net.runelite.client.plugins.microbot.droinfernoprayers.local;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import net.runelite.client.plugins.microbot.droinfernoprayers.local.InfernoSnapshot.Npc;
 import net.runelite.client.plugins.microbot.droinfernoprayers.local.InfernoSnapshot.Role;
@@ -19,7 +16,6 @@ final class InfernoCollision
     private static final int MISSILE_BLOCKED = 0x20000 | UNLOADED;
     private final int x1, y1, width, height;
     private final int[] flags;
-    private final boolean[] occupied;
     private final boolean valid;
     private final InfernoSnapshot snapshot;
     private final Map<Long, Boolean> nextMelee = new HashMap<>();
@@ -37,7 +33,7 @@ final class InfernoCollision
         JsonArray data = InfernoSnapshot.array(collision, "flags");
         valid = w > 0 && h > 0 && w <= 104 && h <= 104 && data.size() == w * h;
         width = valid ? w : 1; height = valid ? h : 1;
-        flags = new int[width * height]; occupied = new boolean[flags.length];
+        flags = new int[width * height];
         if (!valid) { Arrays.fill(flags, UNLOADED); return; }
         for (int i = 0; i < flags.length; i++)
         {
@@ -45,19 +41,13 @@ final class InfernoCollision
             try { flags[i] = e.getAsInt(); }
             catch (RuntimeException invalid) { flags[i] = UNLOADED; }
         }
-        for (Npc npc : snapshot.npcs) if (npc.alive())
-            for (int x = npc.x; x < npc.x + npc.size; x++)
-                for (int y = npc.y; y < npc.y + npc.size; y++)
-                    if (inside(x, y)) occupied[index(x, y)] = true;
     }
 
     boolean available() { return valid && open(snapshot.x, snapshot.y); }
     boolean inside(int x, int y) { return x >= x1 && y >= y1 && x < x1 + width && y < y1 + height; }
     int flag(int x, int y) { return inside(x, y) ? flags[index(x, y)] : UNLOADED; }
     boolean open(int x, int y) { return valid && inside(x, y) && (flag(x, y) & BLOCKED) == 0; }
-    boolean free(int x, int y) { return open(x, y) && !occupied[index(x, y)]; }
     private int index(int x, int y) { return (y - y1) * width + x - x1; }
-    private Tile tile(int index) { return new Tile(x1 + index % width, y1 + index / width); }
 
     boolean cardinal(int x, int y, int nx, int ny)
     {
@@ -66,22 +56,6 @@ final class InfernoCollision
         int out = dx > 0 ? 8 : dx < 0 ? 128 : dy > 0 ? 2 : 32;
         int in = dx > 0 ? 128 : dx < 0 ? 8 : dy > 0 ? 32 : 2;
         return (flag(x, y) & out) == 0 && (flag(nx, ny) & in) == 0;
-    }
-
-    boolean step(Tile from, Tile to)
-    {
-        int dx = to.x - from.x, dy = to.y - from.y;
-        if (Math.abs(dx) > 1 || Math.abs(dy) > 1 || !free(to.x, to.y)) return false;
-        if (dx == 0 && dy == 0) return true;
-        if (dx == 0 || dy == 0) return cardinal(from.x, from.y, to.x, to.y);
-        int outgoing = dx < 0 ? (dy > 0 ? 1 : 64) : (dy > 0 ? 4 : 16);
-        int incoming = dx < 0 ? (dy > 0 ? 16 : 4) : (dy > 0 ? 64 : 1);
-        return (flag(from.x, from.y) & outgoing) == 0 && (flag(to.x, to.y) & incoming) == 0
-            && free(from.x + dx, from.y) && free(from.x, from.y + dy)
-            && cardinal(from.x, from.y, from.x + dx, from.y)
-            && cardinal(from.x, from.y, from.x, from.y + dy)
-            && cardinal(from.x + dx, from.y, to.x, to.y)
-            && cardinal(from.x, from.y + dy, to.x, to.y);
     }
 
     boolean ray(int x, int y, int tx, int ty)
@@ -123,10 +97,8 @@ final class InfernoCollision
     private int rayFlag(int major, int minor, boolean horizontal, boolean unknownMayExpose)
     {
         int value = horizontal ? flag(x1 + major, y1 + minor) : flag(x1 + minor, y1 + major);
-
         return unknownMayExpose && (value & UNLOADED) != 0 ? 0 : value;
     }
-
 
     boolean npcSight(Npc npc, Tile player)
     {
@@ -149,7 +121,6 @@ final class InfernoCollision
         int y = Math.max(ny, Math.min(player.y, ny + size - 1));
         return ray(player.x, player.y, x, y, true);
     }
-
 
     boolean melee(Npc npc, Tile tile)
     {
@@ -293,9 +264,11 @@ final class InfernoCollision
         if (!inside(player.x, player.y) || !inside(nx, ny) || !inside(nx + npc.size - 1, ny + npc.size - 1)) return false;
         if ((flag(player.x, player.y) & MISSILE_BLOCKED & ~UNLOADED) != 0) return false;
         int x = Math.max(nx, Math.min(player.x, nx + npc.size - 1));
-        int y = Math.max(ny, Math.min(player.y, ny + npc.size - 1));
+        int y = Math.max(ny, Math.min(player.y, ny + size(npc) - 1));
         return ray(player.x, player.y, x, y, true);
     }
+
+    private static int size(Npc npc) { return npc.size; }
 
     private boolean npcStep(Npc npc, int dx, int dy, Tile player)
     {
@@ -340,51 +313,6 @@ final class InfernoCollision
                 && (!stationaryOnly || other.role == Role.PILLAR)
                 && x >= other.x && x < other.x + other.size && y >= other.y && y < other.y + other.size) return false;
         return true;
-    }
-
-    Paths paths(Tile start, int maxDistance) { return new Paths(start, maxDistance); }
-
-    final class Paths
-    {
-        private final int[] previous = new int[flags.length], distances = new int[flags.length];
-        final List<Tile> reachable = new ArrayList<>();
-        final Tile start;
-        Paths(Tile start, int maxDistance)
-        {
-            this.start = start;
-            Arrays.fill(previous, -1); Arrays.fill(distances, -1);
-            if (!open(start.x, start.y)) return;
-            int[] queue = new int[flags.length]; int head = 0, tail = 0, origin = index(start.x, start.y);
-            previous[origin] = origin; distances[origin] = 0; queue[tail++] = origin;
-            while (head < tail)
-            {
-                int at = queue[head++]; Tile from = tile(at); reachable.add(from);
-                if (distances[at] >= maxDistance) continue;
-                for (int dy = -1; dy <= 1; dy++) for (int dx = -1; dx <= 1; dx++)
-                {
-                    if (dx == 0 && dy == 0) continue;
-                    Tile to = new Tile(from.x + dx, from.y + dy);
-                    if (!inside(to.x, to.y) || previous[index(to.x, to.y)] >= 0 || !step(from, to)) continue;
-                    int next = index(to.x, to.y); previous[next] = at; distances[next] = distances[at] + 1;
-                    queue[tail++] = next;
-                }
-            }
-        }
-        int distance(Tile target) { return inside(target.x, target.y) ? distances[index(target.x, target.y)] : -1; }
-        List<Tile> to(Tile target)
-        {
-            if (distance(target) < 0) return Collections.emptyList();
-            List<Tile> result = new ArrayList<>();
-            int at = index(target.x, target.y);
-            for (int steps = 0; steps < previous.length; steps++)
-            {
-                result.add(tile(at));
-                if (previous[at] == at) { Collections.reverse(result); return result; }
-                at = previous[at];
-                if (at < 0) return Collections.emptyList();
-            }
-            return Collections.emptyList();
-        }
     }
 
     static final class Tile

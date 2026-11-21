@@ -1,10 +1,12 @@
 package net.runelite.client.plugins.microbot.salamanders;
 
 import net.runelite.api.Skill;
+import net.runelite.api.gameval.ObjectID;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.hunter.HunterTrap;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.antiban.enums.Activity;
@@ -13,11 +15,28 @@ import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class SalamanderScript extends Script {
     public static final int NET_TRAP = 34631;
+    static final double FAILED_TRAP_GIVE_UP_TIME = 0.5;
+    private static final int[] FAILED_TRAP_RESET_IDS = {
+            ObjectID.HUNTING_SAPLING_NET_RESET_SWAMP,
+            ObjectID.HUNTING_SAPLING_NET_RESET_ORANGE,
+            ObjectID.HUNTING_SAPLING_NET_RESET_RED,
+            ObjectID.HUNTING_SAPLING_NET_RESET_BLACK,
+            ObjectID.HUNTING_SAPLING_NET_RESET_MOUNTAIN,
+            ObjectID.HUNTING_SAPLING_UP_RESET_SWAMP,
+            ObjectID.HUNTING_SAPLING_UP_RESET_ORANGE,
+            ObjectID.HUNTING_SAPLING_UP_RESET_RED,
+            ObjectID.HUNTING_SAPLING_UP_RESET_BLACK,
+            ObjectID.HUNTING_SAPLING_UP_RESET_MOUNTAIN
+    };
     public static int SalamandersCaught = 0;
     public boolean hasDied = false;
 
@@ -35,7 +54,7 @@ public class SalamanderScript extends Script {
                 if (config.salamanderHunting().getName().equals("Black salamander") && hasDied) {
                     Microbot.log("We died - Restocking supplies");
                     handleBanking(config);
-                } else if (Rs2Inventory.count(NET_TRAP) < 1 && plugin.getTraps().isEmpty()) {
+                } else if (needsRestock(Rs2Inventory.count(NET_TRAP), plugin.getActiveTrapCount())) {
                     Microbot.log("Not enough supplies, need net traps");
                     handleBanking(config);
                     return;
@@ -56,7 +75,7 @@ public class SalamanderScript extends Script {
                 }
 
                 // Count existing traps from plugin's trap map
-                int activeTrapCount = plugin.getTraps().size();
+                int activeTrapCount = plugin.getActiveTrapCount();
                 int maxTraps = getMaxTrapsForHunterLevel(config);
 
                 // Tend to active traps
@@ -153,21 +172,53 @@ public class SalamanderScript extends Script {
     }
 
     private boolean handleExistingTraps(SalamanderPlugin plugin, SalamanderConfig config) {
-        var trapToHandle = plugin.getTraps().entrySet().stream()
-                .filter(entry -> entry.getValue().getState() == HunterTrap.State.FULL)
-                .sorted((a, b) -> Double.compare(b.getValue().getTrapTimeRelative(), a.getValue().getTrapTimeRelative())).collect(Collectors.toList()).stream().findFirst().orElse(null);
-        if (trapToHandle == null) return false;
-        WorldPoint location = trapToHandle.getKey();
-        if (!Rs2Player.isAnimating() && !Rs2Player.isMoving()) {
-            var gameObject = Microbot.getRs2TileObjectCache().query().within(location, 0).first();
-            if (gameObject != null) {
-                gameObject.click("Reset");
-                SalamandersCaught++;
-                sleep(config.minSleepAfterCatch(), config.maxSleepAfterCatch());
-                return true;
+        if (Rs2Player.isAnimating() || Rs2Player.isMoving()) return false;
+        if (!handleTraps(plugin, this::findTrapObject)) return false;
+        sleep(config.minSleepAfterCatch(), config.maxSleepAfterCatch());
+        return true;
+    }
+
+    boolean handleTraps(SalamanderPlugin plugin, Function<Map.Entry<WorldPoint, HunterTrap>, Rs2TileObjectModel> finder) {
+        for (Map.Entry<WorldPoint, HunterTrap> entry : resetOrder(plugin.getTraps())) {
+            boolean failed = entry.getValue().getState() == HunterTrap.State.EMPTY;
+            Rs2TileObjectModel gameObject = finder.apply(entry);
+            if (gameObject == null) {
+                if (failed && entry.getValue().getTrapTimeRelative() >= FAILED_TRAP_GIVE_UP_TIME && plugin.abandonTrap(entry.getKey())) {
+                    Microbot.log("Could not reset the failed net trap at this spot, it no longer counts toward your traps");
+                }
+                continue;
             }
+            gameObject.click("Reset");
+            if (!failed) {
+                SalamandersCaught++;
+            }
+            return true;
         }
         return false;
+    }
+
+    private Rs2TileObjectModel findTrapObject(Map.Entry<WorldPoint, HunterTrap> entry) {
+        WorldPoint location = entry.getKey();
+        if (entry.getValue().getState() == HunterTrap.State.EMPTY) {
+            return Microbot.getRs2TileObjectCache().query().within(location, 1).withIds(FAILED_TRAP_RESET_IDS).withAction("Reset").nearest(location, 1);
+        }
+        return Microbot.getRs2TileObjectCache().query().within(location, 0).first();
+    }
+
+    static List<Map.Entry<WorldPoint, HunterTrap>> resetOrder(Map<WorldPoint, HunterTrap> traps) {
+        return traps.entrySet().stream()
+                .filter(entry -> needsReset(entry.getValue().getState()))
+                .sorted(Comparator.comparing((Map.Entry<WorldPoint, HunterTrap> entry) -> entry.getValue().getState() != HunterTrap.State.FULL)
+                        .thenComparing(entry -> -entry.getValue().getTrapTimeRelative()))
+                .collect(Collectors.toList());
+    }
+
+    static boolean needsRestock(int netTrapsInInventory, int activeTrapCount) {
+        return netTrapsInInventory < 1 && activeTrapCount == 0;
+    }
+
+    static boolean needsReset(HunterTrap.State state) {
+        return state == HunterTrap.State.FULL || state == HunterTrap.State.EMPTY;
     }
 
     private void setNewTrap(SalamanderHunting salamanderType, SalamanderConfig config) {

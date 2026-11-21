@@ -9,6 +9,7 @@ import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
 
 public class PrayerPotionScript extends Script {
     public boolean run() {
@@ -38,11 +39,15 @@ public class PrayerPotionScript extends Script {
     }
 
     public boolean run(NmzConfig config) {
+        return run(config, () -> true);
+    }
+
+    public boolean run(NmzConfig config, BooleanSupplier inDream) {
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
                 if (!Microbot.isLoggedIn()) return;
+                if (!config.togglePrayerPotions() || !inDream.getAsBoolean()) return;
                 if (!super.run()) return;
-                if (!config.togglePrayerPotions()) return;
                 if (isPrayerAboveThreshold(Microbot.getClient().getBoostedSkillLevel(Skill.PRAYER), Microbot.getClient().getRealSkillLevel(Skill.PRAYER), Rs2Random.between(25, 30)))
                     return;
                 List<Rs2ItemModel> potions = Microbot.getClientThread().runOnClientThreadOptional(Rs2Inventory::getPotions).orElse(null);

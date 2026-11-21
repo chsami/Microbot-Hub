@@ -66,7 +66,7 @@ public class AIOFighterOverlay extends OverlayPanel {
         GeneralPath lines = linesToDisplay[Microbot.getClient().getTopLevelWorldView().getPlane()];
         LocalPoint lp = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), config.centerLocation());
         if (lp != null) {
-            Polygon poly = Perspective.getCanvasTileAreaPoly(Microbot.getClient(), lp, config.attackRadius() * 2);
+            Polygon poly = Perspective.getCanvasTileAreaPoly(Microbot.getClient(), lp, AIOFighterConfig.boundedAttackRadius(config.attackRadius()) * 2);
 
             if (poly != null) {
                 //renderPolygon(graphics, poly, WHITE_TRANSLUCENT);

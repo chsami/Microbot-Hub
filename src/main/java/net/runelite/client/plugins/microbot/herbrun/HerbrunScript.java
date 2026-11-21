@@ -440,7 +440,7 @@ public class HerbrunScript extends Script {
                 // A flower patch harvests in one action. Free as much space as possible first so a
                 // bulk yield (e.g. limpwurt roots) fits rather than overflowing onto the ground.
                 noteProduceViaLeprechaun();
-                obj.click("Pick");
+                obj.click(harvestAction(obj::hasActionContaining));
                 Rs2Player.waitForWalking();
                 sleepUntil(() -> getPatchState(obj).equals("Empty") || Rs2Inventory.isFull(), 10000);
                 recoverOwnLimpwurtDrops();
@@ -551,7 +551,7 @@ public class HerbrunScript extends Script {
 
         switch (state) {
             case "Harvestable":
-                obj.click("Pick");
+                obj.click(harvestAction(obj::hasActionContaining));
                 Rs2Player.waitForWalking();
                 sleepUntil(() -> getPatchState(obj).equals("Empty") || Rs2Inventory.isFull(), 20000);
                 return false;
@@ -611,6 +611,10 @@ public class HerbrunScript extends Script {
         if (varbit <= 5) return "Empty";
 
         return "Growing";
+    }
+
+    static String harvestAction(java.util.function.Predicate<String> hasAction) {
+        return hasAction.test("Harvest") ? "Harvest" : "Pick";
     }
 
     // --- Shared compost application ---

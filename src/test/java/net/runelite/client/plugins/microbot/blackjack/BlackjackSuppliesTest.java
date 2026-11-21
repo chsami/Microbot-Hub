@@ -30,4 +30,15 @@ class BlackjackSuppliesTest
         assertEquals(2, BlackjackScript.winesNeededToReach(44, 66));
         assertEquals(0, BlackjackScript.winesNeededToReach(66, 66));
     }
+
+    @Test
+    void healTargetAboveMaxHitpointsIsCappedAtMaxHitpoints()
+    {
+        int target = BlackjackScript.healTargetHitpoints(75, 57);
+        assertEquals(57, target);
+        assertEquals(0, BlackjackScript.winesNeededToReach(57, target));
+        assertEquals(2, BlackjackScript.winesNeededToReach(38, target));
+        assertEquals(75, BlackjackScript.healTargetHitpoints(75, 99));
+        assertEquals(75, BlackjackScript.healTargetHitpoints(75, 0));
+    }
 }

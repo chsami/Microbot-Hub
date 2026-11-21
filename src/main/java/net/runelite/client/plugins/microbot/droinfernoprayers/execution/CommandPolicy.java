@@ -2,10 +2,7 @@ package net.runelite.client.plugins.microbot.droinfernoprayers.execution;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import java.util.Locale;
-import java.util.Set;
 import net.runelite.client.plugins.microbot.droinfernoprayers.ArenaProduct;
-import net.runelite.client.plugins.microbot.droinfernoprayers.plugins.common.Commands;
 
 final class CommandPolicy {
     private CommandPolicy() { }
@@ -18,7 +15,7 @@ final class CommandPolicy {
         if(e==null||!e.isJsonPrimitive()||!e.getAsJsonPrimitive().isString())return "INVALID";
         String op=e.getAsString();
         switch(op) {
-            case "prayer.set":case "prayer.flick":return op;
+            case "prayer.set":return op;
             default:return "UNKNOWN";
         }
     }
@@ -26,7 +23,6 @@ final class CommandPolicy {
         if (op==null || a==null) reject();
         switch(op) {
             case "prayer.set": keys(a,"prayer","on"); text(a,"prayer",80); bool(a,"on",true); break;
-            case "prayer.flick": keys(a,"prayer"); text(a,"prayer",80); break;
             default:reject("UNKNOWN_OPERATION");
         }
     }
@@ -39,15 +35,6 @@ final class CommandPolicy {
     private static void bool(JsonObject a,String key,boolean required){
         var e=a.get(key);if(e==null&&!required)return;
         if(e==null||!e.isJsonPrimitive()||!e.getAsJsonPrimitive().isBoolean())reject("MISSING_OR_INVALID_BOOLEAN_"+key);
-    }
-    private static int integer(JsonObject a,String key,int min,int max){
-        try{return number(a.get(key),min,max);}
-        catch(Rejection invalid){throw new Rejection(invalid.getMessage()+"_"+key);}
-    }
-    private static int number(JsonElement e,int min,int max){
-        if(e==null||!e.isJsonPrimitive()||!e.getAsJsonPrimitive().isNumber())reject("MISSING_OR_INVALID_NUMBER");
-        try{int n=e.getAsBigDecimal().intValueExact();if(n<min||n>max)reject("NUMBER_OUT_OF_RANGE");return n;}
-        catch(ArithmeticException|NumberFormatException invalid){throw new Rejection("NUMBER_NOT_EXACT_INTEGER");}
     }
     static void reject(String reason){throw new Rejection(reason);}
     private static void reject(){reject("INVALID_ARGUMENTS");}

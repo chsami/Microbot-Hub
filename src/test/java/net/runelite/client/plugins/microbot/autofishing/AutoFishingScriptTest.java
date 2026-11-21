@@ -16,6 +16,9 @@ import net.runelite.client.plugins.microbot.autofishing.enums.HarpoonType;
 import net.runelite.client.plugins.microbot.util.Global;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
+import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
+import net.runelite.client.plugins.microbot.util.depositbox.DepositBoxLocation;
+import net.runelite.client.plugins.microbot.util.depositbox.Rs2DepositBox;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
@@ -33,6 +36,7 @@ import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -379,9 +383,21 @@ class AutoFishingScriptTest {
     @Test
     void depositingKeepsTackleBoxAndSandworms() {
         ScheduledExecutorService executor = mock(ScheduledExecutorService.class);
-        AutoFishingScript script = new AutoFishingScript() {{
-            scheduledExecutorService = executor;
-        }};
+        AutoFishingScript script = new AutoFishingScript() {
+            {
+                scheduledExecutorService = executor;
+            }
+
+            @Override
+            Set<BankLocation> accessibleBanks() {
+                return Set.of();
+            }
+
+            @Override
+            Set<DepositBoxLocation> accessibleDepositBoxes() {
+                return Set.of();
+            }
+        };
         AutoFishingConfig config = mock(AutoFishingConfig.class);
         when(config.fishToCatch()).thenReturn(Fish.PIKE);
         when(config.harpoonSpec()).thenReturn(HarpoonType.NONE);
@@ -421,6 +437,142 @@ class AutoFishingScriptTest {
             assertEquals(AutoFishingState.DEPOSITING, script.getCurrentState());
             assertEquals(Set.of(ItemID.TACKLE_BOX, ItemID.FISHING_ROD, ItemID.PISCARILIUS_SANDWORMS), kept);
             bank.verify(Rs2Bank::depositAll, never());
+        }
+    }
+
+    @Test
+    void karamjaLobsterTripDepositsAtPortSarimBoxInsteadOfTeleportBank() {
+        Set<WorldPoint> planned = new HashSet<>();
+        Set<Integer> kept = new HashSet<>();
+        runDepositTick(false, DepositBoxLocation.PORT_SARIM.getWorldPoint(), planned, kept, (bank, depositBox) -> {
+            depositBox.verify(() -> Rs2DepositBox.walkToAndUseDepositBox(DepositBoxLocation.PORT_SARIM));
+            depositBox.verify(Rs2DepositBox::closeDepositBox);
+            bank.verify(Rs2Bank::walkToBankAndUseBank, never());
+            bank.verify(() -> Rs2Bank.walkToBankAndUseBank(any(BankLocation.class)), never());
+            bank.verify(Rs2Bank::emptyFishBarrel, never());
+            bank.verify(() -> Rs2Bank.depositAllExcept(any(Integer[].class)), never());
+        });
+
+        assertEquals(Set.of(BankLocation.LUMBRIDGE_TOP.getWorldPoint(), BankLocation.DRAYNOR_VILLAGE.getWorldPoint(),
+                DepositBoxLocation.PORT_SARIM.getWorldPoint()), planned);
+        assertEquals(Set.of(ItemID.LOBSTER_POT, ItemID.COINS), kept);
+    }
+
+    @Test
+    void fishBarrelTripOnlyConsidersBanksSoTheBarrelCanBeEmptied() {
+        Set<WorldPoint> planned = new HashSet<>();
+        Set<Integer> kept = new HashSet<>();
+        runDepositTick(true, BankLocation.DRAYNOR_VILLAGE.getWorldPoint(), planned, kept, (bank, depositBox) -> {
+            bank.verify(() -> Rs2Bank.walkToBankAndUseBank(BankLocation.DRAYNOR_VILLAGE));
+            bank.verify(Rs2Bank::emptyFishBarrel);
+            bank.verify(Rs2Bank::walkToBankAndUseBank, never());
+            depositBox.verify(() -> Rs2DepositBox.walkToAndUseDepositBox(any(DepositBoxLocation.class)), never());
+        });
+
+        assertEquals(Set.of(BankLocation.LUMBRIDGE_TOP.getWorldPoint(), BankLocation.DRAYNOR_VILLAGE.getWorldPoint()), planned);
+        assertEquals(Set.of(ItemID.LOBSTER_POT, ItemID.COINS, ItemID.FISH_BARREL_OPEN), kept);
+    }
+
+    @Test
+    void depositTripFallsBackToNearestBankWhenNothingIsReachableWithoutTeleports() {
+        runDepositTick(false, null, new HashSet<>(), new HashSet<>(), (bank, depositBox) -> {
+            bank.verify(Rs2Bank::walkToBankAndUseBank);
+            bank.verify(() -> Rs2Bank.walkToBankAndUseBank(any(BankLocation.class)), never());
+            depositBox.verify(() -> Rs2DepositBox.walkToAndUseDepositBox(any(DepositBoxLocation.class)), never());
+        });
+    }
+
+    @Test
+    void depositLogLineNamesThePlaceAndWhetherItIsABankOrDepositBox() {
+        assertEquals("Depositing at the Port Sarim deposit box (the closest one reachable without teleporting, so the walk back to the fishing spot stays short)",
+                AutoFishingScript.depositPointMessage(DepositBoxLocation.PORT_SARIM.name(), true, false));
+        assertEquals("Depositing at the Draynor Village bank (the closest one reachable without teleporting, so the walk back to the fishing spot stays short)"
+                        + " (deposit boxes skipped: a Fish barrel can only be emptied at a bank)",
+                AutoFishingScript.depositPointMessage(BankLocation.DRAYNOR_VILLAGE.name(), false, true));
+    }
+
+    @Test
+    void stoppingClosesAnOpenDepositBox() {
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<Rs2Bank> bank = mockStatic(Rs2Bank.class);
+             MockedStatic<Rs2DepositBox> depositBox = mockStatic(Rs2DepositBox.class);
+             MockedStatic<Rs2Walker> walker = mockStatic(Rs2Walker.class)) {
+            depositBox.when(Rs2DepositBox::isOpen).thenReturn(true);
+
+            new AutoFishingScript().shutdown();
+
+            depositBox.verify(Rs2DepositBox::closeDepositBox);
+            bank.verify(Rs2Bank::closeBank, never());
+        }
+    }
+
+    private void runDepositTick(boolean fishBarrel, WorldPoint reachedOnFoot, Set<WorldPoint> planned, Set<Integer> kept,
+                                BiConsumer<MockedStatic<Rs2Bank>, MockedStatic<Rs2DepositBox>> verification) {
+        ScheduledExecutorService executor = mock(ScheduledExecutorService.class);
+        AutoFishingScript script = new AutoFishingScript() {
+            {
+                scheduledExecutorService = executor;
+            }
+
+            @Override
+            Set<BankLocation> accessibleBanks() {
+                return Set.of(BankLocation.LUMBRIDGE_TOP, BankLocation.DRAYNOR_VILLAGE);
+            }
+
+            @Override
+            Set<DepositBoxLocation> accessibleDepositBoxes() {
+                return Set.of(DepositBoxLocation.PORT_SARIM);
+            }
+
+            @Override
+            WorldPoint nearestOnFoot(WorldPoint from, Set<WorldPoint> targets) {
+                assertEquals(new WorldPoint(2924, 3179, 0), from);
+                planned.addAll(targets);
+                return reachedOnFoot;
+            }
+        };
+        AutoFishingConfig config = mock(AutoFishingConfig.class);
+        when(config.fishToCatch()).thenReturn(Fish.LOBSTER);
+        when(config.harpoonSpec()).thenReturn(HarpoonType.NONE);
+        when(config.useBank()).thenReturn(true);
+        Rs2ItemModel pot = mock(Rs2ItemModel.class);
+        when(pot.getId()).thenReturn(ItemID.LOBSTER_POT);
+
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<Rs2Player> rs2Player = mockStatic(Rs2Player.class);
+             MockedStatic<Rs2Inventory> inventory = mockStatic(Rs2Inventory.class);
+             MockedStatic<Rs2Bank> bank = mockStatic(Rs2Bank.class);
+             MockedStatic<Rs2DepositBox> depositBox = mockStatic(Rs2DepositBox.class);
+             MockedStatic<Global> global = mockStatic(Global.class);
+             MockedStatic<Rs2Widget> widget = mockStatic(Rs2Widget.class);
+             MockedStatic<Rs2Antiban> antiban = mockStatic(Rs2Antiban.class)) {
+            microbot.when(Microbot::isLoggedIn).thenReturn(true);
+            rs2Player.when(Rs2Player::getWorldLocation).thenReturn(new WorldPoint(2924, 3179, 0));
+            inventory.when(Rs2Inventory::isFull).thenReturn(true);
+            inventory.when(() -> Rs2Inventory.hasItem("Lobster pot")).thenReturn(true);
+            inventory.when(() -> Rs2Inventory.get("Lobster pot")).thenReturn(pot);
+            inventory.when(() -> Rs2Inventory.hasItem(ItemID.COINS)).thenReturn(true);
+            inventory.when(() -> Rs2Inventory.hasItem(ItemID.FISH_BARREL_OPEN)).thenReturn(fishBarrel);
+            bank.when(Rs2Bank::walkToBankAndUseBank).thenReturn(true);
+            bank.when(() -> Rs2Bank.walkToBankAndUseBank(any(BankLocation.class))).thenReturn(true);
+            bank.when(() -> Rs2Bank.depositAllExcept(any(Integer[].class))).thenAnswer(call -> {
+                kept.addAll(Arrays.asList((Integer[]) call.getRawArguments()[0]));
+                return true;
+            });
+            depositBox.when(() -> Rs2DepositBox.walkToAndUseDepositBox(any(DepositBoxLocation.class))).thenReturn(true);
+            depositBox.when(Rs2DepositBox::isOpen).thenReturn(true);
+            depositBox.when(() -> Rs2DepositBox.depositAllExcept(any(Integer[].class))).thenAnswer(call -> {
+                kept.addAll(Arrays.asList((Integer[]) call.getRawArguments()[0]));
+                return true;
+            });
+
+            script.run(config);
+            ArgumentCaptor<Runnable> tick = ArgumentCaptor.forClass(Runnable.class);
+            verify(executor).scheduleWithFixedDelay(tick.capture(), anyLong(), anyLong(), any(TimeUnit.class));
+            tick.getValue().run();
+
+            assertEquals(AutoFishingState.DEPOSITING, script.getCurrentState());
+            verification.accept(bank, depositBox);
         }
     }
 

@@ -9,6 +9,7 @@ import net.runelite.client.plugins.microbot.aiofighter.AIOFighterConfig;
 import net.runelite.client.plugins.microbot.aiofighter.AIOFighterPlugin;
 import net.runelite.client.plugins.microbot.aiofighter.enums.DefaultLooterStyle;
 import net.runelite.client.plugins.microbot.aiofighter.enums.State;
+import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.grounditem.LootingParameters;
 import net.runelite.client.plugins.microbot.util.grounditem.Rs2GroundItem;
 import net.runelite.client.plugins.microbot.util.grounditem.Rs2LootEngine;
@@ -28,6 +29,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
 import java.util.function.Predicate;
 
 @Slf4j
@@ -61,7 +63,7 @@ public class LootScript extends Script {
                 if (st == State.BANKING || st == State.WALKING) return;
 
                 if (((Rs2Inventory.isFull() || Rs2Inventory.emptySlotCount() <= minFreeSlots) && !config.eatFoodForSpace())
-                        || (Rs2Player.isInCombat() && !config.toggleForceLoot())) {
+                        || blockedByCombat(config.toggleForceLoot(), Rs2Combat::inCombat)) {
                     return;
                 }
 
@@ -141,8 +143,12 @@ public class LootScript extends Script {
         );
     }
 
+    static boolean blockedByCombat(boolean forceLoot, BooleanSupplier fighting) {
+        return !forceLoot && fighting.getAsBoolean();
+    }
+
     static int lootRange(int attackRadius, WorldPoint center, WorldPoint player) {
-        final int range = attackRadius + 1;
+        final int range = AIOFighterConfig.boundedAttackRadius(attackRadius) + 1;
         if (!isCenterSet(center) || player == null || player.getPlane() != center.getPlane()) return range;
         return range + player.distanceTo(center);
     }

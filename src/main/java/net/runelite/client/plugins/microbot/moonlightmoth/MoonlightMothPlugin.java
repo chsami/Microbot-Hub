@@ -23,7 +23,7 @@ import java.time.Instant;
         isExternal = PluginConstants.IS_EXTERNAL
 )
 public class MoonlightMothPlugin extends Plugin {
-    public static final String version = "1.0.1";
+    public static final String version = "1.0.2";
     static final String CONFIG = "moonlightmoth";
     public Instant scriptStartTime;
     @Inject

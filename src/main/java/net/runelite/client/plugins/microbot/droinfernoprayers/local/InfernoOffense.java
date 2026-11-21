@@ -34,11 +34,10 @@ final class InfernoOffense
         animation = f.animation; tick = f.tick;
     }
 
-    boolean needed(InfernoSnapshot f, boolean requestingAttack)
+    boolean needed(InfernoSnapshot f)
     {
-        if (attack < 0) return requestingAttack;
+        if (attack < 0) return false;
         long elapsed = f.tick - attack;
-        if (requestingAttack && elapsed >= speed - 1) return true;
         return f.interacting >= 0 && elapsed >= 0 && elapsed % speed == speed - 1;
     }
 

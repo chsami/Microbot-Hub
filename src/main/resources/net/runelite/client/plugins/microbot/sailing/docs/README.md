@@ -145,13 +145,14 @@ An automated sailing plugin that supports salvaging shipwrecks and Barracuda Tri
 ## Optional Equipment
 
 - **Salvaging Station**: Install on your boat to automatically process salvage items (recommended)
-- Without a salvaging station, the plugin will drop junk items when inventory fills with salvage
+- Without a salvaging station on your boat, the plugin drops the items in your Drop items list when inventory fills with salvage. To drop salvage itself, add its exact name (e.g. Small salvage) to Drop items
 
 ## Known Limitations
 
 - Requires shipwrecks to be within 15 tiles of the player
 - Will wait if player is already animating (salvaging)
-- Without a salvaging station, salvage items will be dropped when inventory is full
+- Without a salvaging station on your boat, salvage is only dropped if its exact name is in Drop items; otherwise the plugin waits with a full inventory, the overlay shows Status: Waiting, and it tells you how to continue
+- The port salvaging station is never used from your boat; the plugin does not walk or teleport off the boat to reach it
 - Casket opening requires at least one free inventory slot — the drop pass before opening handles this in normal usage
 
 ## Version History

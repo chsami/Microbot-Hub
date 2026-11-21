@@ -1,6 +1,9 @@
 package net.runelite.client.plugins.microbot.crafting.jewelry;
 
+import net.runelite.client.plugins.microbot.crafting.jewelry.enums.State;
 import org.junit.jupiter.api.Test;
+
+import java.util.function.BooleanSupplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -11,6 +14,27 @@ class JewelryScriptTest {
     @Test
     void missingAntibanCategoryIsNotBusy() {
         assertFalse(JewelryScript.isCategoryBusy(null));
+    }
+
+    @Test
+    void wornStaffWithoutNotedJewelryDoesNotBankOutsideAlching() {
+        assertFalse(JewelryScript.shouldBank(State.BANKING, false, true));
+        assertFalse(JewelryScript.shouldBank(State.CRAFTING, false, true));
+        assertFalse(JewelryScript.shouldBank(State.CUTTING, false, true));
+        assertFalse(JewelryScript.shouldBank(null, false, true));
+    }
+
+    @Test
+    void finishedAlchingBanksWhileAlching() {
+        assertTrue(JewelryScript.shouldBank(State.ALCHING, false, true));
+        assertFalse(JewelryScript.shouldBank(State.ALCHING, false, false));
+    }
+
+    @Test
+    void finishedMaterialsBankInAnyState() {
+        assertTrue(JewelryScript.shouldBank(State.CRAFTING, true, false));
+        assertTrue(JewelryScript.shouldBank(State.CUTTING, true, false));
+        assertTrue(JewelryScript.shouldBank(null, true, false));
     }
 
     @Test
@@ -89,6 +113,25 @@ class JewelryScriptTest {
         assertEquals("Gold", JewelryScript.capitalize("GOLD"));
         assertEquals("Red topaz", JewelryScript.capitalize("red topaz"));
         assertEquals("", JewelryScript.capitalize(""));
+    }
+
+    @Test
+    void countDroppedFiresOnlyWhenBarsAreUsed() {
+        int[] bars = {27};
+        BooleanSupplier dropped = JewelryScript.countDropped(() -> bars[0]);
+        assertFalse(dropped.getAsBoolean());
+        bars[0] = 26;
+        assertTrue(dropped.getAsBoolean());
+        assertFalse(dropped.getAsBoolean());
+        bars[0] = 25;
+        assertTrue(dropped.getAsBoolean());
+        bars[0] = 27;
+        assertFalse(dropped.getAsBoolean());
+    }
+
+    @Test
+    void craftIdleTimeoutOutlastsGapBetweenItems() {
+        assertTrue(JewelryScript.CRAFT_IDLE_TIMEOUT_MS >= 3000);
     }
 
     @Test
