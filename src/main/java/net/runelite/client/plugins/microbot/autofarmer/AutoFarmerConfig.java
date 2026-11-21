@@ -98,18 +98,18 @@ public interface AutoFarmerConfig extends Config {
     }
 
     @ConfigItem(keyName = "buySeedsWhenEmpty", name = "GE seeds when empty (+99%)", description = "Only at zero plantable herb seeds in bank and inventory: buy 100 of the highest eligible/configured seed using +99%. Existing offers are left alone.", position = 21, section = settingsSection)
-    default boolean buySeedsWhenEmpty() { return true; }
+    default boolean buySeedsWhenEmpty() { return false; }
 
-    @ConfigItem(keyName = "clearFailureAndResume", name = "Clear failure and resume", description = "After fixing the reported problem, enable this once to release the saved failure stop. Resets itself to off.", position = 20, section = settingsSection)
+    @ConfigItem(keyName = "clearFailureAndResume", name = "Clear failure and resume", description = "After fixing the problem, enable this and start AutoFarmer again. Resets itself to off.", position = 20, section = settingsSection)
     default boolean clearFailureAndResume() { return false; }
 
     @ConfigItem(keyName = "dropEventFood", name = "Drop ordinary event food", description = "Drop only ordinary food newly received from a completed built-in random event; preserve existing food, money, gems, outfits and rare items", position = 19, section = settingsSection)
     default boolean dropEventFood() { return true; }
 
     @ConfigItem(keyName = "useLampsOnFarming", name = "Use event XP rewards on Farming", description = "Spend standard random-event lamps and Books of knowledge on Farming. Other reward items remain protected.", position = 18, section = settingsSection)
-    default boolean useLampsOnFarming() { return true; }
+    default boolean useLampsOnFarming() { return false; }
 
-    @ConfigItem(keyName = "builtInRandomEvents", name = "Built-in random events", description = "Accept Genie/Count Check XP rewards and dismiss other invitations. Existing lamps/books use Farming. Disable the standalone Local helper so this policy is in control.", position = 17, section = settingsSection)
+    @ConfigItem(keyName = "builtInRandomEvents", name = "Built-in random events", description = "Accept Genie/Count Check XP rewards and dismiss other invitations. Spending lamps/books on Farming requires its own setting. Disable the standalone Local helper so this policy is in control.", position = 17, section = settingsSection)
     default boolean builtInRandomEvents() { return true; }
 
     @ConfigItem(keyName = "useAirBattlestaff", name = "Use air battlestaff", description = "Equip a banked air battlestaff when usable and omit air rune withdrawals while equipped", position = 15, section = settingsSection)

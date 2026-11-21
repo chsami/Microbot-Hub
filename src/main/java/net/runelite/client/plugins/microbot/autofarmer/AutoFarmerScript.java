@@ -96,7 +96,10 @@ public class AutoFarmerScript extends Script {
     private int herbClearAttempts = 0;
     @Inject
     ClientThread clientThread;
-    private final FailureLatch failureStop = new FailureLatch(java.nio.file.Path.of(System.getProperty("user.home"),".runelite","auto-farmer","failure.properties"));
+    private volatile FailureLatch failureStop;
+    private String failureProfile;
+    private SeedRestocker seedRestocker;
+    private volatile boolean stopping;
     private java.util.concurrent.ScheduledExecutorService safetyExecutor;
     private long eventSafetySince;
     private long manualPauseSince;
@@ -104,47 +107,83 @@ public class AutoFarmerScript extends Script {
     private volatile boolean seenLoggedIn;
     private String progressSignature = "";
     private long offlineSince;
-    private long logoutAttemptAt;
     private volatile long runStartedAt;
     private boolean eventYielded;
     private String failureDetail = "Inventory setup could not be completed";
 
+    private synchronized boolean prepareFailureProfile(String profile) {
+        if (stopping) return false;
+        if (profile.equals(failureProfile)) return true;
+
+        FailureLatch latch = new FailureLatch(ProfileFiles.resolve(profile, "failure.properties"));
+        seedRestocker = new SeedRestocker(ProfileFiles.resolve(profile, "seed-purchase.properties"));
+        failureProfile = profile;
+        if (config.clearFailureAndResume()) {
+            try {
+                latch.clear();
+                configManager.setConfiguration("AutoFarmer", "clearFailureAndResume", false);
+                log("Failure stop cleared; resuming with saved patch memory.");
+            } catch (java.io.IOException e) {
+                log.error("Could not clear the saved AutoFarmer failure", e);
+                stopForSavedFailure("Could not clear the saved failure report");
+                return false;
+            }
+        }
+        if (latch.active()) {
+            stopForSavedFailure(latch.reason());
+            return false;
+        }
+        failureStop = latch;
+        if (config.builtInRandomEvents()) plugin.randomEvents.start();
+        return true;
+    }
+
     private synchronized void failRun(String reason) {
-        if (failureStop.active()) return;
-        log("AUTO FARMER FAILURE STOP: " + reason);
-        try { failureStop.trip(reason,currentPatch==null?null:currentPatch.getRegionName(),System.currentTimeMillis()); }
-        catch (java.io.IOException e) { log.error("Could not save failure report; stop is still active in memory",e); }
-        cropBreak=false;preparingCropBreak=false;
-        configManager.unsetRSProfileConfiguration("AutoFarmer","nextCropCheck");
-        configManager.unsetRSProfileConfiguration("AutoFarmer","nextCropRegion");
-        configManager.unsetRSProfileConfiguration("AutoFarmer","cropTravelPending");
-        plugin.randomEvents.stop();
-        Rs2Walker.setTarget(null);
-        holdAutoLogin();
-        enforceFailureStop();
+        if (stopping || failureStop == null || failureStop.active()) return;
+        if (Microbot.isLoggedIn() && !failureProfile.equals(configManager.getRSProfileKey())) return;
+        stopping = true;
+        String patch = currentTree != null ? currentTree.key()
+                : currentPatch == null ? null : currentPatch.getRegionName();
+        try {
+            failureStop.trip(reason, patch, System.currentTimeMillis());
+        } catch (java.io.IOException e) {
+            log.error("Could not save AutoFarmer failure for the active profile", e);
+        }
+        try {
+            cropBreak = false;
+            preparingCropBreak = false;
+            if (failureProfile.equals(configManager.getRSProfileKey())) {
+                configManager.unsetRSProfileConfiguration("AutoFarmer", "nextCropCheck");
+                configManager.unsetRSProfileConfiguration("AutoFarmer", "nextCropRegion");
+                configManager.unsetRSProfileConfiguration("AutoFarmer", "cropTravelPending");
+            }
+            plugin.randomEvents.stop();
+            Rs2Walker.setTarget(null);
+            if (Microbot.isLoggedIn()) {
+                Rs2Bank.closeBank();
+                Rs2Player.logout();
+            }
+        } finally {
+            stopForSavedFailure(reason);
+        }
     }
-    private void enforceFailureStop() {
-        plugin.randomEvents.stop();
-        AutoFarmerPlugin.status="STOPPED: " + failureStop.reason();
-        long now=System.currentTimeMillis();
-        if(now<logoutAttemptAt)return;
-        logoutAttemptAt=now+10000L;
-        holdAutoLogin();
-        if(Microbot.isLoggedIn()) { Rs2Walker.setTarget(null);Rs2Bank.closeBank();Rs2Player.logout(); }
+
+    private void stopForSavedFailure(String reason) {
+        stopping = true;
+        String message = "AutoFarmer stopped: " + reason
+                + ". After fixing it, enable Clear failure and resume, then start AutoFarmer again.";
+        log(message);
+        try {
+            if (Microbot.getNotifier() != null) Microbot.getNotifier().notify(message);
+        } finally {
+            Microbot.stopPlugin(plugin);
+        }
     }
+
     private void safetyCheck() {
         try {
             long now=System.currentTimeMillis();
-            if(config.clearFailureAndResume()) {
-                failureStop.clear();configManager.setConfiguration("AutoFarmer","clearFailureAndResume",false);
-                initialized=false;accountProfile=null;currentPatch=null;cropBreak=false;preparingCropBreak=false;breakDestination=null;preferredNextRegion=null;nextRunAt=0;navigationFault=null;
-                currentTree = null;
-                treeActionStarted = 0;
-                seenLoggedIn=false;lastProgressAt=now;runStartedAt=0;offlineSince=0;
-                if(config.builtInRandomEvents())plugin.randomEvents.start();
-                log("Failure stop cleared by user; resuming with saved patch memory");
-            }
-            if(failureStop.active()){enforceFailureStop();return;}
+            if (stopping || failureStop == null) return;
             checkNavigationOwnership();
             if(navigationFault!=null){failRun(navigationFault);return;}
             if (pauseSafetyForManualInput(now)) return;
@@ -214,7 +253,6 @@ public class AutoFarmerScript extends Script {
     private boolean initialized = false;
     private boolean bankCleared = false;
     private final FarmingLamp farmingLamp = new FarmingLamp();
-    private final SeedRestocker seedRestocker = new SeedRestocker();
     private final Set<Integer> retainedAtBank = new HashSet<>();
     private boolean protectedReward(Rs2ItemModel item) {
         return item != null && (retainedAtBank.contains(item.getId()) || BankRetention.keep(item.getName()));
@@ -264,7 +302,7 @@ public class AutoFarmerScript extends Script {
 
     private final MouseFeel mouseFeel = new MouseFeel();
     private boolean yieldToRandomEvents() {
-        if (failureStop.active()) return true;
+        if (stopping) return true;
         checkNavigationOwnership();
         if(navigationFault!=null){failRun(navigationFault);return true;}
         if (!Microbot.isLoggedIn() || Microbot.getBlockingEventManager() == null) return false;
@@ -277,7 +315,7 @@ public class AutoFarmerScript extends Script {
     }
 
     private void pauseBeforeAction() {
-        if (failureStop.active()) throw new IllegalStateException("Farmer is stopped after failure");
+        if (stopping) throw new IllegalStateException("Farmer is stopped after failure");
         if (!config.relaxedPacing()) return;
         java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
         int delay = (int)Math.max(280, Math.min(1400, 650 + random.nextGaussian() * 220));
@@ -363,7 +401,7 @@ public class AutoFarmerScript extends Script {
         }
         if(yieldToRandomEvents())return true;
         if(!prepositionSuppliesChecked) {
-            if(!prepareBreakSupplies()){if(!eventYielded && !failureStop.active())failRun(failureDetail);return true;}
+            if(!prepareBreakSupplies()){if(!eventYielded && !stopping)failRun(failureDetail);return true;}
             prepositionSuppliesChecked=true;
         }
         if(breakDestination==null){failRun("Next crop destination is unavailable");return true;}
@@ -468,6 +506,7 @@ public class AutoFarmerScript extends Script {
     private int currentAllotmentId = -1;
 
     public boolean run() {
+        stopping = false;
         navigationFault=null;
         navigationGuard.acquire();
         log("Auto Farmer owns navigation; stale manual map destination cleared");
@@ -477,7 +516,11 @@ public class AutoFarmerScript extends Script {
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
             eventYielded=false;
-            if (failureStop.active()) { enforceFailureStop(); return; }
+            if (stopping) return;
+            if (Microbot.isLoggedIn()) {
+                String profile = configManager.getRSProfileKey();
+                if (profile == null || !prepareFailureProfile(profile)) return;
+            }
             if (pauseSafetyForManualInput(System.currentTimeMillis())) return;
             if (handleBrimhavenRecovery()) return;
             if (yieldToRandomEvents()) return;
@@ -583,7 +626,7 @@ public class AutoFarmerScript extends Script {
                 } else {
                     if (!hasReadyHerbInventory() && !setupAutoInventory()) {
                         if(eventYielded)return;
-                        if (!failureStop.active()) failRun(failureDetail);
+                        if (!stopping) failRun(failureDetail);
                         return;
                     }
                 }
@@ -857,7 +900,7 @@ public class AutoFarmerScript extends Script {
             treeWalkFailures = 0;
             if (isBrimhavenTree(next) && !prepareBrimhavenTrip()) {
                 if (eventYielded) currentTree = null;
-                else if (!failureStop.active()) finishTree("BRIMHAVEN_SUPPLIES_MISSING", 30);
+                else if (!stopping) finishTree("BRIMHAVEN_SUPPLIES_MISSING", 30);
                 return true;
             }
         }
@@ -867,7 +910,7 @@ public class AutoFarmerScript extends Script {
 
         if (!hasTreeSupplies(tree) || Rs2Inventory.isFull()) {
             treeActionStarted = 0;
-            if (!prepareTreeSupplies(tree) && !eventYielded && !failureStop.active()) {
+            if (!prepareTreeSupplies(tree) && !eventYielded && !stopping) {
                 deferTreesWithoutSupplies(tree);
             }
             return true;
@@ -1776,7 +1819,7 @@ public class AutoFarmerScript extends Script {
         if(!Rs2Inventory.hasItem(ItemID.DIBBER))return needBank("missing seed dibber");
         int seeds=carriedHerbSeeds();
         if(seeds==0)return needBank("no plantable herb seeds carried");
-        if(!config.allowPartialRuns() && !config.buySeedsWhenEmpty() && seeds<herbPatches.size())
+        if(!config.allowPartialRuns() && seeds<herbPatches.size())
             return needBank("only "+seeds+" seeds for "+herbPatches.size()+" patches");
         if(config.herbSeedType()==HerbSeedType.BEST) {
             List<HerbSeedType> eligible=HerbSeedType.getPlantableHerbs(Microbot.getClient().getRealSkillLevel(Skill.FARMING));
@@ -1880,7 +1923,7 @@ public class AutoFarmerScript extends Script {
         if (Rs2Bank.isOpen()) return true;
         int initialYaw = net.runelite.client.plugins.microbot.util.camera.Rs2Camera.getYaw();
         for (int attempt = 0; attempt < 4; attempt++) {
-            if (failureStop.active() || !Microbot.isLoggedIn()) return false;
+            if (stopping || !Microbot.isLoggedIn()) return false;
             AutoFarmerPlugin.status = "Banking: opening bank (" + (attempt + 1) + "/4)";
             if (attempt == 0) {
                 var bank = Rs2Bank.getNearestBank();
@@ -1964,7 +2007,7 @@ public class AutoFarmerScript extends Script {
         } else {
             failureDetail="Cannot withdraw enough " + seedType.getSeedName() + " for " + herbPatchCount + " patches; check bank stock and Farming requirement";
             if (!withdrawSpecificSeeds(seedType.getItemId(), seedType.getSeedName(), herbPatchCount,
-                    seedType.getLevelRequired(), config.allowPartialRuns() || config.buySeedsWhenEmpty())) {
+                    seedType.getLevelRequired(), config.allowPartialRuns())) {
                 return false;
             }
         }
@@ -2107,7 +2150,7 @@ public class AutoFarmerScript extends Script {
             }
         }
 
-        if (seedsWithdrawn < patchCount && !config.allowPartialRuns() && !config.buySeedsWhenEmpty()) {
+        if (seedsWithdrawn < patchCount && !config.allowPartialRuns()) {
             return false;
         }
         return seedsWithdrawn > 0;
@@ -2159,7 +2202,15 @@ public class AutoFarmerScript extends Script {
         super.shutdown();
         navigationGuard.release();
         mouseFeel.restore();
-        if (heldAutoLogin != null && !failureStop.active()) { Microbot.startPlugin(heldAutoLogin); heldAutoLogin = null; }
+        if (heldAutoLogin != null) {
+            Microbot.startPlugin(heldAutoLogin);
+            heldAutoLogin = null;
+        }
+        failureStop = null;
+        failureProfile = null;
+        seedRestocker = null;
+        seenLoggedIn = false;
+        offlineSince = 0;
         cropBreak = false;preparingCropBreak=false;breakDestination=null;preferredNextRegion=null;allEnabledHerbs.clear();
         accountProfile = null;
         loginAttemptAt = 0;

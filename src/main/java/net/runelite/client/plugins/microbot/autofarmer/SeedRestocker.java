@@ -16,7 +16,6 @@ import net.runelite.client.plugins.microbot.util.grandexchange.models.GrandExcha
 final class SeedRestocker {
     static final int BATCH=100, PERCENT=99;
     private final Path journal;
-    SeedRestocker(){this(Path.of(System.getProperty("user.home"),".runelite","auto-farmer","seed-purchase.properties"));}
     SeedRestocker(Path journal){this.journal=journal;}
     static boolean hasUsableStock(int level) {
         for(HerbSeedType seed:HerbSeedType.getPlantableHerbs(level))

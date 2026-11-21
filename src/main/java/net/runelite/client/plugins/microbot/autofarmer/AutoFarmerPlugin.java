@@ -24,7 +24,7 @@ import java.awt.*;
 )
 
 public class AutoFarmerPlugin extends Plugin {
-    public static final String version = "1.10.10";
+    public static final String version = "1.10.15";
     @Inject
     private AutoFarmerConfig config;
 
@@ -110,7 +110,6 @@ public class AutoFarmerPlugin extends Plugin {
             overlayManager.add(AutoFarmerOverlay);
         }
         net.runelite.client.plugins.microbot.Microbot.log("Auto Farmer version " + version + " starting");
-        if (config.builtInRandomEvents()) randomEvents.start();
         herbrunScript.run();
     }
 
