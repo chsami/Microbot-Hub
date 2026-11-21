@@ -71,6 +71,7 @@ public class AutoFishingScript extends Script {
         this.tackleBoxCastsWithoutXp = 0;
         clearDepositPoint();
         this.lastAnimTime = 0L;
+        this.currentState = AutoFishingState.IDLE; //reset for startup banking check
 
         Rs2Antiban.resetAntibanSettings();
         Rs2Antiban.antibanSetupTemplates.applyFishingSetup();
@@ -136,6 +137,13 @@ public class AutoFishingScript extends Script {
     }
 
     private AutoFishingState determineState(WorldPoint playerLocation) {
+        //this protects against missing items when started near a bank + close spot
+        boolean gettingSetUp = currentState == AutoFishingState.IDLE || currentState == AutoFishingState.GETTING_GEAR;
+        boolean finishingGearBank = currentState == AutoFishingState.GETTING_GEAR && Rs2Bank.isOpen();
+        if (finishingGearBank || (gettingSetUp && !hasRequiredGear())) {
+            return AutoFishingState.GETTING_GEAR;
+        }
+
         if (Rs2Inventory.isFull()) {
             if (isSpecialFish(selectedFish)) return AutoFishingState.PROCESSING_FISH;
             if (config.cookFish() && !getRawFishInInventory().isEmpty() && canCookAtLeastOneRaw()) return AutoFishingState.COOKING;
@@ -143,10 +151,8 @@ public class AutoFishingScript extends Script {
             return AutoFishingState.DROPPING;
         }
 
-        if (!hasRequiredGear() || (Rs2Bank.isOpen() && hasRequiredGear())) {
-            if (findNearestFishingSpot() == null) {
-                return AutoFishingState.GETTING_GEAR;
-            }
+        if (Rs2Bank.isOpen() || (!hasRequiredGear() && findNearestFishingSpot() == null)) {
+            return AutoFishingState.GETTING_GEAR;
         }
 
         if (!isAtFishingLocation(playerLocation)) {
@@ -340,9 +346,25 @@ public class AutoFishingScript extends Script {
         if (Rs2Bank.walkToBankAndUseBank()) {
             for (String tool : selectedFish.getMethod().getRequiredItems()) {
                 keepNames.addAll(Arrays.asList(acceptedConsumables(tool)));
+            }
+            if (selectedHarpoon != HarpoonType.NONE) {
+                keepNames.add(selectedHarpoon.getName());
+            }
+
+            if (Rs2Bank.depositAllExcept(Rs2ItemModel.matches(false, keepNames.toArray(new String[0]))
+                .or(item -> extraKeepItems.contains(item.getId())))) {
+                Rs2Inventory.waitForInventoryChanges(1800);
+            }
+
+            for (String tool : selectedFish.getMethod().getRequiredItems()) {
+                keepNames.addAll(Arrays.asList(acceptedConsumables(tool)));
                 if (!hasRequiredItem(tool)) {
                     String bankItem = bankedName(tool);
                     if (Rs2Bank.hasItem(bankItem)) {
+                        if (Rs2Inventory.isFull()) {
+                            stopWithReason("AutoFishing stopped: no free inventory space for " + bankItem + ". Free some space, then start again.");
+                            return;
+                        }
                         withdrawAndEquipItem(bankItem);
                         log.info("withdrawing " + bankItem);
                         return;
@@ -354,16 +376,22 @@ public class AutoFishingScript extends Script {
                 String harpoonName = selectedHarpoon.getName();
                 keepNames.add(harpoonName);
                 if (!Rs2Inventory.hasItem(harpoonName) && !Rs2Equipment.isWearing(harpoonName) && Rs2Bank.hasItem(harpoonName)) {
+                    if (Rs2Inventory.isFull()) {
+                        stopWithReason("AutoFishing stopped: no free inventory space for " + harpoonName + ". Free some space, then start again.");
+                        return;
+                    }
                     withdrawAndEquipItem(harpoonName);
                     return;
                 }
             }
 
+            /*
             if (Rs2Bank.depositAllExcept(Rs2ItemModel.matches(false, keepNames.toArray(new String[0]))
                 .or(item -> extraKeepItems.contains(item.getId())))) {
-                log.info("Depositing excess gear");
-                return;
+                log.info("Attempting deposit of excess gear");
+                Rs2Inventory.waitForInventoryChanges(1800);
             }
+             */
 
             Rs2Bank.closeBank();
             sleepUntil(() -> !Rs2Bank.isOpen(), 3000);
@@ -805,10 +833,12 @@ public class AutoFishingScript extends Script {
     }
 
     //used to exclude items from deposit while banking
+    //would be cleaner to create a list and dynamically add items based on spot/fish
     private final List<Integer> extraKeepItems = List.of(
         ItemID.TACKLE_BOX,
         ItemID.FISH_BARREL_CLOSED,
-        ItemID.FISH_BARREL_OPEN
+        ItemID.FISH_BARREL_OPEN,
+        ItemID.COINS
     );
 
     private void activateSpec() {

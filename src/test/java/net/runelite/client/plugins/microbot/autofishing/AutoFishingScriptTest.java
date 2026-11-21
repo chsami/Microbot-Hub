@@ -225,9 +225,10 @@ class AutoFishingScriptTest {
     }
 
     @Test
-    void sacredEelStillLogsOutWithoutAnyBait() {
-        runFishingTick(Fish.SACRED_EEL, inventory -> { }, null,
-                "AutoFishing stopped: no Fishing bait, Sandworms or Tackle box in your inventory for Sacred eel. Add Fishing bait and start again.");
+    void sacredEelChecksBankBeforeStoppingWhenStartedWithoutBait() {
+        runFishingTick(Fish.SACRED_EEL, false, inventory -> { }, null,
+                "AutoFishing stopped: could not find Fishing bait or Sandworms in your bank. Put them in your bank or inventory (buy some if you have none), then start again.",
+                AutoFishingState.GETTING_GEAR);
     }
 
     @Test
@@ -239,8 +240,9 @@ class AutoFishingScriptTest {
 
     @Test
     void tackleBoxDoesNotStandInForFeathers() {
-        runFishingTick(Fish.TROUT_AND_SALMON, inventory -> inventory.when(() -> Rs2Inventory.hasItem(ItemID.TACKLE_BOX)).thenReturn(true), null,
-                "AutoFishing stopped: no Feathers in your inventory for Trout + Salmon. Add Feathers and start again.");
+        runFishingTick(Fish.TROUT_AND_SALMON, false, inventory -> inventory.when(() -> Rs2Inventory.hasItem(ItemID.TACKLE_BOX)).thenReturn(true), null,
+                "AutoFishing stopped: could not find Feathers in your bank. Put them in your bank or inventory (buy some if you have none), then start again.",
+                AutoFishingState.GETTING_GEAR);
     }
 
     @Test
@@ -276,8 +278,10 @@ class AutoFishingScriptTest {
     }
 
     @Test
-    void gettingGearWithdrawsSandwormsWhenBankHasNoFishingBait() {
+    void startupNearFishingSpotWithdrawsRodThenSandwormsWhenBankHasNoFishingBait() {
         ScheduledExecutorService executor = mock(ScheduledExecutorService.class);
+        Rs2NpcModel spot = mock(Rs2NpcModel.class);
+        AtomicBoolean bankOpen = new AtomicBoolean(false);
         AutoFishingScript script = new AutoFishingScript() {
             {
                 scheduledExecutorService = executor;
@@ -285,7 +289,7 @@ class AutoFishingScriptTest {
 
             @Override
             Rs2NpcModel findNearestFishingSpot() {
-                return null;
+                return spot;
             }
         };
         AutoFishingConfig config = mock(AutoFishingConfig.class);
@@ -303,14 +307,27 @@ class AutoFishingScriptTest {
              MockedStatic<Rs2Antiban> antiban = mockStatic(Rs2Antiban.class)) {
             microbot.when(Microbot::isLoggedIn).thenReturn(true);
             rs2Player.when(Rs2Player::getWorldLocation).thenReturn(new WorldPoint(1700, 3700, 0));
-            inventory.when(() -> Rs2Inventory.hasItem("Fishing rod")).thenReturn(true);
             inventory.when(() -> Rs2Inventory.hasItem("Knife")).thenReturn(true);
-            bank.when(Rs2Bank::walkToBankAndUseBank).thenReturn(true);
+            bank.when(Rs2Bank::isOpen).thenAnswer(call -> bankOpen.get());
+            bank.when(Rs2Bank::walkToBankAndUseBank).thenAnswer(call -> {
+                bankOpen.set(true);
+                return true;
+            });
+            bank.when(() -> Rs2Bank.hasItem("Fishing rod")).thenReturn(true);
             bank.when(() -> Rs2Bank.hasItem("Sandworms")).thenReturn(true);
 
             script.run(config);
             ArgumentCaptor<Runnable> tick = ArgumentCaptor.forClass(Runnable.class);
             verify(executor).scheduleWithFixedDelay(tick.capture(), anyLong(), anyLong(), any(TimeUnit.class));
+            tick.getValue().run();
+
+            assertEquals(AutoFishingState.GETTING_GEAR, script.getCurrentState());
+            bank.verify(Rs2Bank::walkToBankAndUseBank);
+            bank.verify(() -> Rs2Bank.withdrawOne("Fishing rod"));
+            bank.verify(() -> Rs2Bank.withdrawAll("Sandworms"), never());
+            bank.verify(Rs2Bank::closeBank, never());
+
+            inventory.when(() -> Rs2Inventory.hasItem("Fishing rod")).thenReturn(true);
             tick.getValue().run();
 
             assertEquals(AutoFishingState.GETTING_GEAR, script.getCurrentState());
@@ -320,7 +337,6 @@ class AutoFishingScriptTest {
             microbot.verify(() -> Microbot.showMessage(anyString()), never());
 
             inventory.when(() -> Rs2Inventory.hasItem("Fishing bait", "Sandworms")).thenReturn(true);
-            bank.when(Rs2Bank::isOpen).thenReturn(true, false);
             tick.getValue().run();
 
             bank.verify(() -> Rs2Bank.withdrawAll("Sandworms"), times(1));
@@ -596,6 +612,11 @@ class AutoFishingScriptTest {
     }
 
     private void runFishingTick(Fish fish, boolean useBank, Consumer<MockedStatic<Rs2Inventory>> baitSetup, String chatMessage, String expectedStopReason) {
+        runFishingTick(fish, useBank, baitSetup, chatMessage, expectedStopReason, AutoFishingState.FISHING);
+    }
+
+    private void runFishingTick(Fish fish, boolean useBank, Consumer<MockedStatic<Rs2Inventory>> baitSetup, String chatMessage,
+                                String expectedStopReason, AutoFishingState expectedState) {
         ScheduledExecutorService executor = mock(ScheduledExecutorService.class);
         Rs2NpcModel spot = mock(Rs2NpcModel.class);
         AutoFishingScript script = new AutoFishingScript() {
@@ -618,10 +639,14 @@ class AutoFishingScriptTest {
              MockedStatic<Rs2Inventory> inventory = mockStatic(Rs2Inventory.class);
              MockedStatic<Rs2Equipment> equipment = mockStatic(Rs2Equipment.class);
              MockedStatic<Rs2Bank> bank = mockStatic(Rs2Bank.class);
+             MockedStatic<Global> global = mockStatic(Global.class);
              MockedStatic<Rs2Widget> widget = mockStatic(Rs2Widget.class);
              MockedStatic<Rs2Antiban> antiban = mockStatic(Rs2Antiban.class)) {
             microbot.when(Microbot::isLoggedIn).thenReturn(true);
             rs2Player.when(Rs2Player::getWorldLocation).thenReturn(new WorldPoint(2190, 3076, 0));
+            if (expectedState == AutoFishingState.GETTING_GEAR) {
+                bank.when(Rs2Bank::walkToBankAndUseBank).thenReturn(true);
+            }
             for (String item : fish.getRequiredItems()) {
                 if (!AutoFishingScript.isConsumable(item)) {
                     inventory.when(() -> Rs2Inventory.hasItem(item)).thenReturn(true);
@@ -640,7 +665,11 @@ class AutoFishingScriptTest {
             verify(executor).scheduleWithFixedDelay(tick.capture(), anyLong(), anyLong(), any(TimeUnit.class));
             tick.getValue().run();
 
-            assertEquals(AutoFishingState.FISHING, script.getCurrentState());
+            assertEquals(expectedState, script.getCurrentState());
+            if (expectedState == AutoFishingState.GETTING_GEAR) {
+                bank.verify(Rs2Bank::walkToBankAndUseBank);
+                bank.verify(() -> Rs2Bank.withdrawAll(anyString()), never());
+            }
             if (expectedStopReason == null) {
                 rs2Player.verify(Rs2Player::logout, never());
                 microbot.verify(() -> Microbot.showMessage(anyString()), never());
