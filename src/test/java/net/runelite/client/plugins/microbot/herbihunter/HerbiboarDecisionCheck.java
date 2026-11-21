@@ -414,6 +414,8 @@ public final class HerbiboarDecisionCheck
         check("second stuck minute resumes", false, HerbiboarScript.giveUpWhenStuck(2));
         check("third stuck minute in a row gives up", true, HerbiboarScript.giveUpWhenStuck(3));
         check("and beyond", true, HerbiboarScript.giveUpWhenStuck(7));
+        check("two failed bank or start-up tries: try again", false, HerbiboarScript.outOfTries(2));
+        check("three failed bank or start-up tries in a row: give up", true, HerbiboarScript.outOfTries(3));
     }
 
     private static void aSlidingTargetIsLedByHowFarItMovesWhileTheCursorTravels()

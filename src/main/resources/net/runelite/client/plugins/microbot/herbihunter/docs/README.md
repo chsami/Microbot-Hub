@@ -25,7 +25,7 @@ Start in the Mushroom Forest on Fossil Island. If you start somewhere else, it s
 - Keeps run energy up with your chosen item (stamina, extended stamina, extreme energy, super energy or energy potions, or strange fruit), and can keep the stamina effect going.
 - Uses a herb sack and wears magic secateurs if you turn them on.
 - Drops the unidentified fossils and grimy herbs you pick. Identified fossils are never dropped.
-- When it stands still for a minute it picks the trail back up from the game's state. After three minutes in a row it walks to the camp bank, logs out and stops.
+- When it stands still for a minute it picks the trail back up from the game's state. After three minutes in a row it walks to the camp bank, logs out and stops. At the bank, where standing still is normal, it logs out after three failed tries instead: a visit that does not finish, a herb sack or secateurs slot that will not lock, or auto retaliate that will not turn off.
 - **Log out at 99 Hunter** stops it when the level is reached during a session.
 - After a disconnect or the six-hour logout it waits a few seconds, logs back in and carries on.
 - Keeps session history on the panel, including your best session.
@@ -44,7 +44,7 @@ Herbi Hunter keeps its own settings, separate from the older Herbiboar plugin, s
 **Log detail** under Setup sets how much goes to `client.log`: Quiet (problems, plus one line when a run starts and stops), Normal (problems and events such as banking and breaks) or Detailed (every step, for a bug report). Every line starts with `[HB-`.
 
 ## Restock
-With **Buy potions when out** on, it takes coins to the Grand Exchange when the bank has none of your run energy potion left, buys the amount you set (up to 2,000, the Grand Exchange buy limit) at 10% over its price, banks them there and comes back to hunt. Teleports are allowed on this trip only. It never touches your other offers: with every slot in use it logs out and asks you to free one. It only leaves the Grand Exchange once the offer it placed has been collected to the bank. If there aren't enough coins, there's no price, the offer is still unfilled after 3 minutes (it is cancelled) or it cannot be collected, it logs out with the reason. This covers potions only, not strange fruit. With it off, running out logs out.
+With **Buy potions when out** on, it takes coins to the Grand Exchange when the bank has none of your run energy potion left (counted with the bank open, so potions it already bought are never bought again), buys the amount you set (up to 2,000, the Grand Exchange buy limit) at 10% over its price, banks them there and comes back to hunt. Teleports are allowed on this trip only. It never touches your other offers: with every slot in use it logs out and asks you to free one. It only leaves the Grand Exchange once the offer it placed has been collected to the bank. If there aren't enough coins, there's no price, the offer is still unfilled after 3 minutes (it is cancelled) or it cannot be collected, it logs out with the reason. This covers potions only, not strange fruit. With it off, running out logs out.
 
 ## Overlay
 - Info panel: Full, Compact (what it is doing, catches and rate on one line) or Off. Right-click it to switch.

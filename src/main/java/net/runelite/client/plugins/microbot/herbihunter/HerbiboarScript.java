@@ -1921,6 +1921,13 @@ public class HerbiboarScript extends Script {
     }
 
     private int stuckMinutes;
+    // The bank and start-up pause the stuck clock, so their retries are counted here instead.
+    private int bankPasses, lockFails, retaliateTries;
+
+    /** Three tries in a row at a step the stuck clock does not watch, then give up. Pure. */
+    static boolean outOfTries(int tries) {
+        return tries >= 3;
+    }
 
     /** States where standing still is expected. Pure. */
     static boolean stuckClockPaused(HerbiboarState state, boolean bankOpen) {
@@ -2263,6 +2270,9 @@ public class HerbiboarScript extends Script {
         stopping = false;
         everLoggedIn = false;
         seenLoginScreenAt = 0;
+        bankPasses = 0;
+        lockFails = 0;
+        retaliateTries = 0;
         this.config = config;
         // Script.run() drinks a stamina whenever energy is low and we are moving, which cancels a clicked object.
         if (savedAutoRun == null) {
@@ -2538,9 +2548,16 @@ public class HerbiboarScript extends Script {
                         hbLog.detail("START", "Checking auto retaliate...");
                         // Retaliating on a crab drags the player off the trail.
                         if (!Rs2Combat.setAutoRetaliate(false)) {
+                            if (outOfTries(++retaliateTries)) {
+                                hbLog.problem("PROBLEM", "Could not turn auto retaliate off 3 times; turn it off yourself, then start again");
+                                herbiboarPlugin.setStopReason("could not turn auto retaliate off");
+                                logOutAndStop();
+                                return;
+                            }
                             idle("auto retaliate is still on; trying again");
                             break;
                         }
+                        retaliateTries = 0;
                         // RESET, not START: after a crash or restart mid-trail, pick the trail or tunnel back up.
                         setState(HerbiboarState.RESET);
                         break;
@@ -2718,6 +2735,7 @@ public class HerbiboarScript extends Script {
                                 && bankedDoses(config.runEnergyOption()) == 0) {
                             hbLog.event("RESTOCK", "Out of " + config.runEnergyOption() + " and the bank has none either; "
                                     + "straight to the G.E.");
+                            restockWalkFails = 0;
                             restockStep = RestockStep.COINS;
                             setState(HerbiboarState.RESTOCK);
                             break;
@@ -2735,6 +2753,16 @@ public class HerbiboarScript extends Script {
                             dropWalkerRoute();
                             sleepUntil(Rs2Bank::isOpen, 3000);
                         } else {
+                            // A deposit or withdrawal that fails every pass would otherwise repeat for good.
+                            if (outOfTries(bankPasses)) {
+                                hbLog.problem("PROBLEM", "Banking did not finish in " + bankPasses + " tries ("
+                                        + Rs2Inventory.emptySlotCount() + " free slots); logging out");
+                                herbiboarPlugin.setStopReason("could not finish banking");
+                                Rs2Bank.closeBank();
+                                logOutAndStop();
+                                return;
+                            }
+                            bankPasses++;
                             // The one opening for a break: bank open, nothing left hanging.
                             if (!trailLive()) BreakHandlerScript.setLockState(false);
                             withdrawMissingSetup(config);
@@ -2765,9 +2793,18 @@ public class HerbiboarScript extends Script {
                                     hbLog.problem("PROBLEM", "Could not lock the herb sack or secateurs slot; not depositing this pass");
                                     unlockSlots(slotsToLock);
                                     setBankSideLockOptions(showOpBefore, ignoreLocksBefore);
+                                    if (outOfTries(++lockFails)) {
+                                        hbLog.problem("PROBLEM", "Could not lock the herb sack or magic secateurs in the bank 3 times. "
+                                                + "Lock the slot yourself, or turn off Herb sack / Magic secateurs, then start again.");
+                                        herbiboarPlugin.setStopReason("could not lock the herb sack or secateurs in the bank");
+                                        Rs2Bank.closeBank();
+                                        logOutAndStop();
+                                        return;
+                                    }
                                     break;
                                 }
                             }
+                            lockFails = 0;
 
                             boolean sackFirst = config.useHerbSack() && Rs2Inventory.contains(HERB_SACKS) && habits.emptiesSackFirst(paceRng);
                             if (sackFirst) {
@@ -2809,6 +2846,7 @@ public class HerbiboarScript extends Script {
                             }
                             if (shouldRestock(config.restock(), hasEnergyItems(config), energyOption)) {
                                 hbLog.event("RESTOCK", "Bank has no " + energyOption + " left; restocking at the G.E.");
+                                restockWalkFails = 0;
                                 restockStep = RestockStep.COINS;
                                 setState(HerbiboarState.RESTOCK);
                                 break;
@@ -2841,6 +2879,7 @@ public class HerbiboarScript extends Script {
                                 boolean breakHere = breakStartsAtBank(trailLive, breakDue());
                                 BreakHandlerScript.setLockState(!breakHere);
                                 if (breakHere && !micro) hbLog.event("BREAK", "A break is starting at the bank");
+                                bankPasses = 0;
                                 setState(HerbiboarState.RETURN_FROM_ISLAND);
                                 // One or the other: a break at the bank already is the pause.
                                 long afk = breakHere ? 0 : pace().afkAfterBankMs(paceRng);
@@ -2956,9 +2995,13 @@ public class HerbiboarScript extends Script {
         WorldPoint me = Rs2Player.getWorldLocation();
         switch (restockStep) {
             case COINS: {
-                // Coins and potions are read from the bank as seen this session; until then, look once at the camp bank.
-                if (Rs2Bank.getBankLiveEpoch() == 0 && !Rs2Bank.isOpen()) {
-                    Rs2Bank.walkToBankAndUseBank(BankLocation.FOSSIL_ISLAND);
+                // Count from a bank open now: its cache only updates while open, so a closed bank still misses the last restock.
+                if (!Rs2Bank.isOpen()) {
+                    boolean opened = onFossilIsland(me) ? Rs2Bank.walkToBankAndUseBank(BankLocation.FOSSIL_ISLAND)
+                            : Rs2Bank.walkToBankAndUseBank();
+                    if (!opened && ++restockWalkFails >= 5) {
+                        stopRestock("could not open a bank to count coins and potions (5 tries failed)", herbiboarPlugin);
+                    }
                     return;
                 }
                 if (bankedDoses(config.runEnergyOption()) > 0) {
@@ -2992,6 +3035,7 @@ public class HerbiboarScript extends Script {
                     sleepUntil(() -> !Rs2Bank.isOpen(), 2000);
                 }
                 restockWalkFails = 0;
+                bankPasses = 0;
                 restockStep = RestockStep.TO_GE;
                 return;
             }
