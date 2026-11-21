@@ -20,7 +20,8 @@ import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
  * Protection is switched on once before a predicted hit and off after it; offence is switched on
  * the tick before the player's own attack and off after it. A prayer still wanted on a later tick
  * (an uncertain clock, a movement guard) is 1-tick reset early in that tick, so it never drains.
- * Natural mouse resets only a single held slot. Each change is one prayer-widget menu
+ * Natural mouse resets only a single held offensive slot and holds an overhead on: its two presses
+ * cannot share a tick. Each change is one prayer-widget menu
  * action whose live varbit is re-checked at delivery. Direct invokes send it on ClientTick; Natural
  * mouse carries the same entry on the background prayer worker. GameTick provides server evidence.
  */
@@ -267,7 +268,8 @@ class FcPrayers {
             desiredMask=(decision.protection==Protection.NONE?0:1<<(decision.protection.ordinal()-1))
                 |(offence?selectedMask:0);
             boolean invokes=input.invokes(MenuAction.CC_OP);
-            List<PrayerLedger.Command> commands=ledger.plan(now,observedMask,desiredMask,OVERHEADS,invokes?slots.size():1);
+            List<PrayerLedger.Command> commands=ledger.plan(now,observedMask,desiredMask,OVERHEADS,
+                invokes?slots.size():(observedMask&OVERHEADS)!=0?0:1);
             boolean missing=false;
             for(int i=0;i<slots.size();i++)if((desiredMask&(1<<i))!=0&&client.getWidget(slots.get(i).getIndex())==null)missing=true;
             for(PrayerLedger.Command command:commands) {
@@ -389,6 +391,7 @@ class FcPrayers {
         long started=nanos.getAsLong();
         Rs2PrayerEnum prayer=slot(dispatch.command.channel);
         boolean on=dispatch.command.type==PrayerLedger.Type.ON;
+        boolean[] off={false},delivered={false};
         try {
             if(valid(dispatch)) {
                 Rectangle bounds=onClientThread(()->{
@@ -400,11 +403,11 @@ class FcPrayers {
                 if(bounds!=null&&dispatch.command.type==PrayerLedger.Type.RESET) {
                     // Both presses must land in the tick the reset was planned for.
                     if(nanos.getAsLong()-dispatch.tickAt<=PrayerLedger.RESET_END_NS
-                        &&input.dispatch(entry(prayer,false),bounds,()->valid(dispatch)&&active(prayer))) {
-                        sent=input.dispatch(entry(prayer,true),bounds,()->!detached&&owned&&inputAllowed);
+                        &&input.dispatch(entry(prayer,false),bounds,()->off[0]=valid(dispatch)&&active(prayer))) {
+                        sent=input.dispatch(entry(prayer,true),bounds,()->delivered[0]=off[0]&&!detached&&owned&&inputAllowed);
                         if(!sent)failure="Reset ON half not delivered";
                     }
-                } else if(bounds!=null)sent=input.dispatch(entry(prayer,on),bounds,()->valid(dispatch)&&live(prayer,on));
+                } else if(bounds!=null)sent=input.dispatch(entry(prayer,on),bounds,()->delivered[0]=valid(dispatch)&&live(prayer,on));
             }
         } catch(RuntimeException|LinkageError e) {failure=e.getClass().getSimpleName()+": "+e.getMessage();}
         final boolean completed=sent;final String error=failure;final long completedAt=nanos.getAsLong();
@@ -416,14 +419,20 @@ class FcPrayers {
                     +" slot="+prayer.name()+" next="+dispatch.decision.protection
                     +" startMs="+(started-dispatch.tickAt)/1_000_000L+" completedMs="+(completedAt-dispatch.tickAt)/1_000_000L);
             }
-            if(current!=dispatch.frame&&owned&&completed&&dispatch.command.channel<3) {
-                ledger.failed();protection.invalidateCadence();ready=false;decision=null;optionalDeadline=0;
-            } else if(current==dispatch.frame&&owned&&queued.get()==dispatch) {
-                if(error!=null){ledger.failed();ready=offenceReady=false;problem(error);}
-                else if(completed)ledger.sent(dispatch.command,OVERHEADS);
-            }
-            queued.compareAndSet(dispatch,null);return true;
+            pressed(dispatch,completed,delivered[0],error);return true;
         },false);
+    }
+    protected void pressed(Dispatch dispatch,boolean completed,boolean delivered,String error) {
+        if(current!=dispatch.frame&&owned&&completed) {
+            if(delivered)ledger.sent(dispatch.command.type==PrayerLedger.Type.RESET
+                ?new PrayerLedger.Command(dispatch.command.channel,PrayerLedger.Type.ON):dispatch.command,OVERHEADS);
+            if(dispatch.command.channel<3){ledger.failed();protection.invalidateCadence();ready=false;decision=null;optionalDeadline=0;}
+        } else if(current==dispatch.frame&&owned&&queued.get()==dispatch) {
+            if(error!=null){ledger.failed();ready=offenceReady=false;problem(error);}
+            else if(completed&&delivered&&dispatch.command.type==PrayerLedger.Type.RESET)ledger.resetPressed(dispatch.command,OVERHEADS);
+            else if(completed)ledger.sent(dispatch.command,OVERHEADS);
+        }
+        queued.compareAndSet(dispatch,null);
     }
     protected boolean valid(Dispatch dispatch) {
         long age=nanos.getAsLong()-dispatch.tickAt;

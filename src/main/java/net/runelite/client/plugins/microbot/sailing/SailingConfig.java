@@ -221,7 +221,7 @@ public interface SailingConfig extends Config {
 	@ConfigItem(
 		keyName = "trialsRank",
 		name = "Target Rank",
-		description = "The rank route to follow during trials.",
+		description = "The rank route to follow during trials. Only Swordfish, Shark and Marlin have routes. Choosing Unranked or Unknown with Auto Navigate on stops the plugin.",
 		position = 1,
 		section = trialsSection
 	)

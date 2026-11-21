@@ -184,18 +184,20 @@ public final class OptionalFirecapeScript extends DroFirecapeScript {
             if(item!=null&&item.hasAction("Eat"))action="Eat";
         }
         boolean healingFinished=!healing;
+        boolean magicRestore=magicRestoreNeeded(f);
+        if(magicRestore&&item!=null&&item.name().toLowerCase(Locale.ROOT).startsWith("saradomin brew("))item=null;
         boolean restoreNeeded=f.prayer<=config.restorePrayer()
             ||brewDebt>=3||healingFinished&&brewDebt>0;
         // A healing batch wins over nonurgent supplies. Restore between batches of
         // three confirmed brews, or immediately when prayer is nearly depleted.
-        if(healing&&brewAllowed(f)) {
+        if(healing&&brewAllowed(f)&&!magicRestore) {
             item=f.inventory.stream().filter(i->i.name().toLowerCase(Locale.ROOT).startsWith("saradomin brew(")).findFirst().orElse(null);
             action="Drink";
         }
-        if(item==null&&(restoreNeeded||(combatStatsDrained(f)&&(brewDebt>=3||healingFinished||sweets&&!FcSupplyPolicy.criticalHealth(f.model,f.hp,f.maxHp))&&f.inventory.stream().anyMatch(i->i.name().toLowerCase(Locale.ROOT).startsWith("super restore("))))) {
+        if(item==null&&(restoreNeeded||magicRestore||(combatStatsDrained(f)&&(brewDebt>=3||healingFinished||sweets&&!FcSupplyPolicy.criticalHealth(f.model,f.hp,f.maxHp))&&f.inventory.stream().anyMatch(i->i.name().toLowerCase(Locale.ROOT).startsWith("super restore("))))) {
             // Prefer a super restore after brews, but never ignore remaining prayer
             // potions when prayer is low simply because ranged stats are also drained.
-            if(combatStatsDrained(f)||brewDebt>0&&restoreNeeded)item=f.inventory.stream()
+            if(combatStatsDrained(f)||magicRestore||brewDebt>0&&restoreNeeded)item=f.inventory.stream()
                 .filter(i->i.name().toLowerCase(Locale.ROOT).startsWith("super restore("))
                 .findFirst().orElse(null);
             if(item==null&&f.prayer<=config.restorePrayer())item=f.inventory.stream()

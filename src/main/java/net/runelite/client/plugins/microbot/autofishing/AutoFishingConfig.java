@@ -29,7 +29,7 @@ public interface AutoFishingConfig extends Config {
     @ConfigItem(
             keyName = "useBank",
             name = "Use bank",
-            description = "Use bank and walk back to fishing location",
+            description = "Deposit fish at the closest bank or deposit box and walk back to the fishing spot. Coins stay in your inventory so the script can pay for ships (e.g. Karamja).",
             position = 1,
             section = GENERAL_SECTION
     )

@@ -105,6 +105,26 @@ class FcMagicSwitchTest {
         attempts.observe(withStaff,200);
         assertTrue(attempts.excluded().contains(6889),"Declined for the run: input works, only the book stays off");
     }
+    @Test void aBrewDrainedMagicLevelDropsTheSpellTierAndAsksForARestoreFirst() {
+        java.util.function.Predicate<net.runelite.client.plugins.microbot.util.magic.Rs2CombatSpells> bloodBurstRunes=
+            s->s==net.runelite.client.plugins.microbot.util.magic.Rs2CombatSpells.BLOOD_BURST;
+        var full=FcMagicSwitch.spells(70,bloodBurstRunes);
+        assertEquals(1,full.blood,"Blood Burst at Magic 70");
+        assertEquals(0,full.ice);
+        assertEquals(68,full.level);
+        var drained=FcMagicSwitch.spells(61,bloodBurstRunes);
+        assertFalse(drained.any(),"one brew dose at base 70 leaves no castable spell, so the bow keeps firing");
+        assertEquals(68,drained.level,"the level to restore to is kept while drained");
+        assertTrue(FcMagicSwitch.restoreNow(61,drained.level,true,false),"restore before another brew");
+        assertFalse(FcMagicSwitch.restoreNow(68,drained.level,true,false));
+        assertFalse(FcMagicSwitch.restoreNow(61,drained.level,false,false),"no super restore carried");
+        assertFalse(FcMagicSwitch.restoreNow(61,drained.level,true,true),"critical health heals first");
+        assertFalse(FcMagicSwitch.restoreNow(61,FcMagicSwitch.Spells.NONE.level,true,false),"no Ancient spells carried");
+        var all=FcMagicSwitch.spells(88,s->true);
+        assertEquals(2,all.ice,"Ice Blitz while Barrage is drained");
+        assertEquals(2,all.blood);
+        assertEquals(70,all.level,"a lower tier still castable needs no early restore");
+    }
     @Test void reclickGuardHoldsForOnePointTwoSeconds() {
         var attempts=new FcMagicSwitch.Attempts();
         attempts.clicked(1,0);

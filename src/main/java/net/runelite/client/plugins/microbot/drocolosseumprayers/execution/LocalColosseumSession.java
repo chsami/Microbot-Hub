@@ -22,15 +22,12 @@ import net.runelite.client.plugins.microbot.drocolosseumprayers.ArenaProduct;
 import net.runelite.client.plugins.microbot.drocolosseumprayers.local.ColosseumDecisionEngine;
 import net.runelite.client.plugins.microbot.drocolosseumprayers.plugins.common.Commands;
 import net.runelite.client.plugins.microbot.drocolosseumprayers.plugins.common.State;
-import net.runelite.client.plugins.microbot.drocolosseumprayers.plugins.inferno.InfernoCommands;
-import net.runelite.client.plugins.microbot.drocolosseumprayers.plugins.inferno.InfernoState;
 import net.runelite.client.plugins.microbot.drocolosseumprayers.ArenaDiagnostic;
 
 public final class LocalColosseumSession implements AutoCloseable
 {
     private static final Gson SNAPSHOT_JSON = new GsonBuilder().serializeNulls().disableHtmlEscaping().create();
-    private static final Set<String> SECTIONS = Set.of("player", "npcs", "prayers", "inventory",
-        "events", "projectiles", "equipment", "ground", "camera", "collision", "widgets", "dialogue");
+    private static final Set<String> SECTIONS = Set.of("player", "npcs", "prayers", "events", "projectiles", "equipment", "collision", "widgets");
     private final Events events = new Events();
     private final StateMessage stateMessage = new StateMessage();
     private final CommandRunner runner;
@@ -38,8 +35,6 @@ public final class LocalColosseumSession implements AutoCloseable
     private final BooleanSupplier allowed;
     private final Consumer<String> log;
     private Map<String, Object> options = Map.of();
-    private boolean ancientSpellbook;
-    private int bloodAutocastLevel;
     private volatile boolean running;
     private volatile boolean closed;
     private volatile String lastEnd;
@@ -74,7 +69,6 @@ public final class LocalColosseumSession implements AutoCloseable
             @Override public List<JsonObject> decide(JsonObject snapshot) { return engine.decide(snapshot); }
             @Override public void onResult(JsonObject result) { engine.onResult(result); }
             @Override public String status() { return engine.status(); }
-            @Override public boolean readyForFirstWave(){return engine.readyForFirstWave();}
         };
     }
 
@@ -96,47 +90,10 @@ public final class LocalColosseumSession implements AutoCloseable
         return this;
     }
 
-    private volatile BooleanSupplier prayersOnly=()->false;
-    public LocalColosseumSession prayersOnly(BooleanSupplier value)
-    {
-        prayersOnly=value==null?()->false:value;
-        return this;
-    }
-
-    private volatile BooleanSupplier manualMovement=()->false;
-    public LocalColosseumSession manualMovement(BooleanSupplier value)
-    {
-        manualMovement=value==null?()->false:value;
-        return this;
-    }
-
-    private static boolean snap(JsonObject packet)
-    {
-        var args=packet.get("args");
-        if(args==null||!args.isJsonObject())return false;
-        var snap=args.getAsJsonObject().get("snap");
-        return snap!=null&&snap.isJsonPrimitive()&&snap.getAsJsonPrimitive().isBoolean()&&snap.getAsBoolean();
-    }
-    private boolean dropped(JsonObject packet)
-    {
-        var op=packet.get("op");
-        if(!prayersOnly.getAsBoolean())
-            return manualMovement.getAsBoolean()&&op!=null&&op.isJsonPrimitive()&&"movement.tile".equals(op.getAsString())&&!snap(packet);
-        return op==null||!op.isJsonPrimitive()||!op.getAsString().startsWith("prayer.");
-    }
-
     public LocalColosseumSession common(State state, Commands commands)
     {
         stateMessage.state = state;
         runner.commands = commands;
-        if (commands != null) stateMessage.colosseumUi = commands.interfaceState();
-        return this;
-    }
-
-    public LocalColosseumSession inferno(InfernoState state, InfernoCommands commands)
-    {
-        stateMessage.infernoState = state;
-        runner.infernoCommands = commands;
         return this;
     }
 
@@ -148,15 +105,8 @@ public final class LocalColosseumSession implements AutoCloseable
 
     public Events events() { return events; }
     public boolean running() { return running; }
-    public boolean readyForFirstWave(){return running&&worker.readyForFirstWave();}
     public String lastEnd() { return lastEnd; }
     public String status() { return lastEnd != null ? lastEnd : "Local: " + worker.status(); }
-
-    public void spellState(boolean ancient, int bloodLevel)
-    {
-        ancientSpellbook = ancient;
-        bloodAutocastLevel = ancient && (bloodLevel == 56 || bloodLevel == 68 || bloodLevel == 80 || bloodLevel == 92) ? bloodLevel : 0;
-    }
 
     public void observePrayers(Client client)
     {
@@ -174,7 +124,7 @@ public final class LocalColosseumSession implements AutoCloseable
         stop();
         lastEnd = null;
         worker.start(options);
-        stateMessage.welcome(SECTIONS, new int[]{1792, 3072, 1855, 3135}, null, net.runelite.client.plugins.microbot.drocolosseumprayers.ColosseumUi.observedWidgets());
+        stateMessage.welcome(SECTIONS, new int[]{1792, 3072, 1855, 3135}, null, new int[]{56688655, 56688656, 56688657});
         running = true;
         events.collect(true);
 
@@ -200,14 +150,15 @@ public final class LocalColosseumSession implements AutoCloseable
 
         stateMessage.capturePrayers();
         runner.runDue();
-        JsonObject snapshot = stateMessage.buildFull(runner.tick(), events.drain());
-        snapshot.addProperty("inputAllowed", allowed.getAsBoolean());
-        if (snapshot.has("player"))
+        if (!running) return;
+        JsonObject snapshot;
+        try { snapshot = stateMessage.buildFull(runner.tick(), events.drain()); }
+        catch (RuntimeException unavailable)
         {
-            snapshot.getAsJsonObject("player").addProperty("ancientSpellbook", ancientSpellbook);
-            snapshot.getAsJsonObject("player").addProperty("bloodAutocast", bloodAutocastLevel > 0);
-            snapshot.getAsJsonObject("player").addProperty("bloodAutocastLevel", bloodAutocastLevel);
+            end("Local Colosseum: snapshot capture failed: " + unavailable.getClass().getSimpleName());
+            return;
         }
+        snapshot.addProperty("inputAllowed", allowed.getAsBoolean());
         worker.offer(snapshot);
         publish(Map.of("event", "arena_local_state", "tick", runner.tick(), "status", String.valueOf(worker.status()),
             "snapshot", SNAPSHOT_JSON.toJson(snapshot)));
@@ -215,7 +166,7 @@ public final class LocalColosseumSession implements AutoCloseable
 
     private synchronized void command(long generation, JsonObject packet)
     {
-        if (running && worker.currentGeneration(generation) && !dropped(packet)) runner.onCommand(packet);
+        if (running && worker.currentGeneration(generation)) runner.onCommand(packet);
     }
 
     private void commandResult(JsonObject result)

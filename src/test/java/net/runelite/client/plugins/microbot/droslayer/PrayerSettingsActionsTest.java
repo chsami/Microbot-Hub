@@ -58,10 +58,38 @@ public class PrayerSettingsActionsTest {
 
     @Test public void prayerButtonWorksWithoutStartingSlayerAndIgnoresOtherButtons() {
         EventBus bus = new EventBus(); AtomicInteger calls = new AtomicInteger();
-        bus.register(new DroSlayerPlugin.PrayerSettingsActions(calls::incrementAndGet));
+        AtomicInteger closes = new AtomicInteger();
+        bus.register(new DroSlayerPlugin.PrayerSettingsActions(bus, () -> true, calls::incrementAndGet, closes::incrementAndGet));
         ConfigChanged event = new ConfigChanged(); event.setGroup(DroSlayerConfig.GROUP); event.setKey("editTaskPrayers");
         bus.post(event); assertEquals(1, calls.get());
         event.setKey("captureCurrentInventorySetup"); bus.post(event); assertEquals(1, calls.get());
         event.setGroup("anotherPlugin"); event.setKey("editTaskPrayers"); bus.post(event); assertEquals(1, calls.get());
+        assertEquals(0, closes.get());
+    }
+
+    @Test public void prayerButtonFromRetiredInstallationUnsubscribesAndClosesInsteadOfOpening() {
+        EventBus bus = new EventBus(); AtomicInteger opens = new AtomicInteger(); AtomicInteger closes = new AtomicInteger();
+        AtomicInteger checks = new AtomicInteger();
+        bus.register(new DroSlayerPlugin.PrayerSettingsActions(bus,
+                () -> { checks.incrementAndGet(); return false; }, opens::incrementAndGet, closes::incrementAndGet));
+        ConfigChanged other = new ConfigChanged(); other.setGroup(DroSlayerConfig.GROUP); other.setKey("captureCurrentInventorySetup");
+        bus.post(other);
+        assertEquals(0, checks.get());
+        ConfigChanged event = new ConfigChanged(); event.setGroup(DroSlayerConfig.GROUP); event.setKey("editTaskPrayers");
+        bus.post(event);
+        assertEquals(0, opens.get()); assertEquals(1, closes.get()); assertEquals(1, checks.get());
+        bus.post(event);
+        assertEquals(0, opens.get()); assertEquals(1, closes.get()); assertEquals(1, checks.get());
+    }
+
+    @Test public void saveFromRetiredInstallationShowsNoticeAndSkipsSaving() {
+        AtomicInteger notices = new AtomicInteger();
+        assertFalse(DroSlayerPrayerEditor.closeIfRetired(() -> true, notices::incrementAndGet));
+        assertEquals(0, notices.get());
+        assertTrue(DroSlayerPrayerEditor.closeIfRetired(() -> false, notices::incrementAndGet));
+        assertEquals(1, notices.get());
+        assertTrue(DroSlayerPrayerEditor.RETIRED_MESSAGE.contains("your changes were not saved"));
+        assertTrue(DroSlayerPrayerEditor.RETIRED_MESSAGE.contains("Edit monster config"));
+        assertFalse(DroSlayerPrayerEditor.RETIRED_MESSAGE.contains("Edit task prayers"));
     }
 }

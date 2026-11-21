@@ -122,7 +122,7 @@ public class NmzScript extends Script {
                 if (Rs2AntibanSettings.actionCooldownActive) return;
                 Rs2Combat.setAutoRetaliate(true);
                 boolean isOutsideNmz = isOutside();
-                useOverload = Microbot.getClient().getBoostedSkillLevel(Skill.RANGED) == Microbot.getClient().getRealSkillLevel(Skill.RANGED) && config.overloadPotionAmount() > 0;
+                useOverload = shouldUseOverload(Microbot.getClient().getBoostedSkillLevel(Skill.RANGED), Microbot.getClient().getRealSkillLevel(Skill.RANGED), config.overloadPotionAmount(), Rs2Inventory.hasItem("overload"));
                 if (isOutsideNmz) {
                     Rs2Walker.setTarget(null);
                     handleOutsideNmz();
@@ -295,13 +295,7 @@ public class NmzScript extends Script {
 
     public void manageSelfHarm() {
         int currentHP = Microbot.getClient().getBoostedSkillLevel(Skill.HITPOINTS);
-        int currentRangedLevel = Microbot.getClient().getBoostedSkillLevel(Skill.RANGED);
-        int realRangedLevel = Microbot.getClient().getRealSkillLevel(Skill.RANGED);
-        boolean hasOverloadPotions = config.overloadPotionAmount() > 0;
-
-        if (currentHP >= maxHealth
-                && !useOverload
-                && (!hasOverloadPotions || currentRangedLevel != realRangedLevel)) {
+        if (shouldSelfHarm(currentHP, maxHealth, useOverload)) {
             maxHealth = 1;
 
             if (Rs2Inventory.hasItem(ItemID.DS2_ORB)) {
@@ -320,6 +314,14 @@ public class NmzScript extends Script {
         if (config.randomlyTriggerRapidHeal()) {
             randomlyToggleRapidHeal();
         }
+    }
+
+    static boolean shouldUseOverload(int boostedRangedLevel, int realRangedLevel, int overloadPotionAmount, boolean hasOverloadInInventory) {
+        return boostedRangedLevel == realRangedLevel && overloadPotionAmount > 0 && hasOverloadInInventory;
+    }
+
+    static boolean shouldSelfHarm(int currentHP, int maxHealth, boolean useOverload) {
+        return currentHP >= maxHealth && !useOverload;
     }
 
     public void randomlyToggleRapidHeal() {

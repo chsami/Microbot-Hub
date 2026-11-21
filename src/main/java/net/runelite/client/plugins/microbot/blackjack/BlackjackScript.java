@@ -44,6 +44,7 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.function.IntSupplier;
 
 @Slf4j
 public class BlackjackScript extends Script
@@ -428,7 +429,7 @@ public class BlackjackScript extends Script
         nextCameraRefacingAt = 0;
         lastCameraPitchAt = 0;
         lastCameraZoomAt = 0;
-        targetCameraZoom = config.returnCameraZoom() > 0 ? config.returnCameraZoom() : Rs2Camera.getZoom();
+        targetCameraZoom = initialTargetZoom(config.returnCameraZoom(), Microbot.isLoggedIn(), Rs2Camera::getZoom);
         zoomRestore.reset();
         visibilityCameraZoom = -1;
         hiddenTargetZoomAttempts = 0;
@@ -864,7 +865,7 @@ public class BlackjackScript extends Script
 
     public int getWinesToHeal()
     {
-        return config == null ? 0 : winesNeededToReach(currentHitpoints(), config.healToPercent());
+        return config == null ? 0 : winesNeededToReach(currentHitpoints(), healToHitpoints());
     }
 
     private void validateSetup()
@@ -2721,7 +2722,8 @@ public class BlackjackScript extends Script
     private void heal()
     {
         int hitpoints = currentHitpoints();
-        if (hitpoints >= config.healToPercent())
+        int healTo = healToHitpoints();
+        if (hitpoints >= healTo)
         {
             healingRequired = false;
             pendingInventoryFullAt = 0;
@@ -2743,7 +2745,7 @@ public class BlackjackScript extends Script
             return;
         }
 
-        drinkWineIfReady("Heal to " + config.healToPercent() + " HP");
+        drinkWineIfReady("Heal to " + healTo + " HP");
     }
 
     private void positionCombatReset()
@@ -3143,7 +3145,7 @@ public class BlackjackScript extends Script
 
         int wines = Rs2Inventory.count(WINE_ID);
         int hitpoints = currentHitpoints();
-        projectedWinesNeeded = winesNeededToReach(hitpoints, config.healToPercent());
+        projectedWinesNeeded = winesNeededToReach(hitpoints, healToHitpoints());
 
         if (!config.autoRestockWine())
         {
@@ -3469,10 +3471,10 @@ public class BlackjackScript extends Script
         emergencyWineExit = false;
         wineInventoryPrepared = false;
         restockTargetWineCount = 0;
-        projectedWinesNeeded = winesNeededToReach(currentHitpoints(), config.healToPercent());
+        projectedWinesNeeded = winesNeededToReach(currentHitpoints(), healToHitpoints());
         lastOutcome = "Wine restock complete";
         maintainTargetZoom();
-        if (currentHitpoints() < config.healToPercent())
+        if (currentHitpoints() < healToHitpoints())
         {
             healingRequired = true;
             transition(BlackjackState.HEALING, "Heal after secured wine run");
@@ -4421,7 +4423,7 @@ public class BlackjackScript extends Script
                 && !wineRestockPending
                 && !Rs2Player.isMoving()
                 && !isNpcTargetingPlayer()
-                && currentHitpoints() >= config.healBelowPercent();
+                && currentHitpoints() >= healBelowHitpoints();
     }
 
     private boolean isHumanizerState()
@@ -4768,6 +4770,15 @@ public class BlackjackScript extends Script
             }
         }
         return true;
+    }
+
+    static int initialTargetZoom(int configuredZoom, boolean loggedIn, IntSupplier liveZoom)
+    {
+        if (configuredZoom > 0)
+        {
+            return configuredZoom;
+        }
+        return loggedIn ? liveZoom.getAsInt() : -1;
     }
 
     static int zoomForHiddenTarget(int zoom)
@@ -5416,13 +5427,14 @@ public class BlackjackScript extends Script
     private void updateHealingRequirement()
     {
         int hitpoints = currentHitpoints();
-        if (hitpoints < config.healBelowPercent() && !healingRequired)
+        int healTo = healToHitpoints();
+        if (hitpoints < healBelowHitpoints() && !healingRequired)
         {
             healingRequired = true;
-            log.info("Healing latched at {} HP; configured below={}, heal-to={}",
-                    hitpoints, config.healBelowPercent(), config.healToPercent());
+            log.info("Healing latched at {} HP; configured below={}, heal-to={}, effective heal-to={}",
+                    hitpoints, config.healBelowPercent(), config.healToPercent(), healTo);
         }
-        else if (hitpoints >= config.healToPercent() && healingRequired)
+        else if (hitpoints >= healTo && healingRequired)
         {
             healingRequired = false;
             log.info("Healing target reached at {} HP", hitpoints);
@@ -5458,6 +5470,21 @@ public class BlackjackScript extends Script
     private int currentHitpoints()
     {
         return Rs2Player.getBoostedSkillLevel(Skill.HITPOINTS);
+    }
+
+    private int healToHitpoints()
+    {
+        return healTargetHitpoints(config.healToPercent(), Rs2Player.getRealSkillLevel(Skill.HITPOINTS));
+    }
+
+    private int healBelowHitpoints()
+    {
+        return Math.min(config.healBelowPercent(), healToHitpoints());
+    }
+
+    static int healTargetHitpoints(int configuredTarget, int maxHitpoints)
+    {
+        return maxHitpoints > 0 ? Math.min(configuredTarget, maxHitpoints) : configuredTarget;
     }
 
     private boolean readyForInteraction(long minimumDelay)

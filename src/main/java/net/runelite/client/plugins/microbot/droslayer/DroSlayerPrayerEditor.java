@@ -26,7 +26,23 @@ final class DroSlayerPrayerEditor {
         return key;
     }
 
-    static void open(java.util.function.BiConsumer<java.util.Map<String, DroSlayerPrayer>, java.util.Map<String, DroSlayerOffensivePrayer>> onSave) {
+    static final String RETIRED_MESSAGE = "[Dro] AIO Slayer was updated or removed while this window was open, so your changes were not saved. If the plugin is still installed, click Edit monster config in its settings and make the change again.";
+
+    static void close() {
+        if (dialog == null) return;
+        dialog.dispose();
+        dialog = null;
+    }
+
+    static boolean closeIfRetired(java.util.function.BooleanSupplier installed, Runnable notice) {
+        if (installed.getAsBoolean()) return false;
+        notice.run();
+        close();
+        return true;
+    }
+
+    static void open(java.util.function.BooleanSupplier installed,
+            java.util.function.BiConsumer<java.util.Map<String, DroSlayerPrayer>, java.util.Map<String, DroSlayerOffensivePrayer>> onSave) {
         if (dialog != null && dialog.isDisplayable()) { dialog.toFront(); return; }
         DroSlayerProfileManager manager = new DroSlayerProfileManager();
         manager.loadProfiles();
@@ -73,6 +89,8 @@ final class DroSlayerPrayerEditor {
         JLabel status = new JLabel("Bracelets are optional. Leave both unchecked to keep your inventory setup gloves.");
         JButton save = new JButton("Save task settings");
         save.addActionListener(e -> {
+            if (closeIfRetired(installed, () -> JOptionPane.showMessageDialog(dialog, RETIRED_MESSAGE,
+                    "Changes not saved", JOptionPane.WARNING_MESSAGE))) return;
             try {
                 String task = (String) tasks.getSelectedItem();
                 DroSlayerPrayer prayer = (DroSlayerPrayer) prayers.getSelectedItem();
@@ -109,6 +127,7 @@ final class DroSlayerPrayerEditor {
         dialog.pack();
         dialog.setLocationRelativeTo(null);
         dialog.setVisible(true);
+        dialog.toFront();
     }
 
     static void mutuallyExclusive(JCheckBox first, JCheckBox second) {

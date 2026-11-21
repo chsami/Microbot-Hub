@@ -396,7 +396,7 @@ public interface DroSlayerConfig extends Config {
     @ConfigItem(
             keyName = "potionThreshold",
             name = "Prayer Potion Threshold",
-            description = "Bank when prayer potion/super restore doses drop below this amount (0 to disable)",
+            description = "Bank when prayer potion/super restore doses drop below this amount (0 to disable). If your inventory setup carries fewer doses than this, the script uses the setup's amount instead.",
             position = 2,
             section = bankingSection
     )

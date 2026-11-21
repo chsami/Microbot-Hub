@@ -365,7 +365,7 @@ public interface SlayerConfig extends Config {
     @ConfigItem(
             keyName = "hopWhenCrashed",
             name = "Hop When Crashed",
-            description = "Hop worlds if no attackable targets found for 20 seconds (someone else has aggro)",
+            description = "Hop worlds if every task monster nearby is taken by other players, or none can be found, for 20 seconds",
             position = 9,
             section = combatSection
     )

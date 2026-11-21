@@ -54,23 +54,25 @@ public class GemsScript extends Script implements ICraftingScript {
             try {
                 if (!Microbot.isLoggedIn()) return;
                 if (!super.run()) return;
-                if (!Rs2Player.getSkillRequirement(Skill.CRAFTING, config.gemType().getLevelRequired())) {
-                    Microbot.showMessage("Crafting level too low to craft " + config.gemType().getName());
-                    shutdown();
-                    return;
-                }
                 final boolean amethyst = (config.gemType().getName().contains("Amethyst"));
                 final String gemName = config.gemType().getName();
                 final String uncutGemName = "uncut " + gemName;
                 final BoltTips boltTip = config.fletchIntoBoltTips() ? getBoltTip(config.gemType()) : null;
                 final boolean fletchCutGems = !amethyst && boltTip != null
                         && Rs2Player.getSkillRequirement(Skill.FLETCHING, boltTip.getFletchingLevelRequired());
-                if (config.fletchIntoBoltTips() && !amethyst && !fletchCutGems && !fletchUnavailableNoticeShown) {
+                final int craftingLevel = config.gemType().getLevelRequired();
+                final boolean canCut = Rs2Player.getSkillRequirement(Skill.CRAFTING, craftingLevel);
+                if (shouldStopForLevels(canCut, fletchCutGems)) {
+                    Microbot.showMessage(craftingLevelMessage(gemName, craftingLevel, amethyst, config.fletchIntoBoltTips() ? boltTip : null));
+                    shutdown();
+                    return;
+                }
+                if (fletchNoticeNeeded(config.gemType(), config.fletchIntoBoltTips(), amethyst, fletchCutGems) && !fletchUnavailableNoticeShown) {
                     fletchUnavailableNoticeShown = true;
                     showGameMessage(fletchUnavailableMessage(gemName, boltTip));
                 }
 
-                if ((!amethyst && !hasGemsToProcess(Rs2Inventory.hasItem(uncutGemName), Rs2Inventory.hasItem(gemName, true), fletchCutGems))
+                if ((!amethyst && !hasGemsToProcess(canCut && Rs2Inventory.hasItem(uncutGemName), Rs2Inventory.hasItem(gemName, true), fletchCutGems))
                         || !Rs2Inventory.hasItem("chisel") || (amethyst && !Rs2Inventory.hasItem(21347))) {
                     Microbot.status = "BANKING";
                     Rs2Bank.openBank();
@@ -83,23 +85,31 @@ public class GemsScript extends Script implements ICraftingScript {
                             Rs2Bank.depositAll(gemName);
                             sleepUntil(() -> !Rs2Inventory.hasItem(gemName) && !Rs2Inventory.hasItem("crushed gem"));
                         }
-                        if (Rs2Bank.hasItem(uncutGemName)) {
+                        if (!canCut && Rs2Inventory.hasItem(uncutGemName)) {
+                            Rs2Bank.depositAll(uncutGemName);
+                            sleepUntil(() -> !Rs2Inventory.hasItem(uncutGemName));
+                        }
+                        if (canCut && Rs2Bank.hasItem(uncutGemName)) {
                             Rs2Bank.withdrawItem(true, "chisel");
                             Rs2Bank.withdrawAll(true, uncutGemName);
                         } else if (fletchCutGems && (Rs2Bank.hasItem(gemName, true) || Rs2Inventory.hasItem(gemName, true))) {
                             if (!bankCutGemsNoticeShown && Rs2Bank.hasItem(gemName, true)) {
                                 bankCutGemsNoticeShown = true;
-                                showGameMessage("No uncut " + gemName + " left, fletching cut " + gemName + " from your bank into bolt tips.");
+                                showGameMessage(bankCutGemsMessage(gemName, canCut, craftingLevel));
                             }
                             Rs2Bank.withdrawItem(true, "chisel");
                             Rs2Bank.withdrawAll(true, gemName, true);
+                            if (!sleepUntil(() -> Rs2Inventory.hasItem(gemName, true))) {
+                                Microbot.showMessage(noRoomForCutGemsMessage(gemName));
+                                shutdown();
+                            }
                         } else if (amethyst && Rs2Bank.hasItem(21347)) {
                             Rs2Bank.withdrawItem(true, "chisel");
                             Rs2Bank.withdrawAll(21347);
                         }
                         else
                         {
-                            Microbot.showMessage(outOfMaterialsMessage(gemName, amethyst, fletchCutGems));
+                            Microbot.showMessage(canCut ? outOfMaterialsMessage(gemName, amethyst, fletchCutGems) : outOfCutGemsMessage(gemName, craftingLevel));
                             shutdown();
                             }
                         Rs2Bank.closeBank();
@@ -116,7 +126,7 @@ public class GemsScript extends Script implements ICraftingScript {
                         sleep(3000);
                         sleepUntil(() -> !Microbot.isGainingExp || !Rs2Inventory.hasItem(21347), 30000);
                     } else {
-                        if (Rs2Inventory.hasItem(uncutGemName)) {
+                        if (canCut && Rs2Inventory.hasItem(uncutGemName)) {
                             Microbot.status = "CUTTING GEMS";
                             Rs2Inventory.use("chisel");
                             Rs2Inventory.use(uncutGemName);
@@ -162,6 +172,37 @@ public class GemsScript extends Script implements ICraftingScript {
             return gemName + " cannot be fletched into bolt tips, only cutting gems.";
         }
         return "Fletching level " + boltTip.getFletchingLevelRequired() + " needed for " + boltTip.getGemName() + " bolt tips, only cutting gems.";
+    }
+
+    static boolean fletchNoticeNeeded(Gems gem, boolean fletchIntoBoltTips, boolean amethyst, boolean fletchCutGems) {
+        return fletchIntoBoltTips && gem != null && gem != Gems.NONE && !amethyst && !fletchCutGems;
+    }
+
+    static String craftingLevelMessage(String gemName, int craftingLevel, boolean amethyst, BoltTips unavailableBoltTip) {
+        String message = "Crafting level " + craftingLevel + " needed to " + (amethyst ? "craft " : "cut ") + gemName + ".";
+        if (unavailableBoltTip != null) {
+            message += " Fletching level " + unavailableBoltTip.getFletchingLevelRequired() + " needed for " + unavailableBoltTip.getGemName() + " bolt tips.";
+        }
+        return message + " Stopping.";
+    }
+
+    static String bankCutGemsMessage(String gemName, boolean canCut, int craftingLevel) {
+        if (canCut) {
+            return "No uncut " + gemName + " left, fletching cut " + gemName + " from your bank into bolt tips.";
+        }
+        return "Your Crafting level is below " + craftingLevel + ", so uncut " + gemName + " is skipped. Fletching cut " + gemName + " from your bank into bolt tips.";
+    }
+
+    static String outOfCutGemsMessage(String gemName, int craftingLevel) {
+        return "Out of cut " + gemName + " in your bank. Crafting level " + craftingLevel + " is needed to cut uncut " + gemName + ", so add more cut " + gemName + " to your bank to keep fletching. Stopping.";
+    }
+
+    static String noRoomForCutGemsMessage(String gemName) {
+        return "No room for cut " + gemName + " in your inventory. Make room in your inventory and start again. Stopping.";
+    }
+
+    static boolean shouldStopForLevels(boolean canCut, boolean fletchCutGems) {
+        return !canCut && !fletchCutGems;
     }
 
     static String outOfMaterialsMessage(String gemName, boolean amethyst, boolean fletchCutGems) {

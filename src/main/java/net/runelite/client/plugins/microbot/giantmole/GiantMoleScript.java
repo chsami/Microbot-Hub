@@ -185,7 +185,13 @@ public class GiantMoleScript extends Script
 
         if (isInFalador())
         {
-            if (Rs2Player.getWorldLocation().distanceTo2D(FALADOR_PARK) > 10)
+            WorldPoint playerLocation = Rs2Player.getWorldLocation();
+            if (playerLocation == null)
+            {
+                return;
+            }
+
+            if (playerLocation.distanceTo2D(FALADOR_PARK) > 10)
             {
                 state = GiantMoleState.WALKING_TO_MOLE_HOLE;
                 return;
@@ -213,7 +219,8 @@ public class GiantMoleScript extends Script
      */
     public boolean isInFalador()
     {
-        return FAlADOR_REGIONS.contains(Rs2Player.getWorldLocation().getRegionID());
+        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        return playerLocation != null && FAlADOR_REGIONS.contains(playerLocation.getRegionID());
     }
 
     /**
@@ -221,7 +228,8 @@ public class GiantMoleScript extends Script
      */
     public static boolean isInMoleTunnel()
     {
-        return MOLE_TUNNEL_REGIONS.contains(Rs2Player.getWorldLocation().getRegionID());
+        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        return playerLocation != null && MOLE_TUNNEL_REGIONS.contains(playerLocation.getRegionID());
     }
 
     /**

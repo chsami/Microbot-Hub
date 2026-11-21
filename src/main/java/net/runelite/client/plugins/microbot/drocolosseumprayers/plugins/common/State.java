@@ -114,79 +114,16 @@ public class State
 		return client.getBoostedSkillLevel(Skill.HITPOINTS);
 	}
 
-    public int poison()
-    {
-        return client.getVarpValue(VarPlayerID.POISON);
-    }
-
-    public int selectedModifier(){return client.getVarbitValue(VarbitID.COLOSSEUM_SELECTED_MODIFIER);}
-
-    public int frailtyStacks(){return client.getVarbitValue(VarbitID.COLOSSEUM_MODIFIER_FRAILTY_STACKS_CLIENT);}
-    public int myopiaStacks(){return client.getVarbitValue(VarbitID.COLOSSEUM_MODIFIER_MYOPIA_STACKS_CLIENT);}
-
     public com.google.gson.JsonObject modifierLevels(){
         var levels=new com.google.gson.JsonObject();
-        levels.addProperty("blasphemy",client.getVarbitValue(VarbitID.COLOSSEUM_MODIFIER_BLASPHEMY_STACKS_CLIENT));
-        levels.addProperty("toxicity",client.getVarbitValue(VarbitID.COLOSSEUM_MODIFIER_TOXICITY_STACKS_CLIENT));
-        levels.addProperty("reentry",client.getVarbitValue(VarbitID.COLOSSEUM_MODIFIER_REENTRY_STACKS_CLIENT));
-        levels.addProperty("myopia",myopiaStacks());
-        levels.addProperty("frailty",frailtyStacks());
-        levels.addProperty("solarflare",client.getVarbitValue(VarbitID.COLOSSEUM_MODIFIER_SOLARFLARE_STACKS_CLIENT));
-        levels.addProperty("relentless",client.getVarbitValue(VarbitID.COLOSSEUM_MODIFIER_RELENTLESS_STACKS_CLIENT));
-        levels.addProperty("volatility",client.getVarbitValue(VarbitID.COLOSSEUM_MODIFIER_VOLATILITY_STACKS_CLIENT));
         levels.addProperty("mantimayhem",client.getVarbitValue(VarbitID.COLOSSEUM_MODIFIER_MANTIMAYHEM_STACKS_CLIENT));
-        levels.addProperty("doom",client.getVarbitValue(VarbitID.COLOSSEUM_MODIFIER_DOOM_STACKS_CLIENT));
-        levels.addProperty("doomPoints",client.getVarbitValue(VarbitID.COLOSSEUM_DOOM_STACKS_CLIENT));
         return levels;
     }
 
-    public com.google.gson.JsonArray moltenSand(){
-        var values=new com.google.gson.JsonArray();
-        if(client==null)return values;
-        var view=client.getTopLevelWorldView();
-        if(view==null||view.getScene()==null)return values;
-        var tiles=view.getScene().getTiles();
-        int plane=view.getPlane();
-        if(tiles==null||plane<0||plane>=tiles.length||tiles[plane]==null)return values;
-        for(var column:tiles[plane]){
-            if(column==null)continue;
-            for(var tile:column){
-                if(tile==null||tile.getGameObjects()==null)continue;
-                for(var object:tile.getGameObjects()){
-                    if(object==null)continue;
-                    int id=object.getId();
-
-                    if(id<50743||id>50746)continue;
-                    var point=WorldPoint.fromLocalInstance(client,object.getLocalLocation());
-                    if(point==null)continue;
-                    var value=new com.google.gson.JsonObject();
-                    value.addProperty("id",id);value.addProperty("kind","game");
-                    value.addProperty("tx",point.getX());value.addProperty("ty",point.getY());
-                    values.add(value);
-                }
-            }
-        }
-        return values;
-    }
-
-    public int solGrapplePending(){return client.getVarbitValue(VarbitID.COLOSSEUM_SOL_GRAPPLE_PENDING);}
-
-    public com.google.gson.JsonArray graphicsObjects(){
-        var values=new com.google.gson.JsonArray();
-        if(client==null)return values;
-        var view=client.getTopLevelWorldView();
-        if(view==null||view.getGraphicsObjects()==null)return values;
-        for(var graphic:view.getGraphicsObjects()){
-            if(graphic==null||graphic.getWorldView()!=view||graphic.getLocation()==null)continue;
-            var tile= WorldPoint.fromLocalInstance(client,graphic.getLocation());
-            if(tile==null)continue;
-            var value=new com.google.gson.JsonObject();
-            value.addProperty("id",graphic.getId());value.addProperty("tx",tile.getX());value.addProperty("ty",tile.getY());
-            value.addProperty("plane",graphic.getLevel());
-            value.addProperty("startTicks",Math.max(0,(graphic.getStartCycle()-client.getGameCycle()+29)/30));
-            value.addProperty("finished",graphic.finished());values.add(value);
-        }
-        return values;
+    public boolean widgetVisible(int id)
+    {
+        net.runelite.api.widgets.Widget w = client.getWidget(id);
+        return w != null && !w.isHidden();
     }
 
 	public int maxHp()
@@ -220,34 +157,14 @@ public class State
 		return target instanceof NPC ? ((NPC) target).getIndex() : null;
 	}
 
-	public boolean spellSelected()
-	{
-		return client.isWidgetSelected();
-	}
-
 	public boolean moving()
 	{
 		return me().getPoseAnimation() != me().getIdlePoseAnimation();
 	}
 
-	public int runEnergy()
-	{
-		return client.getEnergy();
-	}
-
 	public boolean runOn()
 	{
 		return client.getVarpValue(VarPlayerID.OPTION_RUN) == 1;
-	}
-
-	public int specEnergy()
-	{
-		return client.getVarpValue(VarPlayerID.SA_ENERGY);
-	}
-
-	public boolean specOn()
-	{
-		return client.getVarpValue(VarPlayerID.SA_ATTACK) == 1;
 	}
 
 	public int skill(String skill, boolean boosted)
@@ -430,37 +347,18 @@ public class State
 		return list;
 	}
 
-	public List<Messages.Item> inventory()
-	{
-		List<Messages.Item> list = new ArrayList<>();
-		ItemContainer inv = client.getItemContainer(InventoryID.INV);
-		net.runelite.api.Item[] items = inv == null ? new net.runelite.api.Item[0] : inv.getItems();
-		for (int i = 0; i < items.length; i++)
-		{
-			if (items[i].getId() >= 0)
-			{
-				Messages.Item held = new Messages.Item(i, items[i].getId(), items[i].getQuantity(), itemName(items[i].getId()));
-				held.gear = gear(items[i].getId());
-				list.add(held);
-			}
-		}
-		return list;
-	}
-
 	public List<Worn> equipment()
 	{
 		List<Worn> list = new ArrayList<>();
 		ItemContainer worn = client.getItemContainer(InventoryID.WORN);
-		for (EquipmentInventorySlot slot : EquipmentInventorySlot.values())
-		{
-			net.runelite.api.Item item = worn == null ? null : worn.getItem(slot.getSlotIdx());
-			if (item != null && item.getId() >= 0)
-			{
-				Worn w = new Worn(slot.getSlotIdx(), item.getId(), itemName(item.getId()));
-				w.gear = gear(item.getId());
-				list.add(w);
-			}
-		}
+        EquipmentInventorySlot slot = EquipmentInventorySlot.WEAPON;
+        net.runelite.api.Item item = worn == null ? null : worn.getItem(slot.getSlotIdx());
+        if (item != null && item.getId() >= 0)
+        {
+            Worn w = new Worn(slot.getSlotIdx(), item.getId(), itemName(item.getId()));
+            w.gear = gear(item.getId());
+            list.add(w);
+        }
 		return list;
 	}
 
@@ -486,38 +384,6 @@ public class State
 		}
 		return list;
 	}
-
-	public int cameraYaw()
-	{
-		return client.getCameraYaw() / ANGLE_SCALE;
-	}
-
-	public int cameraPitch()
-	{
-		return client.getCameraPitch() / ANGLE_SCALE;
-	}
-
-	public int cameraZoom()
-	{
-		return client.getVarcIntValue(VarClientID.CAMERA_ZOOM_BIG);
-	}
-
-	public boolean tileOnScreen(int tx, int ty)
-	{
-		int[] s = tiles.scene(tx, ty);
-		if (s == null)
-		{
-			return false;
-		}
-		WorldView wv = client.getTopLevelWorldView();
-		Point c = Perspective.localToCanvas(client, LocalPoint.fromScene(s[0], s[1], wv), wv.getPlane());
-		return c != null && c.getX() >= 0 && c.getX() < client.getViewportWidth() && c.getY() >= 0 && c.getY() < client.getViewportHeight();
-	}
-
-    public byte[] hiddenTiles(int[] screen, java.util.Set<Integer> occluders)
-    {
-        return new ArenaOcclusion(client, tiles).mask(screen, occluders);
-    }
 
 	public int collisionFlags(int tx, int ty)
 	{

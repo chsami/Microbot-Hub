@@ -5,6 +5,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.2.62]
+
+### Fixed
+- **Full inventory at sea**: The script only uses a salvaging station on your own boat. On a boat without one it now drops the items in your Drop items list instead of trying to walk or teleport to the port salvaging station. If nothing in your inventory is on that list, it waits: the overlay shows Status: Waiting in orange and the log shows one message telling you to add the exact salvage names (e.g. Small salvage) to Drop items, turn on Use Cargo Hold if it is off, or build a salvaging station. The port salvaging station is no longer used, even when docked next to it; build a station on your boat to process salvage.
+
+---
+
 ## [2.2.61]
 
 ### Fixed
