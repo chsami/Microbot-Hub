@@ -29,5 +29,4 @@ public enum FishingMethod {
         this.requiredItems = requiredItems;
         this.levelRequired = levelRequired;
     }
-
 }

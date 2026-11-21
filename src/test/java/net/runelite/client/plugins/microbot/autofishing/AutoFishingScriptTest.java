@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -147,11 +148,13 @@ class AutoFishingScriptTest {
         try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
              MockedStatic<Rs2Player> rs2Player = mockStatic(Rs2Player.class);
              MockedStatic<Rs2Inventory> inventory = mockStatic(Rs2Inventory.class);
+             MockedStatic<Rs2Bank> bank = mockStatic(Rs2Bank.class);
              MockedStatic<Rs2Walker> walker = mockStatic(Rs2Walker.class);
              MockedStatic<Rs2Widget> widget = mockStatic(Rs2Widget.class);
              MockedStatic<Rs2Antiban> antiban = mockStatic(Rs2Antiban.class)) {
             microbot.when(Microbot::isLoggedIn).thenReturn(true);
             inventory.when(() -> Rs2Inventory.hasItem(anyString())).thenReturn(true);
+            bank.when(Rs2Bank::isOpen).thenReturn(false);
 
             script.run(config);
             ArgumentCaptor<Runnable> tick = ArgumentCaptor.forClass(Runnable.class);
@@ -313,7 +316,16 @@ class AutoFishingScriptTest {
             assertEquals(AutoFishingState.GETTING_GEAR, script.getCurrentState());
             bank.verify(() -> Rs2Bank.withdrawAll("Sandworms"));
             bank.verify(() -> Rs2Bank.withdrawAll("Fishing bait"), never());
-            microbot.verify(() -> Microbot.showMessage("AutoFishing stopped: could not find Fishing bait or Sandworms in your bank. Put them in your bank or inventory (buy some if you have none), then start again."));
+            bank.verify(Rs2Bank::closeBank, never());
+            microbot.verify(() -> Microbot.showMessage(anyString()), never());
+
+            inventory.when(() -> Rs2Inventory.hasItem("Fishing bait", "Sandworms")).thenReturn(true);
+            bank.when(Rs2Bank::isOpen).thenReturn(true, false);
+            tick.getValue().run();
+
+            bank.verify(() -> Rs2Bank.withdrawAll("Sandworms"), times(1));
+            bank.verify(Rs2Bank::closeBank);
+            microbot.verify(() -> Microbot.showMessage(anyString()), never());
         }
     }
 
@@ -509,6 +521,7 @@ class AutoFishingScriptTest {
     private void runDepositTick(boolean fishBarrel, WorldPoint reachedOnFoot, Set<WorldPoint> planned, Set<Integer> kept,
                                 BiConsumer<MockedStatic<Rs2Bank>, MockedStatic<Rs2DepositBox>> verification) {
         ScheduledExecutorService executor = mock(ScheduledExecutorService.class);
+        AtomicBoolean inventoryFull = new AtomicBoolean(true);
         AutoFishingScript script = new AutoFishingScript() {
             {
                 scheduledExecutorService = executor;
@@ -548,7 +561,7 @@ class AutoFishingScriptTest {
              MockedStatic<Rs2Antiban> antiban = mockStatic(Rs2Antiban.class)) {
             microbot.when(Microbot::isLoggedIn).thenReturn(true);
             rs2Player.when(Rs2Player::getWorldLocation).thenReturn(new WorldPoint(2924, 3179, 0));
-            inventory.when(Rs2Inventory::isFull).thenReturn(true);
+            inventory.when(Rs2Inventory::isFull).thenAnswer(call -> inventoryFull.get());
             inventory.when(() -> Rs2Inventory.hasItem("Lobster pot")).thenReturn(true);
             inventory.when(() -> Rs2Inventory.get("Lobster pot")).thenReturn(pot);
             inventory.when(() -> Rs2Inventory.hasItem(ItemID.COINS)).thenReturn(true);
@@ -557,12 +570,14 @@ class AutoFishingScriptTest {
             bank.when(() -> Rs2Bank.walkToBankAndUseBank(any(BankLocation.class))).thenReturn(true);
             bank.when(() -> Rs2Bank.depositAllExcept(any(Integer[].class))).thenAnswer(call -> {
                 kept.addAll(Arrays.asList((Integer[]) call.getRawArguments()[0]));
+                inventoryFull.set(false);
                 return true;
             });
             depositBox.when(() -> Rs2DepositBox.walkToAndUseDepositBox(any(DepositBoxLocation.class))).thenReturn(true);
             depositBox.when(Rs2DepositBox::isOpen).thenReturn(true);
             depositBox.when(() -> Rs2DepositBox.depositAllExcept(any(Integer[].class))).thenAnswer(call -> {
                 kept.addAll(Arrays.asList((Integer[]) call.getRawArguments()[0]));
+                inventoryFull.set(false);
                 return true;
             });
 
