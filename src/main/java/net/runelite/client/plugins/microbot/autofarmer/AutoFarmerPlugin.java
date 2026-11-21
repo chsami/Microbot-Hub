@@ -13,18 +13,20 @@ import javax.inject.Inject;
 import java.awt.*;
 
 @PluginDescriptor(
-        name = "Scoots Auto Herb, Tree, Fruit Farmer",
-        description = "Schedules and tends herbs, regular trees, and fruit trees.",
+        name = "Scoots Auto-Farmer",
+        description = "Quest-aware automatic herb farming",
         tags = {"herb", "farming", "money making", "skilling"},
-        authors = {"Mocrosoft", "Scoots"},
+        authors = {"Mocrosoft"},
         version = AutoFarmerPlugin.version,
         minClientVersion = "2.6.59",
+        iconUrl = "https://chsami.github.io/Microbot-Hub/AutoFarmerPlugin/assets/icon.jpg",
+        cardUrl = "https://chsami.github.io/Microbot-Hub/AutoFarmerPlugin/assets/card.jpg",
         enabledByDefault = false,
         isExternal = true
 )
 
 public class AutoFarmerPlugin extends Plugin {
-    public static final String version = "1.10.17";
+    public static final String version = "1.10.24";
     @Inject
     private AutoFarmerConfig config;
 

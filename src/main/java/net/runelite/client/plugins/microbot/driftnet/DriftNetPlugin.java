@@ -30,7 +30,7 @@ import static net.runelite.client.plugins.PluginDescriptor.Mocrosoft;
 @Slf4j
 public class DriftNetPlugin extends Plugin
 {
-    public static final String version = "1.1.2";
+    public static final String version = "1.1.3";
 
     @Inject
     private DriftNetConfig config;
