@@ -1,11 +1,14 @@
 package net.runelite.client.plugins.microbot.blastoisefurnace;
 
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.ObjectComposition;
 import net.runelite.api.Skill;
 import net.runelite.api.coords.WorldPoint;
+import net.runelite.api.widgets.Widget;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.blastoisefurnace.enums.Bars;
 import net.runelite.client.plugins.microbot.blastoisefurnace.enums.State;
 import net.runelite.client.plugins.microbot.breakhandler.BreakHandlerScript;
@@ -22,6 +25,7 @@ import net.runelite.client.plugins.microbot.util.misc.Rs2Potion;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
+import net.runelite.client.util.Text;
 
 import javax.inject.Inject;
 import java.awt.event.KeyEvent;
@@ -30,6 +34,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static net.runelite.api.gameval.ItemID.*;
 import static net.runelite.api.gameval.ObjectID.*;
@@ -47,8 +53,28 @@ public class BlastoiseFurnaceScript extends Script {
     static final int CONVEYOR_IDLE_TIMEOUT_MS = 5_000;
     static final int CONVEYOR_MAX_WALK_MS = 30_000;
     static final int MAX_FAILED_LOOT_CYCLES = 3;
+    static final int DISPENSER_READY_POLL_MS = 3_000;
+    static final int DISPENSER_READY_TIMEOUT_MS = 120_000;
+    static final int CONVEYOR_PROMPT_TIMEOUT_MS = 5_000;
+    static final int MAX_FAILED_BELT_TRIPS = 3;
+    private static final String FOREMAN_PERMISSION_TEXT = "You must ask the foreman's";
+    private static final int[] DISPENSER_BAR_VARBITS = {
+            BLAST_FURNACE_IRON_BARS,
+            BLAST_FURNACE_STEEL_BARS,
+            BLAST_FURNACE_GOLD_BARS,
+            BLAST_FURNACE_MITHRIL_BARS,
+            BLAST_FURNACE_ADAMANTITE_BARS,
+            BLAST_FURNACE_RUNITE_BARS
+    };
     public static State state = State.BANKING;
     private int failedLootCycles = 0;
+    private long dispenserWaitMs = 0;
+    private int failedBeltTrips = 0;
+    private String lastBeltPrompt;
+    private String lastBeltQuestion;
+    private String lastBeltOptions;
+    private String lastBeltAnswer;
+    private String lastBeltUnclicked;
     static boolean coalBagEmpty;
     static boolean primaryOreEmpty;
     static boolean secondaryOreEmpty;
@@ -77,6 +103,9 @@ public class BlastoiseFurnaceScript extends Script {
         Microbot.enableAutoRunOn = false;
         state = State.BANKING;
         failedLootCycles = 0;
+        dispenserWaitMs = 0;
+        failedBeltTrips = 0;
+        clearBeltPrompt();
         primaryOreEmpty = !Rs2Inventory.hasItem(config.getBars().getPrimaryOre());
         secondaryOreEmpty = !Rs2Inventory.hasItem(config.getBars().getSecondaryOre());
         Rs2Antiban.resetAntibanSettings();
@@ -170,6 +199,7 @@ public class BlastoiseFurnaceScript extends Script {
                             handleDispenserLooting();
                             return;
                         } else {
+                            dispenserWaitMs = 0;
                             retrieveItemsForCurrentFurnaceInteraction();
                             state = State.SMITHING;
                         }
@@ -236,7 +266,11 @@ public class BlastoiseFurnaceScript extends Script {
     }
 
     private boolean handleDispenserLooting() {
-        Microbot.status = failedLootCycles == 0 ? "Taking bars from dispenser" : "Couldn't take bars, retrying";
+        if (failedLootCycles > 0) {
+            Microbot.status = "Couldn't take bars, retrying";
+        } else {
+            Microbot.status = dispenserWaitMs > 0 ? "Waiting for the Bar dispenser" : "Taking bars from dispenser";
+        }
         if (!Rs2Inventory.isFull()) {
             if (!dispenserContainsBars()) {
                 sleepUntil(this::dispenserContainsBars, Rs2Random.between(3000, 5000));
@@ -257,6 +291,10 @@ public class BlastoiseFurnaceScript extends Script {
                 return false;
             }
 
+            if (!awaitDispenserTake()) {
+                return false;
+            }
+
             if (!takeBarsFromDispenser()) {
                 recordFailedLootCycle();
                 return false;
@@ -271,17 +309,54 @@ public class BlastoiseFurnaceScript extends Script {
         return true;
     }
 
+    boolean awaitDispenserTake() {
+        long started = System.currentTimeMillis();
+        if (isTakePromptOpen() || sleepUntil(this::dispenserOffersTake, DISPENSER_READY_POLL_MS)) {
+            dispenserWaitMs = 0;
+            return true;
+        }
+        recordDispenserNotReady(System.currentTimeMillis() - started);
+        return false;
+    }
+
+    boolean recordDispenserNotReady(long waitedMs) {
+        dispenserWaitMs += waitedMs;
+        if (dispenserWaitMs >= DISPENSER_READY_TIMEOUT_MS) {
+            log.warn("Bar dispenser did not offer Take for {} s, stopping ({})", dispenserWaitMs / 1000, dispenserDiagnostics());
+            dispenserWaitMs = 0;
+            Microbot.status = "Bar dispenser not ready, stopped";
+            Microbot.showMessage("The Bar dispenser holds bars but did not offer Take for " + DISPENSER_READY_TIMEOUT_MS / 1000 + " seconds. Take them manually, then start the script again.");
+            Rs2Player.logout();
+            Microbot.stopPlugin(plugin);
+            return true;
+        }
+        log.info("Bar dispenser does not offer Take yet, waited {} s of {} s ({})", dispenserWaitMs / 1000, DISPENSER_READY_TIMEOUT_MS / 1000, dispenserDiagnostics());
+        Microbot.status = "Waiting for the Bar dispenser";
+        return false;
+    }
+
+    String dispenserDiagnostics() {
+        Rs2TileObjectModel dispenser = Microbot.getRs2TileObjectCache().query().withId(BLAST_FURNACE_DISPENSER).first();
+        ObjectComposition composition = dispenser == null ? null : dispenser.getObjectComposition();
+        return String.format("dispenser state varbit %d, bar varbits %s, dispenser %s, actions %s, player tile %s",
+                Microbot.getVarbitValue(BLAST_FURNACE_BARS_HOT),
+                Arrays.toString(Arrays.stream(DISPENSER_BAR_VARBITS).map(Microbot::getVarbitValue).toArray()),
+                dispenser == null ? "not found" : "found",
+                composition == null ? "unknown" : Arrays.toString(composition.getActions()),
+                Rs2Player.getWorldLocation());
+    }
+
     boolean recordFailedLootCycle() {
         failedLootCycles++;
         if (failedLootCycles >= MAX_FAILED_LOOT_CYCLES) {
-            log.warn("Couldn't take bars from the dispenser (try {} of {}), stopping", failedLootCycles, MAX_FAILED_LOOT_CYCLES);
+            log.warn("Couldn't take bars from the dispenser (try {} of {}), stopping ({})", failedLootCycles, MAX_FAILED_LOOT_CYCLES, dispenserDiagnostics());
             Microbot.status = "Couldn't take bars, stopped";
             Microbot.showMessage("Couldn't take bars from the Bar dispenser after several tries. Take them manually, then start the script again.");
             Rs2Player.logout();
             Microbot.stopPlugin(plugin);
             return true;
         }
-        log.warn("Couldn't take bars from the dispenser (try {} of {}), retrying", failedLootCycles, MAX_FAILED_LOOT_CYCLES);
+        log.warn("Couldn't take bars from the dispenser (try {} of {}), retrying ({})", failedLootCycles, MAX_FAILED_LOOT_CYCLES, dispenserDiagnostics());
         Microbot.status = "Couldn't take bars, retrying";
         return false;
     }
@@ -567,7 +642,10 @@ public class BlastoiseFurnaceScript extends Script {
         sleepUntilTrue(() -> Rs2Dialogue.isInDialogue() || getInventoryOreCount() < oreCount,
                 () -> polls.incrementAndGet() < CONVEYOR_MAX_WALK_MS / CONVEYOR_POLL_MS && Rs2Player.isMoving(),
                 CONVEYOR_POLL_MS, CONVEYOR_IDLE_TIMEOUT_MS);
-        if (Rs2Widget.hasWidget("You must ask the foreman's")) {
+        if (Rs2Dialogue.hasSelectAnOption() && answerConveyorPrompt()) {
+            sleepUntil(() -> getInventoryOreCount() < oreCount || Rs2Widget.hasWidget(FOREMAN_PERMISSION_TEXT), CONVEYOR_PROMPT_TIMEOUT_MS);
+        }
+        if (Rs2Widget.hasWidget(FOREMAN_PERMISSION_TEXT)) {
             log.info("Need to pay the noob tax");
             if(timerStarted && !timeIsUp){
                 return putOreOnConveyorBelt();
@@ -577,6 +655,83 @@ public class BlastoiseFurnaceScript extends Script {
             return putOreOnConveyorBelt();
         }
         return getInventoryOreCount() < oreCount;
+    }
+
+    boolean answerConveyorPrompt() {
+        final String rawQuestion = Rs2Dialogue.getQuestion();
+        final List<String> rawOptions = Rs2Dialogue.getDialogueOptions().stream().map(Widget::getText).collect(Collectors.toList());
+        final List<String> options = rawOptions.stream().map(BlastoiseFurnaceScript::cleanPromptText).collect(Collectors.toList());
+        final String question = cleanPromptText(rawQuestion);
+        final int chosenIndex = IntStream.range(0, options.size())
+                .filter(index -> options.get(index).toLowerCase().contains("yes")).findFirst().orElse(-1);
+        clearBeltPrompt();
+        lastBeltPrompt = String.format("\"%s\" with options %s", rawQuestion, rawOptions);
+        lastBeltQuestion = question;
+        lastBeltOptions = String.join(", ", options);
+        if (chosenIndex < 0) {
+            log.warn("Conveyor belt asked {} and there is no Yes option to choose, leaving it unanswered", lastBeltPrompt);
+            return false;
+        }
+        final String chosen = options.get(chosenIndex);
+        if (!Rs2Dialogue.keyPressForDialogueOption(chosenIndex + 1)) {
+            lastBeltUnclicked = chosen;
+            log.warn("Conveyor belt asked {} but the \"{}\" option could not be clicked", lastBeltPrompt, chosen);
+            return false;
+        }
+        lastBeltAnswer = chosen;
+        Microbot.log(question.isEmpty()
+                ? "The conveyor belt showed a prompt. Chose \"" + chosen + "\"."
+                : "The conveyor belt asked \"" + question + "\". Chose \"" + chosen + "\".");
+        Microbot.status = "Answering the conveyor belt prompt";
+        return true;
+    }
+
+    static String cleanPromptText(String text) {
+        return text == null ? "" : Text.removeTags(text.replace("<br>", " ")).replace(' ', ' ').trim();
+    }
+
+    private void clearBeltPrompt() {
+        lastBeltPrompt = null;
+        lastBeltQuestion = null;
+        lastBeltOptions = null;
+        lastBeltAnswer = null;
+        lastBeltUnclicked = null;
+    }
+
+    static String beltStopMessage(boolean promptSeen, String question, String options, String answer, String unclicked) {
+        final String start = "Ore did not go onto the conveyor belt " + MAX_FAILED_BELT_TRIPS + " trips in a row.";
+        if (!promptSeen) {
+            return start + " Put the ore on the belt by hand, then start the script again.";
+        }
+        final boolean hasQuestion = question != null && !question.isEmpty();
+        final boolean hasOptions = options != null && !options.isEmpty();
+        final String asked = (hasQuestion ? "The belt asked \"" + question + "\"" : "The belt showed a prompt")
+                + (answer == null && hasOptions ? " (" + options + ")" : "");
+        final String outcome;
+        if (answer != null) {
+            outcome = " and the script answered \"" + answer + "\", but the ore stayed in your inventory.";
+        } else if (unclicked != null) {
+            outcome = " but the script could not click \"" + unclicked + "\".";
+        } else {
+            outcome = " and the script does not know which answer to pick.";
+        }
+        return start + "\n" + asked + outcome
+                + "\nPut the ore on the belt by hand and start the script again."
+                + "\nIf it stops here again, report it on the Microbot Discord and include the log.";
+    }
+
+    boolean recordFailedBeltTrip() {
+        failedBeltTrips++;
+        if (failedBeltTrips < MAX_FAILED_BELT_TRIPS) {
+            return false;
+        }
+        log.warn("Ore did not go onto the conveyor belt {} trips in a row, stopping (last prompt: {}, answered: {}, could not click: {})", failedBeltTrips, lastBeltPrompt, lastBeltAnswer, lastBeltUnclicked);
+        failedBeltTrips = 0;
+        Microbot.status = "Ore didn't go on the belt, stopped";
+        Rs2Player.logout();
+        Microbot.showMessage(beltStopMessage(lastBeltPrompt != null, lastBeltQuestion, lastBeltOptions, lastBeltAnswer, lastBeltUnclicked));
+        Microbot.stopPlugin(plugin);
+        return true;
     }
 
     public void setTenMinuteTimer(){
@@ -604,13 +759,24 @@ public class BlastoiseFurnaceScript extends Script {
 
     boolean depositOre() {
         final boolean usesCoalBag = config.getBars().isRequiresCoalBag();
+        clearBeltPrompt();
         if (!putOreOnConveyorBelt()) {
+            if (getInventoryOreCount() > 0 && recordFailedBeltTrip()) {
+                return false;
+            }
             log.warn(usesCoalBag
                     ? "Ore did not go onto the conveyor belt. Leaving the coal bag full and trying again next trip."
                     : "Ore did not go onto the conveyor belt. Trying again next trip.");
-            Microbot.status = "Ore didn't go on the belt, retrying";
+            if (lastBeltUnclicked != null) {
+                Microbot.status = "Couldn't click the belt prompt answer, retrying";
+            } else {
+                Microbot.status = lastBeltPrompt != null && lastBeltAnswer == null
+                        ? "Belt asked a question the script can't answer, retrying"
+                        : "Ore didn't go on the belt, retrying";
+            }
             return false;
         }
+        failedBeltTrips = 0;
         if (usesCoalBag) {
             if (!Rs2Inventory.interact(COAL_BAGS, "Empty") || !Rs2Inventory.waitForInventoryChanges(3_000)) {
                 log.warn("Coal bag did not empty. Trying again next trip.");
@@ -678,14 +844,7 @@ public class BlastoiseFurnaceScript extends Script {
     }
 
     public boolean dispenserContainsBars() {
-        return Arrays.stream(new int[]{
-                BLAST_FURNACE_IRON_BARS,
-                BLAST_FURNACE_STEEL_BARS,
-                BLAST_FURNACE_GOLD_BARS,
-                BLAST_FURNACE_MITHRIL_BARS,
-                BLAST_FURNACE_ADAMANTITE_BARS,
-                BLAST_FURNACE_RUNITE_BARS
-        }).anyMatch(id -> Microbot.getVarbitValue(id) > 0);
+        return Arrays.stream(DISPENSER_BAR_VARBITS).anyMatch(id -> Microbot.getVarbitValue(id) > 0);
     }
 
     private void equipGoldSmithGauntlets() {
@@ -704,6 +863,9 @@ public class BlastoiseFurnaceScript extends Script {
         init = false;
         state = State.BANKING;
         failedLootCycles = 0;
+        dispenserWaitMs = 0;
+        failedBeltTrips = 0;
+        clearBeltPrompt();
         primaryOreEmpty = false;
         secondaryOreEmpty = false;
         super.shutdown();

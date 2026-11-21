@@ -95,6 +95,8 @@ public class CgPrepScript extends StateMachineScript<CgState>
 	/** Entrance clicks in a row that didn't get us in (review: a locked Corrupted Gauntlet looped forever). */
 	private int enterFails;
 	volatile long entryRefusedAtMs;
+	/** When the deposit box last emptied what we had to (a refusal before this has been dealt with). */
+	private long lastBankedMs;
 	private int depositFails;
 	volatile boolean depositBlocked;
 	/** Set after {@link #ENTER_GIVE_UP} failed entries: no more Enter clicks until Continue / the Gauntlet setting changes / restart. */
@@ -943,7 +945,7 @@ public class CgPrepScript extends StateMachineScript<CgState>
 			gather.weave = config.weaveAttacks() && n.get(net.runelite.client.plugins.microbot.cgprep.data.Resource.SHARDS) > 0;
 			prayer.lazyFlick = config.lazyFlick();
 			gather.meleeWeapon = styleNow == net.runelite.client.plugins.microbot.cgprep.fight.PrayerGuard.Style.MELEE;
-			lootNeeds = in.gather != null ? in.gather : n;
+			lootNeeds = net.runelite.client.plugins.microbot.cgprep.plan.PrepPlanner.lootNeeds(in);
 			perfPlan = (System.nanoTime() - t2) / 1_000_000;
 			long total = perfMaze + perfLedger + perfPlan;
 			if (total > 150 && System.currentTimeMillis() - lastPerfLogMs > 5000)
@@ -2303,11 +2305,12 @@ public class CgPrepScript extends StateMachineScript<CgState>
 	}
 
 	/**
-	 * Lobby, between runs: open the Reward Chest if a reward is waiting (loop on), first banking at the
-	 * deposit box when fewer than "Bank loot below free slots" are free (or the chest won't open twice
-	 * in a row with space short). The Gauntlet lets nothing in, so once the chest is empty everything
-	 * carried or worn goes into the deposit box. Then wait 1-12 s (countdown in the overlay) and
-	 * "Enter-corrupted". Same after a kill or a death.
+	 * Lobby, between runs: open the Reward Chest if a reward is waiting (loop on), first banking the
+	 * bag at the deposit box when fewer than "Bank loot below free slots" are free (or the chest won't
+	 * open twice in a row with space short). Then wait 1-12 s (countdown in the overlay) and
+	 * "Enter-corrupted". Only if the game refuses entry because of what's carried or worn does
+	 * everything (worn items too) go into the deposit box, then it enters again (1.8.5). Same after a
+	 * kill or a death.
 	 */
 	private void lobbySetup()
 	{
@@ -2352,7 +2355,8 @@ public class CgPrepScript extends StateMachineScript<CgState>
 		}
 		int free = Rs2Inventory.emptySlotCount();
 		boolean wearing = Rs2Equipment.isWearing();
-		boolean needBank = LobbyDeposit.needed(reward, free, config.bankBelowFreeSlots(), chestFails, Rs2Inventory.count(), wearing);
+		boolean refused = entryRefusedAtMs > lastBankedMs;
+		boolean needBank = LobbyDeposit.needed(reward, free, config.bankBelowFreeSlots(), chestFails, Rs2Inventory.count(), wearing, refused);
 		if (needBank || Rs2DepositBox.isOpen())
 		{
 			reenterAtMs = -1;
@@ -2361,7 +2365,7 @@ public class CgPrepScript extends StateMachineScript<CgState>
 				lastLobbyClickMs = now;
 				ActionResult r = clickLobbyObject(new int[]{CgIds.OBJ_LOBBY_DEPOSIT_BOX}, "Deposit");
 				record(reward ? "lobby: deposit box (" + free + " free slots)"
-					: "lobby: banking everything you carry and wear (the Gauntlet lets no items in)", r);
+					: "lobby: the Gauntlet refused entry with items: banking what's carried and worn", r);
 				if (r == ActionResult.CLICKED && !Global.sleepUntil(Rs2DepositBox::isOpen, 6000))
 				{
 					depositFails++;
@@ -2375,18 +2379,20 @@ public class CgPrepScript extends StateMachineScript<CgState>
 				return;
 			}
 			Rs2DepositBox.depositAll();
-			if (wearing)
+			boolean worn = LobbyDeposit.depositWorn(refused, wearing);
+			if (worn)
 			{
 				Rs2DepositBox.depositEquipment();
 			}
-			boolean done = Global.sleepUntil(() -> Rs2Inventory.count() == 0 && !Rs2Equipment.isWearing(), 3000);
+			boolean done = Global.sleepUntil(() -> Rs2Inventory.count() == 0 && (!worn || !Rs2Equipment.isWearing()), 3000);
 			Rs2DepositBox.closeDepositBox();
 			chestFails = 0;
 			if (done)
 			{
 				depositFails = 0;
-				pl("LOBBY", reward ? "bag nearly full (" + free + " free): banked everything carried and worn"
-					: "banked everything carried and worn before going in");
+				lastBankedMs = System.currentTimeMillis();
+				pl("LOBBY", reward ? "bag nearly full (" + free + " free): banked the bag" + (worn ? " and worn items" : "")
+					: "banked what the Gauntlet refused" + (worn ? " (bag and worn items)" : " (bag)"));
 				return;
 			}
 			depositFails++;
@@ -2395,8 +2401,8 @@ public class CgPrepScript extends StateMachineScript<CgState>
 				blockDeposit();
 				return;
 			}
-			pl("LOBBY", (reward ? "tried to bank everything to make room for the loot" : "tried to bank everything before going in")
-				+ ", items still carried or worn: trying again (" + depositFails + "/" + LobbyDeposit.MAX_TRIES + ")");
+			pl("LOBBY", (reward ? "tried to bank the bag to make room for the loot" : "tried to bank what the Gauntlet refused")
+				+ ", items still there: trying again (" + depositFails + "/" + LobbyDeposit.MAX_TRIES + ")");
 			return;
 		}
 		if (reward)
@@ -2695,9 +2701,18 @@ public class CgPrepScript extends StateMachineScript<CgState>
 			{
 				brewReadySinceMs = now;
 			}
+			// Bit by bit (1.8.5, player feedback): a shorter run does the steps that fit it (about
+			// 2 tiles a tick running), the rest on the next run.
+			int fits = (left - 2) / 2;
+			if (!longRun && fits >= 1)
+			{
+				k = bc.plan(mode(), l.waterVials, l.get(net.runelite.client.plugins.microbot.cgprep.data.Resource.GRYM), l.unfinishedPotions,
+					l.dust, l.get(net.runelite.client.plugins.microbot.cgprep.data.Resource.SHARDS), l.pestle, l.freeSlots, n.potionsToMake, fits);
+				longRun = k > 0;
+			}
 			if (!longRun && now - brewReadySinceMs < 20_000)
 			{
-				return false; // wait for a longer run
+				return false; // wait for a run
 			}
 		}
 		brewReadySinceMs = 0;

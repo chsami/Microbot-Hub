@@ -9,6 +9,7 @@ import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.api.tileobject.Rs2TileObjectCache;
 import net.runelite.client.plugins.microbot.api.tileobject.Rs2TileObjectQueryable;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
+import net.runelite.client.plugins.microbot.tithefarming.enums.TitheFarmLanes;
 import net.runelite.client.plugins.microbot.tithefarming.enums.TitheFarmState;
 import net.runelite.client.plugins.microbot.tithefarming.models.TitheFarmPlant;
 import net.runelite.client.plugins.microbot.util.Global;
@@ -23,6 +24,7 @@ import org.mockito.MockedStatic;
 
 import java.lang.reflect.Method;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BooleanSupplier;
@@ -47,6 +49,7 @@ class TitheFarmingCoreLoopTest {
     private static final WorldPoint SACK = new WorldPoint(1805, 3501, 0);
     private static final WorldPoint FAR_AWAY = new WorldPoint(1835, 3501, 0);
     private static final WorldPoint NORTH_END = new WorldPoint(1832, 3505, 0);
+    private static final WorldPoint OUT_OF_REACH = new WorldPoint(1700, 3400, 0);
 
     private List<TitheFarmPlant> savedPlants;
     private TitheFarmState savedState;
@@ -103,6 +106,7 @@ class TitheFarmingCoreLoopTest {
              MockedStatic<Rs2Inventory> inventory = mockStatic(Rs2Inventory.class)) {
             microbot.when(Microbot::getClientThread).thenReturn(clientThread);
             microbot.when(Microbot::getClient).thenReturn(client);
+            walker.when(() -> Rs2Walker.walkMiniMap(any(WorldPoint.class), anyDouble())).thenReturn(true);
 
             method("coreLoop", TitheFarmingConfig.class).invoke(new TitheFarmingScript(), mock(TitheFarmingConfig.class));
 
@@ -117,7 +121,7 @@ class TitheFarmingCoreLoopTest {
         when(empty.isEmptyPatchOrSeedling()).thenReturn(true);
         TitheFarmPlant dry = patch(2, 40);
         when(dry.isStage1()).thenReturn(true);
-        when(dry.growsWithin(any(Duration.class))).thenReturn(true);
+        when(dry.timeUntilGrowth(any(Instant.class))).thenReturn(Duration.ofSeconds(5));
         TitheFarmingScript.plants = new ArrayList<>(List.of(empty, dry));
         TitheFarmingScript.state = TitheFarmState.PLANTING_SEEDS;
 
@@ -128,13 +132,15 @@ class TitheFarmingCoreLoopTest {
     void coreLoopKeepsSeedingTheLaneWhileTheFirstDryPlantHasTimeLeft() throws Exception {
         TitheFarmPlant dry = patch(1, 35, 34);
         when(dry.isStage1()).thenReturn(true);
+        when(dry.timeUntilGrowth(any(Instant.class))).thenReturn(Duration.ofSeconds(40));
         TitheFarmPlant empty = patch(10, 40, 49);
         when(empty.isEmptyPatch()).thenReturn(true);
-        when(empty.isEmptyPatchOrSeedling()).thenReturn(true);
         TitheFarmingScript.plants = new ArrayList<>(List.of(dry, empty));
         TitheFarmingScript.state = TitheFarmState.PLANTING_SEEDS;
+        TitheFarmingScript script = new TitheFarmingScript();
+        script.routePosition = 1;
 
-        WorldPoint target = walkTargetOfOneLoop(NORTH_END);
+        WorldPoint target = walkTargetOfOneLoop(script, NORTH_END);
 
         assertEquals(40, target.getRegionX());
         assertEquals(49, target.getRegionY());
@@ -146,7 +152,7 @@ class TitheFarmingCoreLoopTest {
         when(relaxed.isStage2()).thenReturn(true);
         TitheFarmPlant urgent = patch(12, 45, 46);
         when(urgent.isStage1()).thenReturn(true);
-        when(urgent.growsWithin(any(Duration.class))).thenReturn(true);
+        when(urgent.timeUntilGrowth(any(Instant.class))).thenReturn(Duration.ofSeconds(3));
         TitheFarmingScript.plants = new ArrayList<>(List.of(relaxed, urgent));
         TitheFarmingScript.state = TitheFarmState.HARVEST;
 
@@ -189,7 +195,6 @@ class TitheFarmingCoreLoopTest {
         TitheFarmingScript script = new TitheFarmingScript();
 
         when(urgent.isStage1()).thenReturn(true);
-        when(urgent.growsWithin(any(Duration.class))).thenReturn(true);
         assertEquals(34, walkTargetOfOneLoop(script, NORTH_END).getRegionY());
 
         when(urgent.isStage1()).thenReturn(false);
@@ -224,7 +229,6 @@ class TitheFarmingCoreLoopTest {
         TitheFarmingScript script = new TitheFarmingScript();
 
         when(urgent.isStage1()).thenReturn(true);
-        when(urgent.growsWithin(any(Duration.class))).thenReturn(true);
         assertEquals(43, walkTargetOfOneLoop(script, NORTH_END).getRegionY());
 
         when(urgent.isStage1()).thenReturn(false);
@@ -397,6 +401,141 @@ class TitheFarmingCoreLoopTest {
     }
 
     @Test
+    void coreLoopWaitsAtTheNextPatchInTheLaneInsteadOfGoingBackForADryPlantWithTimeLeft() throws Exception {
+        Rs2TileObjectModel behindObject = objectAt(OUT_OF_REACH);
+        TitheFarmPlant behind = patch(1, 35, 34);
+        when(behind.getGameObject()).thenReturn(behindObject);
+        when(behind.isStage2()).thenReturn(true);
+        when(behind.timeUntilGrowth(any(Instant.class))).thenReturn(Duration.ofSeconds(40));
+        Rs2TileObjectModel nextObject = objectAt(SACK);
+        TitheFarmPlant next = patch(2, 40, 34);
+        when(next.getGameObject()).thenReturn(nextObject);
+        when(next.wateredStage()).thenReturn(1);
+        TitheFarmingScript.plants = new ArrayList<>(List.of(behind, next));
+        TitheFarmingScript.state = TitheFarmState.PLANTING_SEEDS;
+        TitheFarmingScript script = new TitheFarmingScript();
+        script.routePosition = 1;
+        script.routePass = 1;
+        Client client = clientWithPlayerAt(SACK);
+        ClientThread clientThread = runsOnCaller();
+
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class);
+             MockedStatic<Rs2Walker> walker = mockStatic(Rs2Walker.class);
+             MockedStatic<Rs2Inventory> inventory = mockStatic(Rs2Inventory.class);
+             MockedStatic<Global> global = mockStatic(Global.class)) {
+            microbot.when(Microbot::getClientThread).thenReturn(clientThread);
+            microbot.when(Microbot::getClient).thenReturn(client);
+
+            method("coreLoop", TitheFarmingConfig.class).invoke(script, mock(TitheFarmingConfig.class));
+
+            walker.verifyNoInteractions();
+            inventory.verifyNoInteractions();
+            verify(behindObject, never()).click(any(String.class));
+            verify(nextObject, never()).click(any(String.class));
+            assertEquals(1, script.routePosition);
+            assertEquals(1, script.routePass);
+        }
+    }
+
+    @Test
+    void coreLoopGoesBackForADryPlantOnlyWhenTheLaneWouldReachItTooLate() throws Exception {
+        TitheFarmPlant behind = patch(1, 35, 34);
+        when(behind.isStage2()).thenReturn(true);
+        when(behind.timeUntilGrowth(any(Instant.class))).thenReturn(Duration.ofSeconds(6));
+        TitheFarmPlant next = patch(2, 40, 34);
+        when(next.wateredStage()).thenReturn(1);
+        TitheFarmingScript.plants = new ArrayList<>(List.of(behind, next));
+        TitheFarmingScript.state = TitheFarmState.PLANTING_SEEDS;
+        TitheFarmingScript script = new TitheFarmingScript();
+        script.routePosition = 1;
+        script.routePass = 1;
+
+        WorldPoint target = walkTargetOfOneLoop(script, NORTH_END);
+
+        assertEquals(35, target.getRegionX());
+        assertEquals(34, target.getRegionY());
+        assertEquals(1, script.routePosition);
+    }
+
+    @Test
+    void coreLoopKeepsToTheLaneWhenADryPlantFarAheadIsNotAboutToDie() throws Exception {
+        TitheFarmPlant current = patch(1, 35, 34);
+        when(current.isStage1()).thenReturn(true);
+        TitheFarmPlant between = patch(2, 40, 34);
+        TitheFarmPlant ahead = patch(3, 35, 40);
+        when(ahead.isStage1()).thenReturn(true);
+        when(ahead.timeUntilGrowth(any(Instant.class))).thenReturn(Duration.ofSeconds(11));
+        TitheFarmingScript.plants = new ArrayList<>(List.of(current, between, ahead));
+        TitheFarmingScript.state = TitheFarmState.PLANTING_SEEDS;
+        TitheFarmingScript script = new TitheFarmingScript();
+        script.routePass = 1;
+
+        WorldPoint target = walkTargetOfOneLoop(script, NORTH_END);
+
+        assertEquals(35, target.getRegionX());
+        assertEquals(34, target.getRegionY());
+    }
+
+    @Test
+    void coreLoopStartsTheHarvestPassAtTheFirstPatchOnceTheLastStage2PlantIsWatered() throws Exception {
+        TitheFarmPlant first = patch(1, 35, 34);
+        when(first.wateredStage()).thenReturn(3);
+        TitheFarmPlant last = patch(2, 40, 34);
+        when(last.wateredStage()).thenReturn(3);
+        TitheFarmingScript.plants = new ArrayList<>(List.of(first, last));
+        TitheFarmingScript.state = TitheFarmState.PLANTING_SEEDS;
+        TitheFarmingScript script = new TitheFarmingScript();
+        script.routePosition = 1;
+        script.routePass = 2;
+
+        when(first.wateredStage()).thenReturn(0);
+        when(first.isValidToHarvest()).thenReturn(true);
+        WorldPoint target = walkTargetOfOneLoop(script, NORTH_END);
+
+        assertEquals(35, target.getRegionX());
+        assertEquals(0, script.routePosition);
+        assertEquals(3, script.routePass);
+        assertEquals(TitheFarmState.HARVEST, TitheFarmingScript.state);
+    }
+
+    @Test
+    void routeStepWaitsForAPlantWateredForThisPassAndSkipsOnesAlreadyDone() {
+        TitheFarmPlant seedlingWatered = mock(TitheFarmPlant.class);
+        when(seedlingWatered.wateredStage()).thenReturn(1);
+        TitheFarmPlant emptyPatch = mock(TitheFarmPlant.class);
+        when(emptyPatch.isEmptyPatch()).thenReturn(true);
+        TitheFarmPlant harvested = mock(TitheFarmPlant.class);
+        when(harvested.isEmptyPatch()).thenReturn(true);
+        when(harvested.isHarvested()).thenReturn(true);
+        TitheFarmPlant dead = mock(TitheFarmPlant.class);
+        when(dead.isDead()).thenReturn(true);
+
+        assertEquals(TitheFarmingScript.RouteStep.SKIP, TitheFarmingScript.routeStep(seedlingWatered, 0));
+        assertEquals(TitheFarmingScript.RouteStep.WAIT, TitheFarmingScript.routeStep(seedlingWatered, 1));
+        assertEquals(TitheFarmingScript.RouteStep.SKIP, TitheFarmingScript.routeStep(seedlingWatered, 2));
+        assertEquals(TitheFarmingScript.RouteStep.ACT, TitheFarmingScript.routeStep(emptyPatch, 0));
+        assertEquals(TitheFarmingScript.RouteStep.SKIP, TitheFarmingScript.routeStep(emptyPatch, 1));
+        assertEquals(TitheFarmingScript.RouteStep.SKIP, TitheFarmingScript.routeStep(harvested, 0));
+        assertEquals(TitheFarmingScript.RouteStep.SKIP, TitheFarmingScript.routeStep(dead, 1));
+    }
+
+    @Test
+    void randomizeAlwaysPicksARealLaneAndKeepsItForTheWholeRun() {
+        TitheFarmingConfig config = mock(TitheFarmingConfig.class);
+        when(config.Lanes()).thenReturn(TitheFarmLanes.Randomize);
+        for (int run = 0; run < 50; run++) {
+            TitheFarmingScript script = new TitheFarmingScript();
+            script.init(config);
+            List<TitheFarmPlant> first = TitheFarmingScript.plants;
+            assertFalse(first.isEmpty());
+            script.init(config);
+            assertEquals(first.get(0).regionX, TitheFarmingScript.plants.get(0).regionX);
+            assertEquals(first.get(0).regionY, TitheFarmingScript.plants.get(0).regionY);
+        }
+    }
+
+    @Test
     void walkToBarrelDoesNotWalkWhenTheLocalPlayerIsNotLoaded() {
         Client client = mock(Client.class);
         when(client.getLocalPlayer()).thenReturn(null);
@@ -481,7 +620,9 @@ class TitheFarmingCoreLoopTest {
 
     private static TitheFarmPlant plantToVisit() {
         TitheFarmPlant plant = mock(TitheFarmPlant.class);
-        when(plant.isEmptyPatchOrSeedling()).thenReturn(true);
+        Rs2TileObjectModel patchObject = objectAt(OUT_OF_REACH);
+        when(plant.getGameObject()).thenReturn(patchObject);
+        when(plant.isEmptyPatch()).thenReturn(true);
         TitheFarmingScript.plants = new ArrayList<>(List.of(plant));
         TitheFarmingScript.state = TitheFarmState.PLANTING_SEEDS;
         return plant;
@@ -493,6 +634,9 @@ class TitheFarmingCoreLoopTest {
 
     private static TitheFarmPlant patch(int index, int regionX, int regionY) {
         TitheFarmPlant plant = mock(TitheFarmPlant.class);
+        Rs2TileObjectModel patchObject = objectAt(OUT_OF_REACH);
+        when(plant.getGameObject()).thenReturn(patchObject);
+        when(plant.timeUntilGrowth(any(Instant.class))).thenReturn(null);
         when(plant.getIndex()).thenReturn(index);
         plant.regionX = regionX;
         plant.regionY = regionY;
@@ -527,6 +671,7 @@ class TitheFarmingCoreLoopTest {
              MockedStatic<Rs2Inventory> inventory = mockStatic(Rs2Inventory.class)) {
             microbot.when(Microbot::getClientThread).thenReturn(clientThread);
             microbot.when(Microbot::getClient).thenReturn(client);
+            walker.when(() -> Rs2Walker.walkMiniMap(any(WorldPoint.class), anyDouble())).thenReturn(true);
 
             method("coreLoop", TitheFarmingConfig.class).invoke(script, mock(TitheFarmingConfig.class));
 

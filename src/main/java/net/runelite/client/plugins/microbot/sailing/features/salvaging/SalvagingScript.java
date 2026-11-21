@@ -93,6 +93,10 @@ public class SalvagingScript {
      * punctuation or wording after this phrase still matches).
      */
     private static final String CARGO_HOLD_FULL_MESSAGE_CONTAINS = "the cargo hold is full";
+    static final String NO_STATION_NOTHING_TO_DROP_MESSAGE =
+            "Inventory is full of salvage and this boat has no salvaging station. Add the exact salvage names (e.g. Small salvage) to Drop items, turn on Use Cargo Hold, or build a salvaging station on your boat.";
+    static final String NO_STATION_CARGO_HOLD_FULL_MESSAGE =
+            "Inventory and cargo hold are full of salvage and this boat has no salvaging station. Add the exact salvage names (e.g. Small salvage) to Drop items, or build a salvaging station on your boat.";
     private final Rs2TileObjectCache tileObjectCache;
     @SuppressWarnings("unused")
     private final Rs2BoatCache boatCache;
@@ -124,6 +128,7 @@ public class SalvagingScript {
     private long lastCargoHoldInitAttemptMs;
     private long lastCargoHoldInitHintLogMs;
     private long lastCargoHoldWidgetResyncMs;
+    private volatile boolean noStationNothingToDropWarned = false;
 
     @Inject
     public SalvagingScript(Rs2TileObjectCache tileObjectCache, Rs2BoatCache boatCache, EventBus eventBus) {
@@ -133,6 +138,7 @@ public class SalvagingScript {
     }
 
     public void register() {
+        noStationNothingToDropWarned = false;
         eventBus.register(this);
     }
 
@@ -254,6 +260,10 @@ public class SalvagingScript {
         return inactiveWreckSnapshot;
     }
 
+    public boolean isWaitingForDropSetup() {
+        return noStationNothingToDropWarned;
+    }
+
     public void run(SailingConfig config) {
         try {
             var player = new Rs2PlayerModel();
@@ -290,12 +300,13 @@ public class SalvagingScript {
             if (isInventoryFull()) {
                 if (config.useCargoHold() && cargoHoldProcessing && hasSalvageItems()) {
                     log.info("Inventory full during cargo-hold processing; processing salvage at station before more withdraws");
-                } else {
+                } else if (!noStationNothingToDropWarned) {
                     log.info("Inventory full, handling before salvaging");
                 }
                 handleFullInventory(config, player);
                 return;
             }
+            clearNoStationNothingToDropWarning();
 
             var nearbyWreck = findNearestWreck(player.getWorldLocation());
             if (nearbyWreck == null) {
@@ -1347,10 +1358,33 @@ public class SalvagingScript {
         var salvagingStation = findSalvagingStation();
 
         if (salvagingStation != null) {
+            clearNoStationNothingToDropWarning();
             depositAtStation(salvagingStation);
-        } else {
-            log.info("No salvaging station found, dropping junk items");
-            dropJunk(config);
+            return;
+        }
+        String[] dropItems = dropItemNames(config);
+        if (dropItems.length == 0 || !Rs2Inventory.hasItem(dropItems, true)) {
+            String message = noStationNothingToDropMessage(config.useCargoHold());
+            Microbot.status = message;
+            if (!noStationNothingToDropWarned) {
+                noStationNothingToDropWarned = true;
+                log.warn(message);
+            }
+            return;
+        }
+        clearNoStationNothingToDropWarning();
+        log.info("No salvaging station on this boat, dropping items from your Drop items list");
+        Rs2Inventory.dropAll(dropItems);
+    }
+
+    static String noStationNothingToDropMessage(boolean useCargoHold) {
+        return useCargoHold ? NO_STATION_CARGO_HOLD_FULL_MESSAGE : NO_STATION_NOTHING_TO_DROP_MESSAGE;
+    }
+
+    private void clearNoStationNothingToDropWarning() {
+        if (noStationNothingToDropWarned) {
+            noStationNothingToDropWarned = false;
+            Microbot.status = "Salvaging";
         }
     }
 
@@ -1372,25 +1406,37 @@ public class SalvagingScript {
                 .toList();
         List<Rs2TileObjectModel> merged = mergeDistinctTileObjectLists(fromWorldView, fromDefaultScene);
         Client client = Microbot.getClient();
-        if (client != null) {
-            Player lp = client.getLocalPlayer();
-            if (lp != null) {
-                WorldView wv = lp.getWorldView();
-                if (wv != null) {
-                    merged = mergeDistinctTileObjectLists(
-                            merged,
-                            collectTileObjectsFromWorldViewScene(wv, this::isSalvagingStationTileObject));
-                }
-            }
-        }
-        if (merged.isEmpty()) {
+        if (client == null) {
             return null;
         }
-        WorldPoint player = Rs2Player.getWorldLocation();
-        if (player == null) {
-            return merged.get(0);
+        Player lp = client.getLocalPlayer();
+        if (lp == null) {
+            return null;
         }
-        return merged.stream()
+        WorldView wv = lp.getWorldView();
+        if (wv == null) {
+            return null;
+        }
+        merged = mergeDistinctTileObjectLists(
+                merged,
+                collectTileObjectsFromWorldViewScene(wv, this::isSalvagingStationTileObject));
+        return nearestStationOnWorldView(merged, wv, Rs2Player.getWorldLocation());
+    }
+
+    static Rs2TileObjectModel nearestStationOnWorldView(
+            List<Rs2TileObjectModel> stations,
+            WorldView playerWorldView,
+            WorldPoint player) {
+        List<Rs2TileObjectModel> onPlayerWorldView = stations.stream()
+                .filter(o -> o.getWorldView() != null && o.getWorldView().getId() == playerWorldView.getId())
+                .collect(Collectors.toList());
+        if (onPlayerWorldView.isEmpty()) {
+            return null;
+        }
+        if (player == null) {
+            return onPlayerWorldView.get(0);
+        }
+        return onPlayerWorldView.stream()
                 .min(Comparator.comparingInt(o -> player.distanceTo(o.getWorldLocation())))
                 .orElse(null);
     }
@@ -1508,16 +1554,20 @@ public class SalvagingScript {
     }
 
     private void dropJunk(SailingConfig config) {
-        var dropItems = config.dropItems();
-        if (dropItems == null || dropItems.isBlank()) return;
-
-        var junkItems = Arrays.stream(dropItems.split(","))
-                .map(String::trim)
-                .filter(item -> !item.isEmpty())
-                .toArray(String[]::new);
-
+        var junkItems = dropItemNames(config);
         if (junkItems.length > 0) {
             Rs2Inventory.dropAll(junkItems);
         }
+    }
+
+    static String[] dropItemNames(SailingConfig config) {
+        var dropItems = config.dropItems();
+        if (dropItems == null || dropItems.isBlank()) {
+            return new String[0];
+        }
+        return Arrays.stream(dropItems.split(","))
+                .map(String::trim)
+                .filter(item -> !item.isEmpty())
+                .toArray(String[]::new);
     }
 }

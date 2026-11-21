@@ -22,15 +22,12 @@ import net.runelite.client.plugins.microbot.droinfernoprayers.ArenaProduct;
 import net.runelite.client.plugins.microbot.droinfernoprayers.local.InfernoDecisionEngine;
 import net.runelite.client.plugins.microbot.droinfernoprayers.plugins.common.Commands;
 import net.runelite.client.plugins.microbot.droinfernoprayers.plugins.common.State;
-import net.runelite.client.plugins.microbot.droinfernoprayers.plugins.inferno.InfernoCommands;
-import net.runelite.client.plugins.microbot.droinfernoprayers.plugins.inferno.InfernoState;
 import net.runelite.client.plugins.microbot.droinfernoprayers.ArenaDiagnostic;
 
 public final class LocalInfernoSession implements AutoCloseable
 {
     private static final Gson SNAPSHOT_JSON = new GsonBuilder().serializeNulls().disableHtmlEscaping().create();
-    private static final Set<String> SECTIONS = Set.of("player", "npcs", "prayers", "inventory",
-        "events", "projectiles", "equipment", "ground", "camera", "collision");
+    private static final Set<String> SECTIONS = Set.of("player", "npcs", "prayers", "events", "projectiles", "equipment", "collision");
     private final Events events = new Events();
     private final StateMessage stateMessage = new StateMessage();
     private final CommandRunner runner;
@@ -38,9 +35,6 @@ public final class LocalInfernoSession implements AutoCloseable
     private final BooleanSupplier allowed;
     private final Consumer<String> log;
     private Map<String, Object> options = Map.of();
-    private boolean ancientSpellbook;
-    private int bloodAutocastLevel;
-    private int iceRunes = -1;
     private volatile boolean running;
     private volatile boolean closed;
     private volatile String lastEnd;
@@ -94,39 +88,10 @@ public final class LocalInfernoSession implements AutoCloseable
         return this;
     }
 
-    private volatile java.util.function.BooleanSupplier prayersOnly=()->false;
-    public LocalInfernoSession prayersOnly(java.util.function.BooleanSupplier value)
-    {
-        prayersOnly=value==null?()->false:value;
-        return this;
-    }
-
-    private volatile BooleanSupplier manualMovement=()->false;
-    public LocalInfernoSession manualMovement(BooleanSupplier value)
-    {
-        manualMovement=value==null?()->false:value;
-        return this;
-    }
-    private boolean dropped(JsonObject packet)
-    {
-        var op=packet.get("op");
-        if(!prayersOnly.getAsBoolean())
-            return manualMovement.getAsBoolean()&&op!=null&&op.isJsonPrimitive()&&"movement.tile".equals(op.getAsString());
-        return op==null||!op.isJsonPrimitive()||!op.getAsString().startsWith("prayer.");
-    }
-
     public LocalInfernoSession common(State state, Commands commands)
     {
         stateMessage.state = state;
         runner.commands = commands;
-        if (commands != null) stateMessage.colosseumUi = commands.interfaceState();
-        return this;
-    }
-
-    public LocalInfernoSession inferno(InfernoState state, InfernoCommands commands)
-    {
-        stateMessage.infernoState = state;
-        runner.infernoCommands = commands;
         return this;
     }
 
@@ -140,14 +105,6 @@ public final class LocalInfernoSession implements AutoCloseable
     public boolean running() { return running; }
     public String lastEnd() { return lastEnd; }
     public String status() { return lastEnd != null ? lastEnd : "Local: " + worker.status(); }
-
-    public void spellState(boolean ancient, int bloodLevel)
-    {
-        ancientSpellbook = ancient;
-        bloodAutocastLevel = ancient && (bloodLevel == 56 || bloodLevel == 68 || bloodLevel == 80 || bloodLevel == 92) ? bloodLevel : 0;
-    }
-
-    public void iceRunes(int tiers) { iceRunes = ancientSpellbook ? tiers : 0; }
 
     public void observePrayers(Client client)
     {
@@ -198,13 +155,6 @@ public final class LocalInfernoSession implements AutoCloseable
             return;
         }
         snapshot.addProperty("inputAllowed", allowed.getAsBoolean());
-        if (snapshot.has("player"))
-        {
-            snapshot.getAsJsonObject("player").addProperty("ancientSpellbook", ancientSpellbook);
-            snapshot.getAsJsonObject("player").addProperty("bloodAutocast", bloodAutocastLevel > 0);
-            snapshot.getAsJsonObject("player").addProperty("bloodAutocastLevel", bloodAutocastLevel);
-            if (iceRunes >= 0) snapshot.getAsJsonObject("player").addProperty("iceRunes", iceRunes);
-        }
         worker.offer(snapshot);
         publish(Map.of("event", "arena_local_state", "tick", runner.tick(),
             "status", String.valueOf(worker.status()), "snapshot", SNAPSHOT_JSON.toJson(snapshot)));
@@ -212,7 +162,7 @@ public final class LocalInfernoSession implements AutoCloseable
 
     private synchronized void command(long generation, JsonObject packet, BooleanSupplier fresh)
     {
-        if (running && worker.currentGeneration(generation) && fresh.getAsBoolean() && !dropped(packet)) runner.onCommand(packet);
+        if (running && worker.currentGeneration(generation) && fresh.getAsBoolean()) runner.onCommand(packet);
     }
 
     private void commandResult(JsonObject result)

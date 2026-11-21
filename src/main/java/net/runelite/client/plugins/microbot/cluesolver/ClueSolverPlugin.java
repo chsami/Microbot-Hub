@@ -29,9 +29,11 @@ import net.runelite.client.ui.overlay.OverlayManager;
 @PluginDependency(ClueScrollPlugin.class)
 public class ClueSolverPlugin extends Plugin {
 
-    final static String version = "1.0.11";
+    final static String version = "1.0.12";
+    private static final String CONFIG_GROUP = "cluesolver";
+    private static final String ENABLE_KEY = "enableClueSolver";
     @Inject
-    private ClueSolverScript clueSolverScript;
+    ClueSolverScript clueSolverScript;
 
     @Inject
     private ClueSolverOverlay clueSolverOverlay;
@@ -40,7 +42,10 @@ public class ClueSolverPlugin extends Plugin {
     private OverlayManager overlayManager;
 
     @Inject
-    private ClueSolverConfig clueSolverConfig;
+    ClueSolverConfig clueSolverConfig;
+
+    @Inject
+    ConfigManager configManager;
 
     public static volatile boolean isSolverRunning = false;
 
@@ -56,6 +61,7 @@ public class ClueSolverPlugin extends Plugin {
             overlayManager.add(clueSolverOverlay);
             clueSolverOverlay.myButton.hookMouseListener();
         }
+        configureSolver();
     }
 
     @Override
@@ -87,7 +93,16 @@ public class ClueSolverPlugin extends Plugin {
      * Ensures the solver state reflects the config.
      */
     public void configureSolver() {
-        if (!ClueSolverPlugin.isSolverRunning) {
+        if (clueSolverConfig.enableClueSolver()) {
+            startClueSolver();
+        } else {
+            stopClueSolver();
+        }
+    }
+
+    public void setSolverEnabled(boolean enabled) {
+        configManager.setConfiguration(CONFIG_GROUP, ENABLE_KEY, enabled);
+        if (enabled) {
             startClueSolver();
         } else {
             stopClueSolver();
@@ -96,7 +111,7 @@ public class ClueSolverPlugin extends Plugin {
 
     @Subscribe
     public void onConfigChanged(ConfigChanged event) {
-        if (event.getGroup().equals("cluesolver")) {
+        if (CONFIG_GROUP.equals(event.getGroup()) && ENABLE_KEY.equals(event.getKey())) {
             log.info("Configuration change detected for Clue Solver Plugin");
             configureSolver();
         }

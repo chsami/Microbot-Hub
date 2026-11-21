@@ -114,6 +114,9 @@ public final class BossHandler {
      */
     public void equipInventorySetup(Rs2InventorySetup inventorySetup) {
         if (!inventorySetup.doesEquipmentMatch()) {
+            if (Rs2Inventory.isFull()) {
+                ResupplyHandler.dropFishingTools();
+            }
             inventorySetup.wearEquipment();
         }
     }

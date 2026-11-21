@@ -442,13 +442,14 @@ final class InfernoThreats
         Choice(Guard guard, int immediate, int total) { this.guard = guard; this.immediate = immediate; this.total = total; }
     }
 
-    static final int HELD = 3;
+    static final int HELD = 0;
 
     static final int LAPSED = 1;
+    private static final Guard[] ACTIVE_GUARDS = {Guard.MAGIC, Guard.RANGE, Guard.MELEE};
 
-    Choice choose(InfernoSnapshot f, List<Npc> enemies, InfernoCollision grid, List<Tile> path, int wave)
+    Choice choose(InfernoSnapshot f, List<Npc> enemies, InfernoCollision grid, Tile standing, int wave)
     {
-        Tile standing = new Tile(f.x, f.y);
+        final Tile playerTile = standing != null ? standing : new Tile(f.x, f.y);
         if (readNextTick != f.tick)
         {
             readNextTick = f.tick; readNext = false;
@@ -461,7 +462,7 @@ final class InfernoThreats
                 int reach = n.distance(held.x, held.y);
                 if (t.sightSince == f.tick - 1 && !(reach >= 1 && reach <= 15 && grid.npcSight(n, held))) t.sightSince = -1;
                 boolean lapsed = t.lastAttack < 0 ? !(t.fresh && f.tick < t.spawn + 4) : f.tick + 1 >= t.lastAttack + 3;
-                if (t.sightSince < 0 && lapsed && readsNext(f, n, standing, grid))
+                if (t.sightSince < 0 && lapsed && readsNext(f, n, playerTile, grid))
                 { t.sightSince = f.tick; t.sightStep = false; readNext = true; }
             }
         }
@@ -472,13 +473,13 @@ final class InfernoThreats
             + history.getOrDefault(f.tick - 1, Guard.NONE).ordinal() * 4
             + history.getOrDefault(f.tick, Guard.NONE).ordinal();
         costs[historyKey] = 0;
-        int speed = f.runOn && f.runEnergy > 0 ? 2 : 1;
+        Guard[] transitions = enemies.isEmpty() ? Guard.values() : ACTIVE_GUARDS;
         for (int offset = 1; offset <= 6; offset++)
         {
             int[] next = new int[states], nextFirst = new int[states], nextGuard = new int[states];
             ArraysFill(next, infinity);
 
-            Tile tile = path.get(Math.min(path.size() - 1, (offset - 1) * speed));
+            Tile tile = playerTile;
 
             boolean blobScan = offset > 1 && blobScanDue(f, enemies, grid, tile, f.tick + offset, wave);
             int[][] rawCosts = new int[4][4];
@@ -486,7 +487,7 @@ final class InfernoThreats
                 rawCosts[scanned.ordinal()][selected.ordinal()] = cost(f, enemies, grid, tile,
                     f.tick + offset, selected, scanned, wave);
             for (int state = 0; state < states; state++) if (costs[state] < infinity)
-                for (Guard guard : Guard.values())
+                for (Guard guard : transitions)
                 {
                     int raw = rawCosts[state >>> 4][guard.ordinal()];
                     int immediate = offset == 1 ? raw : firstCost[state];
@@ -512,7 +513,7 @@ final class InfernoThreats
 
         if (guard == Guard.NONE && enemies.stream().anyMatch(n -> n.role == Role.BLOB
             && (track(n) == null || track(n).lastAttack < 0)
-            && path.stream().limit(3).anyMatch(t -> exposed(f, n, t, grid)))) guard = Guard.MAGIC;
+            && exposed(f, n, playerTile, grid))) guard = Guard.MAGIC;
         return new Choice(guard, firstCost[best], costs[best]);
     }
 

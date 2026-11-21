@@ -79,6 +79,58 @@ public final class BrewChain
 	public synchronized int plan(CgMode mode, int water, int grym, int unf, int dust, int shards, boolean pestle,
 		int freeSlots, int brews)
 	{
+		return plan(mode, water, grym, unf, dust, shards, pestle, freeSlots, brews, Integer.MAX_VALUE);
+	}
+
+	/**
+	 * The same, cut to about {@code maxTicks} (1.8.5, "bit by bit while running"): whole phases
+	 * while they fit, the crushing cut to the clicks that fit; at least the first step. A grym or
+	 * dust phase cut short just stops at the next click elsewhere, the rest is made on a later run.
+	 */
+	public synchronized int plan(CgMode mode, int water, int grym, int unf, int dust, int shards, boolean pestle,
+		int freeSlots, int brews, int maxTicks)
+	{
+		int total = planAll(mode, water, grym, unf, dust, shards, pestle, freeSlots, brews);
+		if (total <= maxTicks || phases.isEmpty())
+		{
+			return total;
+		}
+		int budget = Math.max(1, maxTicks);
+		int used = 0;
+		List<Phase> kept = new ArrayList<>();
+		for (Phase p : phases)
+		{
+			int left = budget - used;
+			if (left <= 0)
+			{
+				break;
+			}
+			if (p.left > left)
+			{
+				if (p.kind == Kind.CRUSH)
+				{
+					p.left = left;
+					dustTarget = dust + left * CgIds.DUST_PER_POTION;
+				}
+				else
+				{
+					p.left = left;
+				}
+				kept.add(p);
+				used += left;
+				break;
+			}
+			kept.add(p);
+			used += p.left;
+		}
+		phases.clear();
+		phases.addAll(kept);
+		return used;
+	}
+
+	private int planAll(CgMode mode, int water, int grym, int unf, int dust, int shards, boolean pestle,
+		int freeSlots, int brews)
+	{
 		this.mode = mode;
 		phases.clear();
 		int herb = Math.max(0, Math.min(Math.min(water, grym), brews - unf));

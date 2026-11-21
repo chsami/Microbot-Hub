@@ -76,7 +76,7 @@ public class SalamanderOverlay extends OverlayPanel {
 
         // Traps information
         int maxTraps = script.getMaxTrapsForHunterLevel(config);
-        int currentTraps = plugin.getTraps().size();
+        int currentTraps = plugin.getActiveTrapCount();
         panelComponent.getChildren().add(LineComponent.builder()
                 .left("Traps:")
                 .right(currentTraps + "/" + maxTraps)

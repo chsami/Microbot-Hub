@@ -26,12 +26,16 @@ import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 import javax.inject.Inject;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
+import java.util.function.IntSupplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static net.runelite.client.plugins.microbot.util.Global.sleepUntilTrue;
 
 public class JewelryScript extends Script {
+
+    static final int CRAFT_IDLE_TIMEOUT_MS = 4000;
 
     private final JewelryPlugin plugin;
     public static State state;
@@ -356,10 +360,14 @@ public class JewelryScript extends Script {
                         if (!craftingInterfaceOpen) {
                             return; // still walking to the furnace / interface not up yet — retry next loop
                         }
-                        if (Rs2Widget.isProductionWidgetOpen()) {
-                            Rs2Widget.clickWidget(plugin.getJewelry().getItemName(), Optional.of(270), 13, false);
-                        } else {
-                            Rs2Widget.clickWidget(plugin.getJewelry().getItemName());
+                        boolean makeClicked = Rs2Widget.isProductionWidgetOpen()
+                                ? Rs2Widget.clickWidget(plugin.getJewelry().getItemName(), Optional.of(270), 13, false)
+                                : Rs2Widget.clickWidget(plugin.getJewelry().getItemName());
+                        if (makeClicked) {
+                            int barItemId = plugin.getJewelry().getJewelryType().getItemID();
+                            sleepUntilTrue(() -> !hasCraftingMaterials(),
+                                    countDropped(() -> Rs2Inventory.count(barItemId)),
+                                    300, CRAFT_IDLE_TIMEOUT_MS);
                         }
                         Rs2Antiban.actionCooldown();
                         Rs2Antiban.takeMicroBreakByChance();
@@ -459,7 +467,11 @@ public class JewelryScript extends Script {
     }
     
     private boolean shouldBank() {
-        return hasFinishedCutting() || hasFinishedCrafting() || hasFinishedAlching() || hasFinishedEnchanting();
+        return shouldBank(state, hasFinishedCutting() || hasFinishedCrafting(), hasFinishedAlching() || hasFinishedEnchanting());
+    }
+
+    static boolean shouldBank(State state, boolean finishedMaterials, boolean finishedCompletionAction) {
+        return finishedMaterials || (state == State.ALCHING && finishedCompletionAction);
     }
     
     private boolean hasFinishedCutting() {
@@ -494,6 +506,16 @@ public class JewelryScript extends Script {
                 Rs2Inventory.hasItem(plugin.getJewelry().getJewelryType().getItemID()),
                 needsGem,
                 needsGem && Rs2Inventory.hasItem(plugin.getJewelry().getGem().getCutItemID()));
+    }
+
+    static BooleanSupplier countDropped(IntSupplier count) {
+        int[] last = {count.getAsInt()};
+        return () -> {
+            int current = count.getAsInt();
+            boolean dropped = current < last[0];
+            last[0] = current;
+            return dropped;
+        };
     }
 
     static boolean isCategoryBusy(Category category) {

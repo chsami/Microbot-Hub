@@ -21,7 +21,7 @@ import java.awt.*;
         tags = {"fishing", "skilling"},
         authors = {"AI Agent"},
         version = AutoFishingPlugin.version,
-        minClientVersion = "1.9.8",
+        minClientVersion = "2.6.53",
         iconUrl = "https://chsami.github.io/Microbot-Hub/AutoFishingPlugin/assets/icon.png",
         cardUrl = "https://chsami.github.io/Microbot-Hub/AutoFishingPlugin/assets/card.png",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -29,7 +29,7 @@ import java.awt.*;
 )
 @Slf4j
 public class AutoFishingPlugin extends Plugin {
-    static final String version = "1.0.14";
+    static final String version = "1.0.15";
     @Inject
     private AutoFishingConfig config;
 

@@ -10,10 +10,12 @@ import net.runelite.client.ui.overlay.components.ButtonComponent;
 import net.runelite.client.ui.overlay.components.LineComponent;
 
 import javax.inject.Inject;
+import javax.inject.Singleton;
 import java.awt.*;
 
 @Setter
 @Slf4j
+@Singleton
 public class ClueSolverOverlay extends OverlayPanel {
 
     @Setter
@@ -31,17 +33,16 @@ public class ClueSolverOverlay extends OverlayPanel {
         myButton.setParentOverlay(this);
         myButton.setFont(FontManager.getRunescapeBoldFont());
         myButton.setOnClick(() -> {
-            boolean isRunning = !ClueSolverPlugin.isSolverRunning;
-            // Handle button click
-            if (!isRunning) {
+            boolean enable = !ClueSolverPlugin.isSolverRunning;
+            if (!enable) {
                 Rs2Walker.setTarget(null);
-                myButton.setText("Start");
-                plugin.configureSolver();
-            } else {
-                myButton.setText("Stop");
-                plugin.configureSolver();
             }
+            plugin.setSolverEnabled(enable);
         });
+    }
+
+    static String buttonLabel(boolean solverRunning) {
+        return solverRunning ? "Stop" : "Start";
     }
 
     /**
@@ -67,6 +68,7 @@ public class ClueSolverOverlay extends OverlayPanel {
                     .right("Status: " + currentTaskStatus)
                     .build());
 
+            myButton.setText(buttonLabel(ClueSolverPlugin.isSolverRunning));
             // Add the button to the overlay panel
             panelComponent.getChildren().add(myButton);
             // Placeholder for additional information (e.g., clue type, progress)

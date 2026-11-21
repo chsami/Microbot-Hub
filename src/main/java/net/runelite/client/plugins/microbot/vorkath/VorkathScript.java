@@ -37,6 +37,7 @@ import net.runelite.client.plugins.microbot.util.tabs.Rs2Tab;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 import net.runelite.client.plugins.skillcalculator.skills.MagicAction;
+import org.slf4j.event.Level;
 
 import javax.inject.Inject;
 import java.util.ArrayList;
@@ -140,6 +141,15 @@ public class VorkathScript extends Script {
             try {
                 if (!Microbot.isLoggedIn()) return;
                 if (!super.run()) return;
+                if (Microbot.getClient().getRealSkillLevel(Skill.HITPOINTS) > 0
+                        && Microbot.getClient().getBoostedSkillLevel(Skill.HITPOINTS) <= 0) {
+                    State afterDeath = stateAfterDeath(state);
+                    if (afterDeath != state) {
+                        log("You died at Vorkath. After respawning the script goes back to Torfinn in Rellekka to collect your items.", Level.WARN);
+                        state = afterDeath;
+                    }
+                    return;
+                }
                 if (Rs2AntibanSettings.naturalMouse) {
                     Rs2AntibanSettings.naturalMouse = false;
                     log("Woox walk is not compatible with natural mouse.");
@@ -288,10 +298,6 @@ public class VorkathScript extends Script {
                             sleepUntil(() -> Microbot.getRs2TileItemCache().query().withName("Superior dragon bones").within(20).first() != null, 15000);
                             return;
                         }
-                        if (Microbot.getClient().getBoostedSkillLevel(Skill.HITPOINTS) <= 0) {
-                            state = State.DEAD_WALK;
-                            return;
-                        }
                         if (config.KillsPerTrip() > 0 && kcPerTrip >= config.KillsPerTrip()) {
                             leaveVorkath();
                             return;
@@ -311,8 +317,8 @@ public class VorkathScript extends Script {
                         }
                         drinkPotions();
                         handlePrayer();
-                        Rs2Player.eatAt(75);
                         handleRedBall();
+                        Rs2Player.eatAt(75);
                         if (doesProjectileExistById(whiteProjectileId)) {
                             state = State.ZOMBIE_SPAWN;
                             walkToCenter();
@@ -337,12 +343,17 @@ public class VorkathScript extends Script {
                         Rs2NpcModel zombieSpawn = Microbot.getRs2NpcCache().query().withName(ZOMBIFIED_SPAWN).firstOnClientThread();
                         if (zombieSpawn != null) {
                             Rs2NpcModel currentSpawn;
+                            boolean castFailureLogged = false;
                             while ((currentSpawn = Microbot.getRs2NpcCache().query().withName(ZOMBIFIED_SPAWN).firstOnClientThread()) != null
                                     && !currentSpawn.isDead()
                                     && !doesProjectileExistById(146)) {
-                                Rs2Magic.castOn(MagicAction.CRUMBLE_UNDEAD, currentSpawn);
+                                if (!castCrumbleUndead(currentSpawn) && !castFailureLogged) {
+                                    log("Could not cast Crumble Undead on the Zombified Spawn. Check that you are on the standard spellbook with 39 Magic and have the runes (Air, Earth, Chaos) or a matching staff. Retrying until the spawn is gone.", Level.WARN);
+                                    castFailureLogged = true;
+                                }
                                 sleep(600);
                             }
+                            handleRedBall();
                             Rs2Player.eatAt(75);
                             togglePrayer(true);
                             Rs2Tab.switchTo(InterfaceTab.INVENTORY);
@@ -584,6 +595,24 @@ public class VorkathScript extends Script {
             if (vorkathNpc != null) {
                 vorkathNpc.click("Attack");
             }
+        }
+    }
+
+    static boolean castCrumbleUndead(Rs2NpcModel spawn) {
+        if (spawn == null || spawn.getNpc() == null) return false;
+        return Rs2Magic.castOn(MagicAction.CRUMBLE_UNDEAD, new net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel(spawn.getNpc()));
+    }
+
+    static State stateAfterDeath(State current) {
+        switch (current) {
+            case PREPARE_FIGHT:
+            case FIGHT_VORKATH:
+            case ZOMBIE_SPAWN:
+            case ACID:
+            case LOOT_ITEMS:
+                return State.DEAD_WALK;
+            default:
+                return current;
         }
     }
 

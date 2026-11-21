@@ -49,6 +49,23 @@ final class DroSlayerBankSupplies {
         return deposits;
     }
 
+    static int prayerRestockThreshold(int configuredThreshold, int bankedDoses) {
+        return bankedDoses < 0 ? configuredThreshold : Math.min(configuredThreshold, bankedDoses);
+    }
+
+    static String prayerLoadoutNotice(int configuredThreshold, int bankedDoses) {
+        if (bankedDoses < 0 || bankedDoses >= configuredThreshold) return null;
+        if (bankedDoses == 0) {
+            return "Your inventory setup has no prayer potions or super restores, so the script will not bank for prayer on this trip"
+                    + " (Prayer Potion Threshold is " + configuredThreshold + ")."
+                    + " Add prayer potions to the setup if you want prayer restocked, or set Prayer Potion Threshold to 0 to hide this message.";
+        }
+        return "Your inventory setup only carries " + bankedDoses + (bankedDoses == 1 ? " prayer dose" : " prayer doses")
+                + ", fewer than the Prayer Potion Threshold (" + configuredThreshold + ")."
+                + " The script will bank for prayer as soon as you have fewer than " + bankedDoses + " left."
+                + " Add more prayer potions to the setup or lower the threshold.";
+    }
+
     static String chargedJewelryFamily(String name) {
         if (name == null) return null;
         String lower = name.trim().toLowerCase(Locale.ROOT);

@@ -10,16 +10,13 @@ import net.runelite.api.GameState;
 import net.runelite.api.ItemContainer;
 import net.runelite.api.NPC;
 import net.runelite.api.NPCComposition;
-import net.runelite.api.Perspective;
 import net.runelite.api.Player;
-import net.runelite.api.Point;
 import net.runelite.api.Prayer;
 import net.runelite.api.Skill;
 import net.runelite.api.WorldView;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.InventoryID;
-import net.runelite.api.gameval.VarClientID;
 import net.runelite.api.gameval.VarPlayerID;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.util.Text;
@@ -34,7 +31,6 @@ public class State
 		Skill.HITPOINTS, Skill.PRAYER, Skill.RANGED, Skill.MAGIC, Skill.ATTACK, Skill.STRENGTH, Skill.DEFENCE,
 	};
 
-	private static final int ANGLE_SCALE = 8;
 	private static final int CYCLES_PER_TICK = 30;
 
 	protected final Client client;
@@ -68,7 +64,6 @@ public class State
 	{
 		return client.getGameState() == GameState.LOGGED_IN && me() != null;
 	}
-
 
 	public int x()
 	{
@@ -133,34 +128,14 @@ public class State
 		return target instanceof NPC ? ((NPC) target).getIndex() : null;
 	}
 
-	public boolean spellSelected()
-	{
-		return client.isWidgetSelected();
-	}
-
 	public boolean moving()
 	{
 		return me().getPoseAnimation() != me().getIdlePoseAnimation();
 	}
 
-	public int runEnergy()
-	{
-		return client.getEnergy();
-	}
-
 	public boolean runOn()
 	{
 		return client.getVarpValue(VarPlayerID.OPTION_RUN) == 1;
-	}
-
-	public int specEnergy()
-	{
-		return client.getVarpValue(VarPlayerID.SA_ENERGY);
-	}
-
-	public boolean specOn()
-	{
-		return client.getVarpValue(VarPlayerID.SA_ATTACK) == 1;
 	}
 
 	public int skill(String skill, boolean boosted)
@@ -339,36 +314,16 @@ public class State
 		return list;
 	}
 
-	public List<Messages.Item> inventory()
-	{
-		List<Messages.Item> list = new ArrayList<>();
-		ItemContainer inv = client.getItemContainer(InventoryID.INV);
-		net.runelite.api.Item[] items = inv == null ? new net.runelite.api.Item[0] : inv.getItems();
-		for (int i = 0; i < items.length; i++)
-		{
-			if (items[i].getId() >= 0)
-			{
-				Messages.Item held = new Messages.Item(i, items[i].getId(), items[i].getQuantity(), itemName(items[i].getId()));
-				held.gear = gear(items[i].getId());
-				list.add(held);
-			}
-		}
-		return list;
-	}
-
 	public List<Worn> equipment()
 	{
 		List<Worn> list = new ArrayList<>();
 		ItemContainer worn = client.getItemContainer(InventoryID.WORN);
-		for (EquipmentInventorySlot slot : EquipmentInventorySlot.values())
+		net.runelite.api.Item item = worn == null ? null : worn.getItem(EquipmentInventorySlot.WEAPON.getSlotIdx());
+		if (item != null && item.getId() >= 0)
 		{
-			net.runelite.api.Item item = worn == null ? null : worn.getItem(slot.getSlotIdx());
-			if (item != null && item.getId() >= 0)
-			{
-				Worn w = new Worn(slot.getSlotIdx(), item.getId(), itemName(item.getId()));
-				w.gear = gear(item.getId());
-				list.add(w);
-			}
+			Worn w = new Worn(EquipmentInventorySlot.WEAPON.getSlotIdx(), item.getId(), itemName(item.getId()));
+			w.gear = gear(item.getId());
+			list.add(w);
 		}
 		return list;
 	}
@@ -394,33 +349,6 @@ public class State
 			list.add(o);
 		}
 		return list;
-	}
-
-	public int cameraYaw()
-	{
-		return client.getCameraYaw() / ANGLE_SCALE;
-	}
-
-	public int cameraPitch()
-	{
-		return client.getCameraPitch() / ANGLE_SCALE;
-	}
-
-	public int cameraZoom()
-	{
-		return client.getVarcIntValue(VarClientID.CAMERA_ZOOM_BIG);
-	}
-
-	public boolean tileOnScreen(int tx, int ty)
-	{
-		int[] s = tiles.scene(tx, ty);
-		if (s == null)
-		{
-			return false;
-		}
-		WorldView wv = client.getTopLevelWorldView();
-		Point c = Perspective.localToCanvas(client, LocalPoint.fromScene(s[0], s[1], wv), wv.getPlane());
-		return c != null && c.getX() >= 0 && c.getX() < client.getViewportWidth() && c.getY() >= 0 && c.getY() < client.getViewportHeight();
 	}
 
 	public int collisionFlags(int tx, int ty)
