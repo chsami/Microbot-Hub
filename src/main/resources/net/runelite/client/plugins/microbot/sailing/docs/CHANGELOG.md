@@ -5,6 +5,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.2.64]
+
+### Fixed
+- **Barracuda Trials boat stuck**: With Auto Navigate on, the script now notices when the boat has not got closer to the next waypoint for about 9 seconds, for example when it sits against a rock with the heading already pointing at the waypoint. It posts a chat line saying the boat looks stuck, lowers and raises the sails, turns away from the obstacle for a few ticks and then heads for the nearest waypoint ahead. After 3 failed tries in a row it stops and tells you in chat that the boat is stuck and your trial is still running, so you can steer it free and turn the plugin on again, instead of idling until you stop it.
+
+---
+
 ## [2.2.62]
 
 ### Fixed
