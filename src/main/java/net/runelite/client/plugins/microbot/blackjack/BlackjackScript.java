@@ -137,6 +137,8 @@ public class BlackjackScript extends Script
     private static final long WINE_MERCHANT_RESOLUTION_TIMEOUT_MS = 12_000;
     private static final long WINE_EXIT_STATE_TIMEOUT_MS = 20_000;
     private static final long WINE_EXIT_DIAGNOSTIC_INTERVAL_MS = 1_000;
+    private static final long WINE_PURCHASE_CONFIRM_TIMEOUT_MS = 3_000;
+    private static final int WINE_PURCHASE_MAX_UNANSWERED = 3;
     private static final long SOUTH_TENT_POPULATION_CHECK_MS = 500;
     private static final long SOUTH_TENT_PREPARATION_TIMEOUT_MS = 120_000;
     private static final long SOUTH_TENT_TRANSIT_TIMEOUT_MS = 20_000;
@@ -171,6 +173,14 @@ public class BlackjackScript extends Script
         REEQUIPPING,
         RECOVERING_WINE,
         FALLBACK
+    }
+
+    enum WineShopStep
+    {
+        BUY,
+        WAIT,
+        RETURN,
+        FAIL
     }
 
     private enum SouthernTentLureMode
@@ -346,6 +356,9 @@ public class BlackjackScript extends Script
     private boolean emergencyWineExit;
     private boolean wineInventoryPrepared;
     private int restockTargetWineCount;
+    private int winesBeforePurchase = -1;
+    private long winePurchaseIssuedAt;
+    private int unansweredWinePurchases;
     private long wineExitCurtainOpenedAt;
     private int wineDoorCrossingAttempts;
     private long wineDoorCrossingStartedAt;
@@ -448,6 +461,7 @@ public class BlackjackScript extends Script
         emergencyWineExit = false;
         wineInventoryPrepared = false;
         restockTargetWineCount = 0;
+        resetWinePurchase();
         wineExitCurtainOpenedAt = 0;
         wineDoorCrossingAttempts = 0;
         wineDoorCrossingStartedAt = 0;
@@ -3166,6 +3180,7 @@ public class BlackjackScript extends Script
         {
             wineRestockPending = true;
             emergencyWineExit = emergency;
+            resetWinePurchase();
             restockTargetWineCount = Math.max(1,
                     wines + Rs2Inventory.count(ItemID.JUG_EMPTY) + Rs2Inventory.emptySlotCount());
             log.info("Wine restock latched: wines={}, needed={}, hp={}, targetWines={}, emergency={}",
@@ -3388,14 +3403,56 @@ public class BlackjackScript extends Script
             return;
         }
 
-        if (wines > 0)
+        int winesNeeded = winesNeededToReach(currentHitpoints(), healToHitpoints());
+        boolean purchaseTimedOut = System.currentTimeMillis() - winePurchaseIssuedAt
+                >= WINE_PURCHASE_CONFIRM_TIMEOUT_MS;
+        switch (wineShopStep(wines, winesBeforePurchase, winesNeeded,
+                purchaseTimedOut, unansweredWinePurchases))
         {
-            restockTargetWineCount = wines;
-            transition(BlackjackState.RETURNING_WITH_WINE, "Return with available wine");
-            return;
+            case RETURN:
+                restockTargetWineCount = wines;
+                transition(BlackjackState.RETURNING_WITH_WINE, "Return with available wine");
+                return;
+            case WAIT:
+                nextAction = "Wait for bought wine";
+                return;
+            case FAIL:
+                fail("Faisal sold no wine; hop to a world with wine in stock");
+                return;
+            default:
+                if (winesBeforePurchase >= 0 && wines > winesBeforePurchase)
+                {
+                    unansweredWinePurchases = 0;
+                }
+                buyWineFromFaisal();
         }
+    }
 
-        buyWineFromFaisal();
+    static WineShopStep wineShopStep(int wines, int winesBeforePurchase, int winesNeeded,
+            boolean purchaseTimedOut, int unansweredPurchases)
+    {
+        boolean purchasePending = winesBeforePurchase >= 0 && wines <= winesBeforePurchase;
+        if (purchasePending)
+        {
+            if (!purchaseTimedOut)
+            {
+                return WineShopStep.WAIT;
+            }
+            return unansweredPurchases >= WINE_PURCHASE_MAX_UNANSWERED
+                    ? WineShopStep.FAIL : WineShopStep.BUY;
+        }
+        if (wines > Math.max(winesNeeded, EARLY_WINE_RESTOCK_MAX_WINES))
+        {
+            return WineShopStep.RETURN;
+        }
+        return WineShopStep.BUY;
+    }
+
+    private void resetWinePurchase()
+    {
+        winesBeforePurchase = -1;
+        winePurchaseIssuedAt = 0;
+        unansweredWinePurchases = 0;
     }
 
     private void returnWithWine()
@@ -3471,6 +3528,7 @@ public class BlackjackScript extends Script
         emergencyWineExit = false;
         wineInventoryPrepared = false;
         restockTargetWineCount = 0;
+        resetWinePurchase();
         projectedWinesNeeded = winesNeededToReach(currentHitpoints(), healToHitpoints());
         lastOutcome = "Wine restock complete";
         maintainTargetZoom();
@@ -3751,12 +3809,16 @@ public class BlackjackScript extends Script
 
         if (readyForInteraction(700))
         {
+            int wines = Rs2Inventory.count(WINE_ID);
             if (!Rs2Shop.buyItem("Jug of wine", "50"))
             {
-                fail("Jug of wine unavailable in shop");
+                fail("Faisal is out of jugs of wine; hop to a world with wine in stock");
                 return;
             }
             lastInteractionAt = System.currentTimeMillis();
+            winesBeforePurchase = wines;
+            winePurchaseIssuedAt = lastInteractionAt;
+            unansweredWinePurchases++;
             nextAction = "Buy jug of wine";
         }
     }
@@ -5648,6 +5710,7 @@ public class BlackjackScript extends Script
         emergencyWineExit = false;
         wineInventoryPrepared = false;
         restockTargetWineCount = 0;
+        resetWinePurchase();
         humanizerStatus = "Disabled";
         humanizerMouseRecoverAt = 0;
         humanizerBreakUntil = 0;
