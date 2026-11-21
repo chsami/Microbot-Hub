@@ -110,6 +110,15 @@ class NavigationWatchdogTest {
     }
 
     @Test
+    void stuckMessagesUsePlayerWordingWithoutWaypointNumbers() {
+        assertEquals("Sailing trials: boat looks stuck, turning away to get free (try 2 of 3).", TrialsScript.boatStuckNotice(2));
+        String stop = TrialsScript.boatStuckStopMessage();
+        assertTrue(stop.startsWith("Sailing trials stopped: your boat is stuck against an obstacle"));
+        assertTrue(stop.contains("Your trial is still running."));
+        assertTrue(!stop.contains("waypoint") && !stop.matches(".*\\d{2,}.*"));
+    }
+
+    @Test
     void neverRepicksPastASupplyWaypoint() {
         var supply = new WorldPoint(5, 0, 0);
         var route = List.of(

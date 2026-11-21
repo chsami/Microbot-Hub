@@ -60,6 +60,7 @@ public class TrialsScript {
     private static final int RUM_INTERACTION_DISTANCE = 15;
     private static final int RUM_RETRY_TICKS = 2;
     private static final int NO_PROGRESS_TICKS = 15;
+    private static final int NO_PROGRESS_SECONDS = NO_PROGRESS_TICKS * 600 / 1000;
     private static final int MAX_RECOVERY_ATTEMPTS = 3;
     private static final int RECOVERY_HOLD_TICKS = 4;
     private static final int RECOVERY_LOOKAHEAD = 4;
@@ -249,7 +250,7 @@ public class TrialsScript {
         stopRequested = true;
         automation.stop();
         log.warn(message);
-        Microbot.getClientThread().invokeLater(() -> client.addChatMessage(ChatMessageType.ENGINE, "", message, "", false));
+        sendChatMessage(message);
         Microbot.stopPlugin(MSailingPlugin.class);
     }
 
@@ -259,6 +260,10 @@ public class TrialsScript {
         }
         missingRouteNotified = true;
         log.info(message);
+        sendChatMessage(message);
+    }
+
+    private void sendChatMessage(String message) {
         Microbot.getClientThread().invokeLater(() -> client.addChatMessage(ChatMessageType.ENGINE, "", message, "", false));
     }
 
@@ -334,13 +339,17 @@ public class TrialsScript {
         if (status == NavigationWatchdog.Status.MOVING) {
             return;
         }
-        log.warn("Trials: boat made no progress for {} ticks at waypoint {} (boat {}, target {}, distance {}), recovery attempt {}",
-                NO_PROGRESS_TICKS, currentWaypointIndex, boatPos, target, distance, navigationWatchdog.getRecoveries());
+        int attempt = navigationWatchdog.getRecoveries();
         if (status == NavigationWatchdog.Status.GIVE_UP) {
-            stopWithMessage(boatStuckStopMessage(currentWaypointIndex));
+            log.warn("Boat still stuck after {} tries, stopping (waypoint {}, boat {}, target {}, distance {})",
+                    MAX_RECOVERY_ATTEMPTS, currentWaypointIndex, boatPos, target, distance);
+            stopWithMessage(boatStuckStopMessage());
             return;
         }
-        recoverFromNoProgress(navigationWatchdog.getRecoveries());
+        log.warn("Boat stuck for about {} seconds, turning away (try {} of {}) (waypoint {}, boat {}, target {}, distance {})",
+                NO_PROGRESS_SECONDS, attempt, MAX_RECOVERY_ATTEMPTS, currentWaypointIndex, boatPos, target, distance);
+        sendChatMessage(boatStuckNotice(attempt));
+        recoverFromNoProgress(attempt);
     }
 
     private void recoverFromNoProgress(int attempt) {
@@ -377,8 +386,12 @@ public class TrialsScript {
         return nearestIndex;
     }
 
-    static String boatStuckStopMessage(int waypointIndex) {
-        return "Sailing trials stopped: the boat could not get past waypoint " + waypointIndex + " after " + MAX_RECOVERY_ATTEMPTS + " recovery attempts. Steer clear of the obstacle, then turn the plugin on again.";
+    static String boatStuckNotice(int attempt) {
+        return "Sailing trials: boat looks stuck, turning away to get free (try " + attempt + " of " + MAX_RECOVERY_ATTEMPTS + ").";
+    }
+
+    static String boatStuckStopMessage() {
+        return "Sailing trials stopped: your boat is stuck against an obstacle and turning away " + MAX_RECOVERY_ATTEMPTS + " times did not free it. Your trial is still running. Steer the boat into open water yourself, then turn the plugin on again.";
     }
 
     public void shutdown() {
