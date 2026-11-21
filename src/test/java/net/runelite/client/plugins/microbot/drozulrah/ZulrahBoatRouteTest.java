@@ -18,6 +18,13 @@ public class ZulrahBoatRouteTest
         assertFalse(ZulrahBoatRoute.shouldApproach(4, true, true));
     }
 
+    @Test public void boardsWithQuickBoardOnlyWhenTheBoatOffersIt()
+    {
+        assertEquals("Quick-board", ZulrahBoatRoute.boardAction(new String[]{"Board", "Quick-board", null}));
+        assertEquals("Board", ZulrahBoatRoute.boardAction(new String[]{"Board", null, null}));
+        assertEquals("Board", ZulrahBoatRoute.boardAction(null));
+    }
+
     @Test public void findsApproachesWhenEveryStraightLineIsBlocked()
     {
         // A wall lies between the teleport tile and every boat approach, with a gap to the north.

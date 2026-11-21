@@ -64,14 +64,18 @@ public class StunScript extends Script {
                         if (interacting instanceof Rs2NpcModel) {
                             interactingNpc = (Rs2NpcModel) interacting;
                         }
+                        boolean casted;
                         if (interactingNpc != null) {
-                            Rs2Magic.castOn(plugin.getStunSpell().getRs2Spell().getMagicAction(), interactingNpc);
+                            casted = Rs2Magic.castOn(plugin.getStunSpell().getRs2Spell().getMagicAction(), interactingNpc);
                         } else {
                             var configuredNpc = Microbot.getRs2NpcCache().query()
                                     .withName(targetNpcName)
                                     .nearestOnClientThread();
                             if (configuredNpc == null) {
                                 Microbot.log("Unable to find NPC: " + targetNpcName);
+                                sleepUntil(() -> Microbot.getRs2NpcCache().query()
+                                        .withName(targetNpcName)
+                                        .nearestOnClientThread() != null, 3000);
                                 return;
                             }
                             if (!Rs2Magic.cast(plugin.getStunSpell().getRs2Spell().getMagicAction())) {
@@ -86,8 +90,12 @@ public class StunScript extends Script {
                                 Microbot.log("Unable to cast stun on NPC: " + targetNpcName);
                                 return;
                             }
+                            casted = true;
                         }
 
+                        if (casted) {
+                            StunCastWait.awaitCast();
+                        }
                         sleep(200, 300);
                         break;
                     case BANKING:
