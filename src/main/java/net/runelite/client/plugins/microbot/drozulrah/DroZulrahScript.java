@@ -151,6 +151,8 @@ public class DroZulrahScript extends Script
     private long sceneTransitionGraceUntil;
     private boolean boatClickPending;
     private long boatClickIssuedAt;
+    private boolean boatBoardConfirmPending;
+    private long nextBoardPromptInputAt;
     private boolean awaitingFightStart;
     private boolean fightContinueClicked;
     private boolean reengageAfterMovement;
@@ -237,6 +239,8 @@ public class DroZulrahScript extends Script
         this.sceneTransitionGraceUntil = 0L;
         this.boatClickPending = false;
         this.boatClickIssuedAt = 0L;
+        this.boatBoardConfirmPending = false;
+        this.nextBoardPromptInputAt = 0L;
         this.awaitingFightStart = false;
         this.fightContinueClicked = false;
         this.inFight = false;
@@ -447,10 +451,15 @@ public class DroZulrahScript extends Script
             if (System.currentTimeMillis() - boatClickIssuedAt < 12_000L)
             {
                 state = DroZulrahState.BOARDING;
-                status = "Running to / boarding sacrificial boat";
+                status = boatBoardConfirmPending ? "Boarding Zulrah boat - answering boat prompt"
+                        : "Running to / boarding sacrificial boat";
+                if (boatBoardConfirmPending) answerBoardPrompt();
                 return;
             }
+            if (boatBoardConfirmPending) Microbot.log("[Dro] Zulrah: clicked Board but no Yes option appeared within 12s; retrying."
+                    + " If a boat dialogue is open, answer it manually and report its text.");
             // No observed instance transition: retry through a nearby randomized approach.
+            boatBoardConfirmPending = false;
             boatClickPending = false;
             awaitingFightStart = false;
             boatApproachRequired = true;
@@ -1099,8 +1108,13 @@ public class DroZulrahScript extends Script
             }
             return;
         }
+        ObjectComposition composition = boat.getObjectComposition();
+        String boardAction = ZulrahBoatRoute.boardAction(composition == null ? null : composition.getActions());
+        boatBoardConfirmPending = "Board".equals(boardAction);
+        nextBoardPromptInputAt = 0L;
+        if (boatBoardConfirmPending) Microbot.log("[Dro] Zulrah: boat has no Quick-board option; using Board and answering Yes");
         state = DroZulrahState.BOARDING;
-        status = "Quick-boarding Zulrah - one click";
+        status = boatBoardConfirmPending ? "Boarding Zulrah boat" : "Quick-boarding Zulrah - one click";
         boatApproachRequired = false;
         // Latch before invoking: tile-object click return values do not reliably indicate whether
         // the menu action was dispatched. This prevents the 100 ms loop from spam-clicking.
@@ -1112,7 +1126,24 @@ public class DroZulrahScript extends Script
         fightContinueClicked = false;
         entryGate.reset();
         operation = "boat click";
-        tripAction(() -> boat.click("Quick-board"));
+        tripAction(() -> boat.click(boardAction));
+    }
+
+    private void answerBoardPrompt()
+    {
+        long now = System.currentTimeMillis();
+        if (now < nextBoardPromptInputAt) return;
+        if (clientRead(() -> Rs2Dialogue.hasDialogueOption("Yes"), false))
+        {
+            nextBoardPromptInputAt = now + Rs2Random.betweenInclusive(600, 900);
+            if (!tripAction(() -> Rs2Dialogue.clickOption("Yes"))) return;
+            boatBoardConfirmPending = false;
+            Microbot.log("[Dro] Zulrah: answered Yes to the boat prompt");
+            return;
+        }
+        if (!clientRead(Rs2Dialogue::hasContinue, false)) return;
+        nextBoardPromptInputAt = now + Rs2Random.betweenInclusive(600, 900);
+        tripAction(() -> { Rs2Dialogue.clickContinue(); return true; });
     }
 
     private boolean entryReady(Rs2NpcModel boss)
@@ -2522,7 +2553,7 @@ public class DroZulrahScript extends Script
         private GearChoice(int id, String name, int slot, boolean twoHanded, int magicScore, int rangeScore)
         {
             this.id = id;
-            this.name = name == null ? "" : name;
+            this.name = ZulrahGearName.base(name);
             this.slot = slot;
             this.twoHanded = twoHanded;
             this.magicScore = magicScore;

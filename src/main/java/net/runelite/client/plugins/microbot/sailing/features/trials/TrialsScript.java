@@ -14,6 +14,7 @@ import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.api.boat.Rs2BoatCache;
+import net.runelite.client.plugins.microbot.api.boat.data.Heading;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.sailing.MSailingPlugin;
 import net.runelite.client.plugins.microbot.sailing.SailingConfig;
@@ -41,6 +42,8 @@ public class TrialsScript {
     private volatile int rumInteractionTick = -1;
     private volatile boolean stopRequested;
     private volatile boolean missingRouteNotified;
+    private final NavigationWatchdog navigationWatchdog = new NavigationWatchdog(NO_PROGRESS_TICKS, MAX_RECOVERY_ATTEMPTS);
+    private int recoveryUntilTick = -1;
 
     private final Set<Integer> TRIAL_CRATE_ANIMS = Set.of(8867);
     private final Set<Integer> SPEED_BOOST_ANIMS = Set.of(13159, 13160, 13163);
@@ -56,6 +59,12 @@ public class TrialsScript {
             new WorldPoint(3096, 2775, 0));
     private static final int RUM_INTERACTION_DISTANCE = 15;
     private static final int RUM_RETRY_TICKS = 2;
+    private static final int NO_PROGRESS_TICKS = 15;
+    private static final int NO_PROGRESS_SECONDS = NO_PROGRESS_TICKS * 600 / 1000;
+    private static final int MAX_RECOVERY_ATTEMPTS = 3;
+    private static final int RECOVERY_HOLD_TICKS = 4;
+    private static final int RECOVERY_LOOKAHEAD = 4;
+    private static final int[] RECOVERY_HEADING_OFFSETS = {4, -4, 8};
 
     private static final int WIND_MOTE_INACTIVE_SPRITE_ID = 7076;
     private static final int WIND_MOTE_ACTIVE_SPRITE_ID = 7075;
@@ -147,7 +156,7 @@ public class TrialsScript {
                 resetState();
                 TrialRanks targetRank = config.trialsRank();
                 if (missingRouteAction(null, targetRank, config.autoNavigate()) == MissingRouteAction.STOP_FOR_TARGET_RANK) {
-                    stopWithoutRoute(missingTargetRouteMessage(targetRank));
+                    stopWithMessage(missingTargetRouteMessage(targetRank));
                     return;
                 }
                 if (config.autoNavigate()) {
@@ -164,7 +173,7 @@ public class TrialsScript {
             if (route == null) {
                 MissingRouteAction action = missingRouteAction(info.Rank, config.trialsRank(), config.autoNavigate());
                 if (action == MissingRouteAction.STOP_FOR_TRIAL) {
-                    stopWithoutRoute(missingTrialRouteStopMessage(info.Rank));
+                    stopWithMessage(missingTrialRouteStopMessage(info.Rank));
                 } else if (action == MissingRouteAction.NOTIFY_TRIAL) {
                     notifyMissingRoute(missingTrialRouteNotice(info.Rank));
                 } else {
@@ -195,15 +204,21 @@ public class TrialsScript {
             Set<WorldPoint> supplyWaypoints = info.Location == TrialLocations.TemporTantrum && info.Rank == TrialRanks.Marlin
                     ? TEMPOR_MARLIN_SUPPLY_WAYPOINTS : Set.of();
             currentWaypointIndex = getNextWaypointIndex(routePoints, currentWaypointIndex, boatPos, supplyWaypoints);
+            int currentTick = Microbot.getClientThread().invoke(client::getTickCount);
+            boolean holdingRecoveryHeading = isHoldingRecoveryHeading(currentTick);
+            if (recoveryUntilTick != -1 && !holdingRecoveryHeading) {
+                recoveryUntilTick = -1;
+                currentWaypointIndex = getNearestWaypointAheadIndex(routePoints, currentWaypointIndex, boatPos, supplyWaypoints);
+            }
             WorldPoint target = routePoints.get(currentWaypointIndex);
 
             final WorldPoint hintTarget = target;
             Microbot.getClientThread().invoke(() -> client.setHintArrow(hintTarget));
 
-            int currentTick = Microbot.getClientThread().invoke(client::getTickCount);
-            if (config.autoNavigate() && currentTick != rumInteractionTick) {
+            if (config.autoNavigate() && currentTick != rumInteractionTick && !holdingRecoveryHeading) {
                 navigateToWaypoint(target);
                 automation.followCamera(boatPos, target);
+                checkNavigationProgress(boatPos, target, currentTick);
             }
 
         } catch (Exception ex) {
@@ -228,14 +243,14 @@ public class TrialsScript {
         return autoNavigate ? MissingRouteAction.STOP_FOR_TRIAL : MissingRouteAction.NOTIFY_TRIAL;
     }
 
-    private void stopWithoutRoute(String message) {
+    private void stopWithMessage(String message) {
         if (stopRequested) {
             return;
         }
         stopRequested = true;
         automation.stop();
         log.warn(message);
-        Microbot.getClientThread().invokeLater(() -> client.addChatMessage(ChatMessageType.ENGINE, "", message, "", false));
+        sendChatMessage(message);
         Microbot.stopPlugin(MSailingPlugin.class);
     }
 
@@ -245,6 +260,10 @@ public class TrialsScript {
         }
         missingRouteNotified = true;
         log.info(message);
+        sendChatMessage(message);
+    }
+
+    private void sendChatMessage(String message) {
         Microbot.getClientThread().invokeLater(() -> client.addChatMessage(ChatMessageType.ENGINE, "", message, "", false));
     }
 
@@ -310,6 +329,71 @@ public class TrialsScript {
         boat.sailTo(target);
     }
 
+    private boolean isHoldingRecoveryHeading(int currentTick) {
+        return currentTick < recoveryUntilTick && recoveryUntilTick - currentTick <= RECOVERY_HOLD_TICKS;
+    }
+
+    private void checkNavigationProgress(WorldPoint boatPos, WorldPoint target, int currentTick) {
+        int distance = boatPos.distanceTo(target);
+        NavigationWatchdog.Status status = navigationWatchdog.update(currentWaypointIndex, distance, currentTick);
+        if (status == NavigationWatchdog.Status.MOVING) {
+            return;
+        }
+        int attempt = navigationWatchdog.getRecoveries();
+        if (status == NavigationWatchdog.Status.GIVE_UP) {
+            log.warn("Boat still stuck after {} tries, stopping (waypoint {}, boat {}, target {}, distance {})",
+                    MAX_RECOVERY_ATTEMPTS, currentWaypointIndex, boatPos, target, distance);
+            stopWithMessage(boatStuckStopMessage());
+            return;
+        }
+        log.warn("Boat stuck for about {} seconds, turning away (try {} of {}) (waypoint {}, boat {}, target {}, distance {})",
+                NO_PROGRESS_SECONDS, attempt, MAX_RECOVERY_ATTEMPTS, currentWaypointIndex, boatPos, target, distance);
+        sendChatMessage(boatStuckNotice(attempt));
+        recoverFromNoProgress(attempt);
+    }
+
+    private void recoverFromNoProgress(int attempt) {
+        var boat = Microbot.getClientThread().invoke(() -> boatCache.getLocalBoat());
+        if (boat == null) {
+            return;
+        }
+        Heading heading = boat.getCurrentHeading();
+        boat.unsetSails();
+        if (heading != null) {
+            boat.setHeading(Heading.getHeading(getRecoveryHeading(heading.getValue(), attempt)));
+        }
+        boat.setSails();
+        recoveryUntilTick = Microbot.getClientThread().invoke(client::getTickCount) + RECOVERY_HOLD_TICKS;
+    }
+
+    static int getRecoveryHeading(int headingValue, int attempt) {
+        int offset = RECOVERY_HEADING_OFFSETS[Math.floorMod(attempt - 1, RECOVERY_HEADING_OFFSETS.length)];
+        return Math.floorMod(headingValue + offset, 16);
+    }
+
+    static int getNearestWaypointAheadIndex(List<WorldPoint> routePoints, int currentWaypointIndex, WorldPoint boatPosition,
+                                            Set<WorldPoint> supplyWaypoints) {
+        int nearestIndex = currentWaypointIndex;
+        int nearestDistance = boatPosition.distanceTo(routePoints.get(currentWaypointIndex));
+        int lastIndex = Math.min(routePoints.size() - 1, currentWaypointIndex + RECOVERY_LOOKAHEAD);
+        for (int i = currentWaypointIndex; i < lastIndex && !supplyWaypoints.contains(routePoints.get(i)); i++) {
+            int distance = boatPosition.distanceTo(routePoints.get(i + 1));
+            if (distance < nearestDistance) {
+                nearestIndex = i + 1;
+                nearestDistance = distance;
+            }
+        }
+        return nearestIndex;
+    }
+
+    static String boatStuckNotice(int attempt) {
+        return "Sailing trials: boat looks stuck, turning away to get free (try " + attempt + " of " + MAX_RECOVERY_ATTEMPTS + ").";
+    }
+
+    static String boatStuckStopMessage() {
+        return "Sailing trials stopped: your boat is stuck against an obstacle and turning away " + MAX_RECOVERY_ATTEMPTS + " times did not free it. Your trial is still running. Steer the boat into open water yourself, then turn the plugin on again.";
+    }
+
     public void shutdown() {
         automation.stop();
         resetState();
@@ -324,6 +408,8 @@ public class TrialsScript {
         rumActionPending = false;
         rumInteractionTick = -1;
         lastVisitedIndex = -1;
+        navigationWatchdog.reset();
+        recoveryUntilTick = -1;
         Microbot.getClientThread().invoke(() -> client.clearHintArrow());
     }
 

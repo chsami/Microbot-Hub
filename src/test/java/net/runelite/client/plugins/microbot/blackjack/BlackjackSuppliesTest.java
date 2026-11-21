@@ -41,4 +41,40 @@ class BlackjackSuppliesTest
         assertEquals(75, BlackjackScript.healTargetHitpoints(75, 99));
         assertEquals(75, BlackjackScript.healTargetHitpoints(75, 0));
     }
+
+    @Test
+    void heldWineBelowNeedBuysFromShopInsteadOfReturning()
+    {
+        int needed = BlackjackScript.winesNeededToReach(39, 75);
+        assertEquals(BlackjackScript.WineShopStep.BUY,
+                BlackjackScript.wineShopStep(1, -1, needed, true, 0));
+        assertEquals(BlackjackScript.WineShopStep.BUY,
+                BlackjackScript.wineShopStep(0, -1, 0, true, 0));
+        assertEquals(BlackjackScript.WineShopStep.BUY,
+                BlackjackScript.wineShopStep(1, -1, 0, true, 0));
+        assertEquals(BlackjackScript.WineShopStep.RETURN,
+                BlackjackScript.wineShopStep(needed + 1, -1, needed, true, 0));
+    }
+
+    @Test
+    void purchaseWaitsForJugsThenReturnsOrBuysMore()
+    {
+        assertEquals(BlackjackScript.WineShopStep.WAIT,
+                BlackjackScript.wineShopStep(1, 1, 4, false, 1));
+        assertEquals(BlackjackScript.WineShopStep.RETURN,
+                BlackjackScript.wineShopStep(10, 1, 4, false, 1));
+        assertEquals(BlackjackScript.WineShopStep.BUY,
+                BlackjackScript.wineShopStep(4, 1, 4, false, 1));
+    }
+
+    @Test
+    void purchaseThatAddsNoJugsRetriesThenFails()
+    {
+        assertEquals(BlackjackScript.WineShopStep.BUY,
+                BlackjackScript.wineShopStep(1, 1, 4, true, 1));
+        assertEquals(BlackjackScript.WineShopStep.BUY,
+                BlackjackScript.wineShopStep(1, 1, 4, true, 2));
+        assertEquals(BlackjackScript.WineShopStep.FAIL,
+                BlackjackScript.wineShopStep(1, 1, 4, true, 3));
+    }
 }

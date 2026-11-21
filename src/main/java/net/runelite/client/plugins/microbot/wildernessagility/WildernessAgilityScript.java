@@ -183,7 +183,10 @@ public final class WildernessAgilityScript extends Script {
     
     // Looting bag tracking
     private boolean needsLootingBagActivation = false;
-    
+
+    private int bankingAttempts = 0;
+    private static final int MAX_BANKING_ATTEMPTS = 3;
+
     // Drop location tracking for random mode
     private boolean shouldDropAfterDispenser = false;
     
@@ -415,7 +418,8 @@ public final class WildernessAgilityScript extends Script {
         
         // Reset looting bag variables
         needsLootingBagActivation = false;
-        
+        bankingAttempts = 0;
+
         // Reset drop location variables
         shouldDropAfterDispenser = false;
         
@@ -451,6 +455,7 @@ public final class WildernessAgilityScript extends Script {
         }
         sleep(10000);
         Rs2Bank.walkToBank();
+        bankingAttempts = 0;
         currentState = ObstacleState.BANKING;
     }
 
@@ -1801,7 +1806,7 @@ public final class WildernessAgilityScript extends Script {
         currentState = ObstacleState.PIPE;
     }
 
-    private void handleBanking() {
+    void handleBanking() {
         // Single-step banking logic
         if (!Rs2Bank.isOpen()) {
             Rs2Bank.openBank();
@@ -1839,8 +1844,27 @@ public final class WildernessAgilityScript extends Script {
         }
         
         // Deposit all
-        Rs2Bank.depositAll();
-        sleep(getActionDelay());
+        Set<Integer> supplyIds = new HashSet<>();
+        if (config.withdrawKnife()) {
+            supplyIds.add(KNIFE_ID);
+        }
+        if (config.withdrawCoins() && Rs2Inventory.itemQuantity(COINS_ID) <= 150000) {
+            supplyIds.add(COINS_ID);
+        }
+        if (config.useIcePlateauTp()) {
+            supplyIds.add(TELEPORT_ID);
+        }
+        if (config.withdrawLootingBag()) {
+            supplyIds.add(LOOTING_BAG_CLOSED_ID);
+            supplyIds.add(LOOTING_BAG_OPEN_ID);
+        }
+        if (config.withdrawVenomProtection().getItemId() != -1) {
+            supplyIds.add(config.withdrawVenomProtection().getItemId());
+        }
+        if (!Rs2Inventory.items().allMatch(item -> supplyIds.contains(item.getId()))) {
+            Rs2Bank.depositAll();
+            sleep(getActionDelay());
+        }
 
         // Withdraw Looting Bag (if enabled) - ORDER 1
         if (config.withdrawLootingBag() && !Rs2Inventory.hasItem(LOOTING_BAG_CLOSED_ID) && !Rs2Inventory.hasItem(LOOTING_BAG_OPEN_ID)) {
@@ -1853,15 +1877,14 @@ public final class WildernessAgilityScript extends Script {
                 Microbot.log("[WildernessAgility] Successfully withdrew closed looting bag");
             } else {
                 // If closed bag withdrawal failed, try open bag
-                Microbot.log("[WildernessAgility] Closed looting bag not available, trying open version");
                 Rs2Bank.withdrawOne(LOOTING_BAG_OPEN_ID);
                 boolean openSuccess = sleepUntil(() -> Rs2Inventory.hasItem(LOOTING_BAG_OPEN_ID), 3000);
-                
+
                 if (openSuccess) {
                     Microbot.log("[WildernessAgility] Successfully withdrew open looting bag");
                     needsLootingBagActivation = false; // No need to activate, already open
-                } else {
-                    Microbot.log("[WildernessAgility] Failed to withdraw looting bag in any state");
+                } else if (bankingAttempts == 0) {
+                    Microbot.log("[WildernessAgility] No looting bag in your bank or inventory, so continuing without one (loot will go to your inventory). Looting bags are lost when you die in the Wilderness. Get a new one from Wilderness monsters, or turn off 'Withdraw Looting Bag' under Banking Settings to hide this message.");
                 }
             }
         }
@@ -1883,7 +1906,7 @@ public final class WildernessAgilityScript extends Script {
         
         // Withdraw Coins (if enabled) - ORDER 4
         if (config.withdrawCoins() && (!Rs2Inventory.hasItem(COINS_ID) || Rs2Inventory.itemQuantity(COINS_ID) < 150000)) {
-            Rs2Bank.withdrawX(COINS_ID, 150000);
+            Rs2Bank.withdrawX(COINS_ID, 150000 - Rs2Inventory.itemQuantity(COINS_ID));
             sleepUntil(() -> Rs2Inventory.hasItem(COINS_ID) && Rs2Inventory.itemQuantity(COINS_ID) >= 150000, 3000);
         }
         
@@ -1897,12 +1920,36 @@ public final class WildernessAgilityScript extends Script {
         boolean venomPresent = config.withdrawVenomProtection() == WildernessAgilityConfig.VenomProtectionOption.None || 
             (config.withdrawVenomProtection().getItemId() != -1 && Rs2Inventory.hasItem(config.withdrawVenomProtection().getItemId()));
         
-        boolean allPresent = (!config.withdrawKnife() || Rs2Inventory.hasItem(KNIFE_ID))
-            && (!config.withdrawCoins() || Rs2Inventory.hasItem(COINS_ID))
-            && (!config.useIcePlateauTp() || Rs2Inventory.hasItem(TELEPORT_ID))
-            && (!config.withdrawLootingBag() || Rs2Inventory.hasItem(LOOTING_BAG_CLOSED_ID) || Rs2Inventory.hasItem(LOOTING_BAG_OPEN_ID))
-            && venomPresent;
-        if (!allPresent) return;
+        List<String> missing = new ArrayList<>();
+        List<String> settings = new ArrayList<>();
+        if (config.withdrawKnife() && !Rs2Inventory.hasItem(KNIFE_ID)) {
+            missing.add("Knife");
+            settings.add("'Withdraw Knife'");
+        }
+        if (config.withdrawCoins() && !Rs2Inventory.hasItem(COINS_ID)) {
+            missing.add("Coins");
+            settings.add("'Withdraw Coins'");
+        }
+        if (config.useIcePlateauTp() && !Rs2Inventory.hasItem(TELEPORT_ID)) {
+            missing.add("Ice Plateau teleport");
+            settings.add("'Withdraw Ice Plateau TP'");
+        }
+        if (!venomPresent) {
+            WildernessAgilityConfig.VenomProtectionOption venom = config.withdrawVenomProtection();
+            missing.add(venom == WildernessAgilityConfig.VenomProtectionOption.AraxyteVenomSack ? venom.toString() : venom + " (4 dose)");
+            settings.add("'Withdraw Venom Protection'");
+        }
+        if (!missing.isEmpty()) {
+            bankingAttempts++;
+            if (bankingAttempts >= MAX_BANKING_ATTEMPTS) {
+                String reason = "Stopped: could not withdraw " + String.join(", ", missing) + " from the bank after " + bankingAttempts + " tries. Put " + (missing.size() == 1 ? "it" : "them") + " in your bank, or turn off " + String.join(" / ", settings) + " under Banking Settings.";
+                Microbot.status = reason;
+                Microbot.log("[WildernessAgility] " + reason);
+                Microbot.stopPlugin(plugin);
+            }
+            return;
+        }
+        bankingAttempts = 0;
 
         Rs2Bank.closeBank();
         sleep(getActionDelay());
