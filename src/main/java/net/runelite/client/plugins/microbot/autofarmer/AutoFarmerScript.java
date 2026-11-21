@@ -10,6 +10,8 @@ import net.runelite.api.gameval.VarPlayerID;
 import net.runelite.api.gameval.ObjectID;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
+import net.runelite.client.plugins.itemstats.ItemStatChanges;
+import net.runelite.client.plugins.itemstats.stats.Stats;
 import net.runelite.client.plugins.microbot.Microbot;
 
 import net.runelite.client.plugins.microbot.Script;
@@ -59,6 +61,7 @@ public class AutoFarmerScript extends Script {
     private static final WorldPoint VARROCK_SQUARE = new WorldPoint(3212, 3428, 0);
     private static final WorldPoint VARROCK_EAST_ROAD = new WorldPoint(3274, 3429, 0);
     private WorldPoint fortisDetourWaypoint;
+    private long nextFortisTeleportAttempt;
 
     private static final class TreeStop {
         private final FarmingPatch patch;
@@ -77,12 +80,10 @@ public class AutoFarmerScript extends Script {
                     + patch.getRegion().getName();
         }
     }
-    private static final int MAX_UNREACHABLE_WALKS = 3;
+
     private static final int BANK_COIN_TARGET = 10_000;
+    private static final int FORTIS_TABLET_TARGET = 10;
     private static final int BRIMHAVEN_FOOD_TARGET = 5;
-    private static final int[] FARMING_FOOD = {
-        ItemID.SHARK, ItemID.MONKFISH, ItemID.SWORDFISH, ItemID.LOBSTER, ItemID.SALMON
-    };
     private static final int[] FARMING_ANTIPOISON = {
         ItemID._4DOSE2ANTIPOISON, ItemID._4DOSEANTIPOISON,
         ItemID._3DOSE2ANTIPOISON, ItemID._3DOSEANTIPOISON,
@@ -92,14 +93,15 @@ public class AutoFarmerScript extends Script {
     private long nextRecoveryAction;
     private static final int GARDENER_CLEAR_COST = 200;
     private int unreachableWalks = 0;
-    private static final int MAX_HERB_CLEAR_ATTEMPTS = 5;
-    private int herbClearAttempts = 0;
+
     @Inject
     ClientThread clientThread;
     private volatile FailureLatch failureStop;
     private String failureProfile;
     private SeedRestocker seedRestocker;
     private volatile boolean stopping;
+    @Inject
+    private ItemStatChanges itemStatChanges;
     private java.util.concurrent.ScheduledExecutorService safetyExecutor;
     private long eventSafetySince;
     private long manualPauseSince;
@@ -108,6 +110,13 @@ public class AutoFarmerScript extends Script {
     private String progressSignature = "";
     private long offlineSince;
     private volatile long runStartedAt;
+    private static final String DAILY_BREAK_KEY = "dailyBreakSchedule";
+    private String dailyBreakProfile;
+    private DailyBreakSchedule dailyBreakSchedule;
+    private volatile boolean takingDailyBreak;
+    private long dailyBreakLoginAttemptAt;
+    private final Map<String, Integer> patchFailures = new HashMap<>();
+    private String exhaustedPatchAction;
     private boolean eventYielded;
     private String failureDetail = "Inventory setup could not be completed";
 
@@ -183,7 +192,7 @@ public class AutoFarmerScript extends Script {
     private void safetyCheck() {
         try {
             long now=System.currentTimeMillis();
-            if (stopping || failureStop == null) return;
+            if (stopping || failureStop == null || takingDailyBreak) return;
             checkNavigationOwnership();
             if(navigationFault!=null){failRun(navigationFault);return;}
             if (pauseSafetyForManualInput(now)) return;
@@ -201,7 +210,7 @@ public class AutoFarmerScript extends Script {
             String current=signature.toString();
             if(!current.equals(progressSignature)){progressSignature=current;lastProgressAt=now;}
             if(runStartedAt>0 && now-runStartedAt>1800000L) {failRun("Farming run exceeded 30 minutes without completing");return;}
-            if(now-lastProgressAt>180000L)failRun("No movement or inventory progress for three minutes; last status: " + AutoFarmerPlugin.status);
+            if(now-lastProgressAt>180000L && !(patchWorkStarted && currentPatch != null))failRun("No movement or inventory progress for three minutes; last status: " + AutoFarmerPlugin.status);
         } catch(Exception | LinkageError e) { failRun("Safety monitor error: "+e.getClass().getSimpleName()+": "+e.getMessage()); }
     }
 
@@ -280,7 +289,9 @@ public class AutoFarmerScript extends Script {
         }
         if(!depositBankableInventory())return false;
         topUpTravelCoins();
-        return topUpTeleportRunes();
+        if (!topUpTeleportRunes()) return false;
+        topUpFortisTablets();
+        return true;
     }
     private boolean depositInventoryExcept(java.util.function.Predicate<Rs2ItemModel> retain) {
         if (!Rs2Bank.isOpen()) return false;
@@ -409,8 +420,15 @@ public class AutoFarmerScript extends Script {
         if(Rs2Player.getWorldLocation()==null || Rs2Player.getWorldLocation().distanceTo(breakDestination.getLocation())>6) {
             AutoFarmerPlugin.status="Travelling to next patch: "+preferredNextRegion+" ("+Math.max(0,(ledger.checkAt(preferredNextRegion)-now)/1000)+"s until check)";
             Rs2Bank.closeBank();
-            if(walkToHerbPatch(breakDestination, 6)==WalkerState.UNREACHABLE && ++prepositionUnreachable>=3)
-                failRun("No route to next scheduled patch "+preferredNextRegion+" after three attempts");
+            if (walkToHerbPatch(breakDestination, 6) == WalkerState.UNREACHABLE
+                    && ++prepositionUnreachable >= patchRetryLimit()) {
+                log("Deferring " + preferredNextRegion + ": retry limit reached for scheduled travel");
+                long retryAt = now + TimeUnit.MINUTES.toMillis(15);
+                ledger.record(preferredNextRegion, "PATCH_RETRY_DELAY",
+                        Math.max(retryAt, ledger.checkAt(preferredNextRegion)));
+                saveMemory();
+                scheduleCropBreak();
+            }
             return true;
         }
         preparingCropBreak=false;prepositionUnreachable=0;
@@ -474,7 +492,7 @@ public class AutoFarmerScript extends Script {
     private String waitReason = "Waiting for crops";
     private long patchStartedAt = 0;
     private boolean patchWorkStarted;
-    private int unknownPatchReads;
+
     private String lastPatchDiagnostic="not read";
     private final Set<WorldPoint> compostedPatches = new HashSet<>();
     private volatile boolean checkingCompost;
@@ -505,8 +523,104 @@ public class AutoFarmerScript extends Script {
     private final Set<Integer> handledAllotmentIds = new HashSet<>();
     private int currentAllotmentId = -1;
 
+    private boolean handleDailyBreak() {
+        if (!config.dailyBreak() && !takingDailyBreak) return false;
+        String profile = configManager.getRSProfileKey();
+        if (profile == null && Microbot.isLoggedIn()) return false;
+        if (profile == null) profile = dailyBreakProfile;
+        if (profile == null) return false;
+        if (!profile.equals(dailyBreakProfile)) {
+            dailyBreakProfile = profile;
+            dailyBreakSchedule = DailyBreakSchedule.parse(
+                    configManager.getRSProfileConfiguration("AutoFarmer", DAILY_BREAK_KEY));
+            takingDailyBreak = false;
+            dailyBreakLoginAttemptAt = 0;
+        }
+        var localNow = java.time.ZonedDateTime.now();
+        long now = localNow.toInstant().toEpochMilli();
+        if (!takingDailyBreak && dailyBreakSchedule != null && dailyBreakSchedule.activeAt(now)) {
+            takingDailyBreak = true;
+        }
+        if (!takingDailyBreak) {
+            if (dailyBreakSchedule == null || !dailyBreakSchedule.day().equals(localNow.toLocalDate())) {
+                dailyBreakSchedule = DailyBreakSchedule.plan(localNow);
+                saveDailyBreakSchedule();
+            }
+            boolean betweenPatches = currentTree == null
+                    && (currentPatch == null || !patchWorkStarted || currentPhase == LocationPhase.DONE);
+            if (!betweenPatches || !dailyBreakSchedule.readyAt(now)) return false;
+            dailyBreakSchedule = dailyBreakSchedule.start(now);
+            saveDailyBreakSchedule();
+            takingDailyBreak = true;
+            log("Daily break started; ends at " + java.time.Instant.ofEpochMilli(dailyBreakSchedule.endsAt()));
+        }
+
+        holdAutoLogin();
+        if (dailyBreakSchedule.activeAt(now)) {
+            long minutesLeft = (dailyBreakSchedule.endsAt() - now + 59_999) / 60_000;
+            AutoFarmerPlugin.status = "Daily break: " + minutesLeft / 60 + "h " + minutesLeft % 60 + "m left";
+            if (Microbot.isLoggedIn() && now >= dailyBreakLoginAttemptAt) {
+                dailyBreakLoginAttemptAt = now + 15_000;
+                Rs2Walker.setTarget(null);
+                Rs2Bank.closeBank();
+                Rs2Player.logout();
+            }
+            return true;
+        }
+
+        if (!Microbot.isLoggedIn()) {
+            AutoFarmerPlugin.status = "Daily break ended; logging in";
+            if (now >= dailyBreakLoginAttemptAt && Microbot.getClient().getGameState() == net.runelite.api.GameState.LOGIN_SCREEN) {
+                dailyBreakLoginAttemptAt = now + 60_000;
+                net.runelite.client.plugins.microbot.util.security.LoginManager.login();
+            }
+            return true;
+        }
+
+        takingDailyBreak = false;
+        dailyBreakLoginAttemptAt = 0;
+        lastProgressAt = now;
+        offlineSince = 0;
+        runStartedAt = initialized ? now : 0;
+        if (preparingCropBreak) prepositionStartedAt = now;
+        log("Daily break complete; resuming saved crop schedule");
+        return false;
+    }
+
+    private void saveDailyBreakSchedule() {
+        configManager.setRSProfileConfiguration("AutoFarmer", DAILY_BREAK_KEY, dailyBreakSchedule.encode());
+    }
+
+    private int patchRetryLimit() {
+        return Math.max(1, config.patchRetryLimit());
+    }
+
+    private void recordPatchFailure(String action) {
+        if (eventYielded || stopping || pauseSafetyForManualInput(System.currentTimeMillis())) return;
+        if (patchFailures.merge(action, 1, Integer::sum) >= patchRetryLimit()) exhaustedPatchAction = action;
+    }
+
+    private void resetPatchFailures() {
+        patchFailures.clear();
+        exhaustedPatchAction = null;
+    }
+
+    private void deferCurrentPatch(String reason) {
+        String region = currentPatch.getRegionName();
+        long retryAt = System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(15);
+        remember("PATCH_RETRY_DELAY", Math.max(retryAt, ledger.checkAt(region)));
+        log("Deferring " + region + ": " + reason);
+        currentPatch = null;
+        handledAllotmentIds.clear();
+        currentAllotmentId = -1;
+        unreachableWalks = 0;
+        resetPatchFailures();
+        lastProgressAt = System.currentTimeMillis();
+    }
+
     public boolean run() {
         stopping = false;
+        resetPatchFailures();
         navigationFault=null;
         navigationGuard.acquire();
         log("Auto Farmer owns navigation; stale manual map destination cleared");
@@ -523,6 +637,7 @@ public class AutoFarmerScript extends Script {
             }
             if (pauseSafetyForManualInput(System.currentTimeMillis())) return;
             if (handleBrimhavenRecovery()) return;
+            if (handleDailyBreak()) return;
             if (yieldToRandomEvents()) return;
             if (Microbot.isLoggedIn() && !Microbot.pauseAllScripts.get()
                     && !net.runelite.client.plugins.microbot.ScriptPauseController.isPaused()
@@ -641,9 +756,10 @@ public class AutoFarmerScript extends Script {
                 getNextPatch();
                 patchStartedAt = System.currentTimeMillis();
                 patchWorkStarted = false;
-                unknownPatchReads=0;
+
                 currentPhase = LocationPhase.HERB;
-                herbClearAttempts = 0;
+                resetPatchFailures();
+                unreachableWalks = 0;
             }
             if (currentPatch == null) {
                 if (yieldToRandomEvents()) return;
@@ -682,9 +798,7 @@ public class AutoFarmerScript extends Script {
                 log("Arrived at " + currentPatch.getRegionName() + "; starting patch work timer");
             }
             if (System.currentTimeMillis() - patchStartedAt > 180_000L) {
-                log("Patch stalled for three minutes; skipping " + currentPatch.getRegionName());
-                failRun("Patch stalled for three minutes at " + currentPatch.getRegionName());
-                currentPatch = null;
+                deferCurrentPatch("patch stalled for three minutes");
                 return;
             }
 
@@ -726,6 +840,9 @@ public class AutoFarmerScript extends Script {
                     currentAllotmentId = -1;
                     break;
             }
+            if (currentPatch != null && exhaustedPatchAction != null) {
+                deferCurrentPatch("retry limit reached for " + exhaustedPatchAction);
+            }
 
             } catch (Exception | LinkageError failure) {
                 waitReason = "Error: " + failure.getClass().getSimpleName() + "; see client log";
@@ -745,6 +862,12 @@ public class AutoFarmerScript extends Script {
         }
         WorldPoint player = Rs2Player.getWorldLocation();
         if (player == null) return WalkerState.MOVING;
+
+        if (player.distanceTo(destination.getLocation()) > 180
+                && tryFortisTeleport(destination.getLocation())) {
+            fortisDetourWaypoint = null;
+            return WalkerState.MOVING;
+        }
 
         if (fortisDetourWaypoint == null && player.distanceTo(VARROCK_TREE) <= 8) {
             fortisDetourWaypoint = VARROCK_SQUARE;
@@ -774,21 +897,48 @@ public class AutoFarmerScript extends Script {
         return Rs2Walker.walkWithState(destination.getLocation(), distance);
     }
 
+    private boolean tryFortisTeleport(WorldPoint destination) {
+        long now = System.currentTimeMillis();
+        if (now < nextFortisTeleportAttempt
+                || Rs2Player.getQuestState(Quest.TWILIGHTS_PROMISE) != QuestState.FINISHED) return false;
+        nextFortisTeleportAttempt = now + 30_000L;
+
+        if (canCastFortisTeleport() && Rs2Magic.cast(Rs2Spells.CIVITAS_ILLA_FORTIS_TELEPORT)
+                && waitForFortisTeleport(destination)) {
+            log("Used the Civitas illa Fortis teleport spell.");
+            return true;
+        }
+        if (yieldToRandomEvents()) return true;
+        int tablet = ItemID.POH_TABLET_FORTISTELEPORT;
+        if (Rs2Inventory.hasItem(tablet) && Rs2Inventory.interact(tablet, "Break")
+                && waitForFortisTeleport(destination)) {
+            log("Used a Civitas illa Fortis teleport tablet.");
+            return true;
+        }
+        return false;
+    }
+
+    private boolean waitForFortisTeleport(WorldPoint destination) {
+        return sleepUntil(() -> {
+            WorldPoint location = Rs2Player.getWorldLocation();
+            return location != null && location.distanceTo(destination) <= 180;
+        }, 8000);
+    }
+
+    private boolean canCastFortisTeleport() {
+        return Rs2Magic.canCast(Rs2Spells.CIVITAS_ILLA_FORTIS_TELEPORT);
+    }
+
     void walkToCurrentPatch() {
         if (yieldToRandomEvents()) return;
         AutoFarmerPlugin.status = "Walking to " + currentPatch.getRegionName();
         if (walkToHerbPatch(currentPatch, 20) != WalkerState.UNREACHABLE) {
             return;
         }
-        if (++unreachableWalks < MAX_UNREACHABLE_WALKS) {
+        if (++unreachableWalks < patchRetryLimit()) {
             return;
         }
-        log("Could not find a path to the " + currentPatch.getDisplayName() + " herb patch after " + MAX_UNREACHABLE_WALKS
-                + " tries (missing teleport item, quest or route?). Skipping it and continuing the run. Turn off '"
-                + currentPatch.getToggleName() + "' in the Location toggles section if you cannot reach it.");
-        failRun("No route to " + currentPatch.getRegionName() + " after three attempts; check travel items and unlocks");
-        currentPatch = null;
-        unreachableWalks = 0;
+        deferCurrentPatch("retry limit reached for travel");
     }
 
     private long nextGrowingCheck(String region, long now) {
@@ -854,7 +1004,8 @@ public class AutoFarmerScript extends Script {
 
             for (String region : allHerbsByRegion.keySet()) {
                 boolean alreadyInList = herbPatches.stream().anyMatch(p -> p.getRegionName().equals(region));
-                if (alreadyInList) continue;
+                if (alreadyInList || ("PATCH_RETRY_DELAY".equals(ledger.outcome(region))
+                        && !ledger.due(region, System.currentTimeMillis()))) continue;
                 boolean hasAllotmentWork = allotmentsByRegion.containsKey(region);
                 boolean hasFlowerWork = flowerByRegion.containsKey(region);
                 if (hasAllotmentWork || hasFlowerWork) {
@@ -898,6 +1049,7 @@ public class AutoFarmerScript extends Script {
             if (next == null || !ledger.due(next.key(), now)) return false;
             currentTree = next;
             treeWalkFailures = 0;
+            resetPatchFailures();
             if (isBrimhavenTree(next) && !prepareBrimhavenTrip()) {
                 if (eventYielded) currentTree = null;
                 else if (!stopping) finishTree("BRIMHAVEN_SUPPLIES_MISSING", 30);
@@ -920,7 +1072,7 @@ public class AutoFarmerScript extends Script {
         if (player == null) return true;
         if (player.distanceTo(location) > 4) {
             AutoFarmerPlugin.status = "Walking to " + tree.key();
-            if (Rs2Walker.walkWithState(location, 4) == WalkerState.UNREACHABLE && ++treeWalkFailures >= 3) {
+            if (Rs2Walker.walkWithState(location, 4) == WalkerState.UNREACHABLE && ++treeWalkFailures >= patchRetryLimit()) {
                 finishTree("TREE_ROUTE_UNREACHABLE", 15);
             }
             return true;
@@ -934,7 +1086,12 @@ public class AutoFarmerScript extends Script {
         if (Rs2Player.isAnimating() || Rs2Player.isMoving()) return true;
 
         Rs2TileObjectModel object = findTreeObject(tree);
-        if (object == null) return true;
+        if (object == null) {
+            recordPatchFailure("finding tree object");
+            if (exhaustedPatchAction != null) finishTree("TREE_OBJECT_MISSING", 15);
+            return true;
+        }
+        patchFailures.remove("finding tree object");
         String pickAction = tree.sapling() instanceof TreeSapling.Fruit ? object.findAction("Pick") : null;
         if (object.hasAction("Check-health")) {
             clickTreeAction(object, "Check-health");
@@ -944,14 +1101,14 @@ public class AutoFarmerScript extends Script {
         } else if (object.hasAction("Rake")) {
             clickTreeAction(object, "Rake");
         } else if (config.payGardenerToClear() && isPickedPineapplePlant(tree, object)) {
-            if (!payGardenerToClear(tree)) finishTree("GARDENER_CLEAR_UNCONFIRMED", 15);
+            if (!payGardenerToClear(tree)) recordPatchFailure("gardener clearing");
         } else if (object.hasAction("Clear")) {
             clickTreeAction(object, "Clear");
         } else if (object.hasAction("Dig")) {
             clickTreeAction(object, "Dig");
         } else if (object.hasAction("Chop down") || object.hasAction("Chop-down") || object.hasAction("Chop")) {
             if (config.payGardenerToClear()) {
-                if (!payGardenerToClear(tree)) finishTree("GARDENER_CLEAR_UNCONFIRMED", 15);
+                if (!payGardenerToClear(tree)) recordPatchFailure("gardener clearing");
             } else {
                 String action = object.hasAction("Chop down") ? "Chop down"
                         : object.hasAction("Chop-down") ? "Chop-down" : "Chop";
@@ -969,13 +1126,20 @@ public class AutoFarmerScript extends Script {
                 if (Rs2Inventory.hasItem(ItemID.PLANTPOT_EMPTY)) {
                     Rs2Inventory.dropAll(ItemID.PLANTPOT_EMPTY);
                 }
+            } else {
+                recordPatchFailure("planting sapling");
             }
         } else if (object.getName() != null && object.getName().toLowerCase(Locale.ROOT).contains("stump")) {
             if (selectItemForPatch(ItemID.SPADE)) object.click();
         } else {
             CropState prediction = clientThread.runOnClientThreadOptional(
                     () -> farmingHandler.predictPatch(tree.patch())).orElse(null);
-            finishTree(prediction == CropState.GROWING ? "TREE_GROWING" : "TREE_STATE_UNCONFIRMED", 15);
+            if (prediction == CropState.GROWING) finishTree("TREE_GROWING", 15);
+            else recordPatchFailure("confirming tree state");
+        }
+        if (currentTree != null && exhaustedPatchAction != null) {
+            log("Deferring " + tree.key() + ": retry limit reached for " + exhaustedPatchAction);
+            finishTree("TREE_RETRY_DELAY", 15);
         }
         return true;
     }
@@ -1013,15 +1177,13 @@ public class AutoFarmerScript extends Script {
         long now = System.currentTimeMillis();
         if (now < nextRecoveryAction) return true;
 
-        int[] supplies = needsFood && (!poisoned || (hp <= 12 && carriedFarmingFood() > 0))
-                ? FARMING_FOOD : FARMING_ANTIPOISON;
-        String action = supplies == FARMING_FOOD ? "Eat" : "Drink";
-        for (int id : supplies) {
-            if (Rs2Inventory.hasItem(id) && Rs2Inventory.interact(id, action)) {
-                nextRecoveryAction = now + 1_800L;
-                log("Brimhaven recovery: " + action + " (HP " + hp + "/" + maximum + ", poisoned=" + poisoned + ")");
-                return true;
-            }
+        boolean eatFirst = needsFood && (!poisoned || (hp <= 12 && carriedFarmingFood() > 0));
+        boolean recovered = eatFirst ? eatFarmingFood() : drinkFarmingAntipoison();
+        if (recovered) {
+            nextRecoveryAction = now + 1_800L;
+            log("Brimhaven recovery: " + (eatFirst ? "ate food" : "drank antipoison")
+                    + " (HP " + hp + "/" + maximum + ", poisoned=" + poisoned + ")");
+            return true;
         }
         failRun("Brimhaven recovery needs food or antipoison at " + hp + " HP");
         return true;
@@ -1039,13 +1201,14 @@ public class AutoFarmerScript extends Script {
                     if (Rs2Bank.count(id) > 0 && ensureBankItem(id, "antipoison")) break;
                 }
             }
-            for (int id : FARMING_FOOD) {
+            for (Rs2ItemModel food : farmingFood(Rs2Bank.bankItems())) {
                 int missing = BRIMHAVEN_FOOD_TARGET - carriedFarmingFood();
-                if (missing <= 0) break;
+                if (missing <= 0 || eventYielded || stopping) break;
+                int id = food.getId();
                 topUpBankItem(id, Rs2Inventory.itemQuantity(id) + missing);
             }
             boolean ready = carriedFarmingFood() >= BRIMHAVEN_FOOD_TARGET && Rs2Inventory.hasItem(FARMING_ANTIPOISON);
-            if (!ready) log("Skipping Brimhaven: need five supported food and an antipoison potion.");
+            if (!ready) log("Skipping Brimhaven: need five healing food and an antipoison potion.");
             return ready;
         } finally {
             Rs2Bank.closeBank();
@@ -1053,7 +1216,46 @@ public class AutoFarmerScript extends Script {
     }
 
     private int carriedFarmingFood() {
-        return Arrays.stream(FARMING_FOOD).map(Rs2Inventory::itemQuantity).sum();
+        return Rs2Inventory.all().stream()
+                .filter(item -> farmingFoodHealing(item) > 0)
+                .mapToInt(Rs2ItemModel::getQuantity)
+                .sum();
+    }
+
+    private List<Rs2ItemModel> farmingFood(Collection<Rs2ItemModel> items) {
+        Map<Integer, Integer> healingById = new HashMap<>();
+        return items.stream()
+                .filter(item -> item != null && healingById.computeIfAbsent(item.getId(),
+                        id -> farmingFoodHealing(item)) > 0)
+                .sorted(Comparator.comparingInt((Rs2ItemModel item) -> healingById.get(item.getId())).reversed())
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    private int farmingFoodHealing(Rs2ItemModel item) {
+        if (item == null || item.isNoted()) return 0;
+        var effect = itemStatChanges.get(item.getId());
+        if (effect == null) return 0;
+        String name = item.getName();
+        if (name == null || name.toLowerCase(Locale.ROOT).startsWith("blighted ")
+                || item.getAction("Eat") == null) return 0;
+        return Arrays.stream(effect.calculate(Microbot.getClient()).getStatChanges())
+                .filter(change -> change.getStat() == Stats.HITPOINTS)
+                .mapToInt(change -> change.getTheoretical())
+                .sum();
+    }
+
+    private boolean eatFarmingFood() {
+        for (Rs2ItemModel item : farmingFood(Rs2Inventory.all())) {
+            if (Rs2Inventory.interact(item, "Eat")) return true;
+        }
+        return false;
+    }
+
+    private boolean drinkFarmingAntipoison() {
+        for (int id : FARMING_ANTIPOISON) {
+            if (Rs2Inventory.hasItem(id) && Rs2Inventory.interact(id, "Drink")) return true;
+        }
+        return false;
     }
 
     private boolean payGardenerToClear(TreeStop tree) {
@@ -1120,7 +1322,12 @@ public class AutoFarmerScript extends Script {
     private void clickTreeAction(Rs2TileObjectModel object, String action) {
         pauseBeforeAction();
         if (Rs2Inventory.isItemSelected()) Rs2Inventory.deselect();
-        if (object.click(action)) sleep(1500);
+        if (object.click(action)) {
+            patchFailures.remove(action);
+            sleep(1500);
+        } else {
+            recordPatchFailure(action);
+        }
     }
 
     private Rs2TileObjectModel findTreeObject(TreeStop tree) {
@@ -1164,6 +1371,7 @@ public class AutoFarmerScript extends Script {
             if (!ensureBankItem(ItemID.RAKE, "rake") || !ensureBankItem(ItemID.SPADE, "spade")) return false;
             if (!config.payGardenerToClear() && !hasTreeAxe() && !ensureBankItem(ItemID.BRONZE_AXE, "bronze axe")) return false;
             topUpTravelCoins();
+            topUpFortisTablets();
             if (config.payGardenerToClear() && Rs2Inventory.itemQuantity(ItemID.COINS) < GARDENER_CLEAR_COST) return false;
             int saplingId = tree.sapling().itemId();
             long now = System.currentTimeMillis();
@@ -1252,19 +1460,20 @@ public class AutoFarmerScript extends Script {
         if (!ensureInventorySpace()) return false;
 
         final var obj = Microbot.getRs2TileObjectCache().query().withIds(HERB_PATCH_IDS).nearest();
-        if (obj == null) { failRun("Herb patch object not found at " + currentPatch.getRegionName()); return false; }
+        if (obj == null) {
+            recordPatchFailure("finding herb patch");
+            return false;
+        }
+        patchFailures.remove("finding herb patch");
         String state = getHerbPatchState(obj);
         if (state.equals("Unknown")) {
             log("Unconfirmed herb state: " + lastPatchDiagnostic);
-            if (++unknownPatchReads <= 3) {
-                AutoFarmerPlugin.status="Waiting for patch state to refresh";
-                sleep(1200,1600);
-                return false;
-            }
-            failRun("Cannot confirm herb patch after three refresh attempts: " + lastPatchDiagnostic);
+            recordPatchFailure("reading herb patch state");
+            AutoFarmerPlugin.status = "Waiting for patch state to refresh";
+            sleep(1200, 1600);
             return false;
         }
-        unknownPatchReads=0;
+        patchFailures.remove("reading herb patch state");
         if (state.equals("Growing")) {
             remember("OBSERVED_GROWING", nextGrowingCheck(currentPatch.getRegionName(), System.currentTimeMillis()));
             return true;
@@ -1272,7 +1481,11 @@ public class AutoFarmerScript extends Script {
 
         if (state.equals("Harvestable")) {
             pauseBeforeAction();
-            if (!obj.hasAction("Pick") || !obj.click("Pick")) return false;
+            if (!obj.hasAction("Pick") || !obj.click("Pick")) {
+                recordPatchFailure("starting herb harvest");
+                return false;
+            }
+            patchFailures.remove("starting herb harvest");
             Rs2Player.waitForWalking();
             sleepUntil(() -> getHerbPatchState(obj).equals("Empty") || Rs2Inventory.isFull(), 20000);
             return false;
@@ -1280,7 +1493,7 @@ public class AutoFarmerScript extends Script {
 
         if (state.equals("Weeds")) {
             pauseBeforeAction();
-            if (!obj.hasAction("Rake") || !obj.click("Rake")) return false;
+            if (!obj.hasAction("Rake") || !obj.click("Rake")) return giveUpClearingHerbPatch();
             Rs2Player.waitForWalking();
             sleepUntil(() -> !getHerbPatchState(obj).equals("Weeds"), 15000);
             state = getHerbPatchState(obj);
@@ -1294,7 +1507,7 @@ public class AutoFarmerScript extends Script {
 
         if (state.equals("Dead")) {
             pauseBeforeAction();
-            if (!obj.hasAction("Clear") || !obj.click("Clear")) return false;
+            if (!obj.hasAction("Clear") || !obj.click("Clear")) return giveUpClearingHerbPatch();
             Rs2Player.waitForWalking();
             sleepUntil(() -> getHerbPatchState(obj).equals("Empty"), 10000);
             state = getHerbPatchState(obj);
@@ -1322,8 +1535,11 @@ public class AutoFarmerScript extends Script {
                 if (Rs2Player.isMoving() || Rs2Player.isAnimating()) return false;
             }
             int seedsBefore = Rs2Inventory.itemQuantity(seedInInventory.getItemId());
-            if (!selectItemForPatch(seedInInventory.getItemId())) return false;
-            if (!obj.click()) return false;
+            if (!selectItemForPatch(seedInInventory.getItemId()) || !obj.click()) {
+                recordPatchFailure("starting herb planting");
+                return false;
+            }
+            patchFailures.remove("starting herb planting");
             AutoFarmerPlugin.status = "Confirming planting at " + currentPatch.getRegionName();
             boolean planted = sleepUntil(() -> Rs2Inventory.itemQuantity(seedInInventory.getItemId()) < seedsBefore
                     || getHerbPatchState(obj).equals("Growing"), 15000);
@@ -1333,6 +1549,7 @@ public class AutoFarmerScript extends Script {
                 sleep(1200, 1600);
                 return true;
             }
+            recordPatchFailure("confirming herb planting");
             log("Planting not confirmed yet; keeping compost state for this patch");
             return false;
         }
@@ -1361,21 +1578,15 @@ public class AutoFarmerScript extends Script {
             giveUpClearingHerbPatch();
             return false;
         }
-        herbClearAttempts=0;
+
         compostedPatches.remove(obj.getWorldLocation());
         log("Diseased herb removed at " + currentPatch.getRegionName() + "; patch confirmed empty, preparing to replant");
         return true;
     }
 
     boolean giveUpClearingHerbPatch() {
-        if (++herbClearAttempts < MAX_HERB_CLEAR_ATTEMPTS) {
-            return false;
-        }
-        log("Could not clear the " + currentPatch.getDisplayName() + " herb patch after " + MAX_HERB_CLEAR_ATTEMPTS
-                + " tries. Skipping it and continuing the run.");
-        failRun("Could not clear herb patch at " + currentPatch.getRegionName() + " after five attempts");
-        herbClearAttempts = 0;
-        return true;
+        recordPatchFailure("clearing herb patch");
+        return false;
     }
 
     private String getHerbPatchState(TileObject rs2TileObject) {
@@ -1462,6 +1673,7 @@ public class AutoFarmerScript extends Script {
                     log("[Flower] Planted at " + obj.getWorldLocation());
                     return true;
                 }
+                recordPatchFailure("planting flowers");
                 log("[Flower] Plant not confirmed (state=" + getPatchState(obj) + "), retrying");
                 return false;
             default:
@@ -1579,6 +1791,7 @@ public class AutoFarmerScript extends Script {
                     handledAllotmentIds.add(currentAllotmentId);
                     currentAllotmentId = -1;
                 } else {
+                    recordPatchFailure("planting allotment " + currentAllotmentId);
                     log("[Allotment] Plant not confirmed (state=" + getPatchState(obj) + "), retrying id=" + currentAllotmentId);
                 }
                 return false;
@@ -1628,9 +1841,11 @@ public class AutoFarmerScript extends Script {
             AutoFarmerPlugin.status = "Refilling leprechaun compost";
             pauseBeforeAction();
             if (!Rs2Leprechaun.depositNotedCompost(compost.getItemId())) {
+                recordPatchFailure("refilling compost");
                 log("Compost refill not confirmed; keeping notes and retrying before farming");
                 return false;
             }
+            patchFailures.remove("refilling compost");
             log("Leprechaun refill confirmed; stored compost = " + FarmingSupplies.stored(compost.getItemId()));
             return false;
         }
@@ -1638,6 +1853,7 @@ public class AutoFarmerScript extends Script {
 
         if (compost.isBottomless()) {
             if (!Rs2Inventory.hasItem(compost.getItemId())) {
+                recordPatchFailure("finding bottomless compost bucket");
                 log("Bottomless compost bucket not found in inventory");
                 return false;
             }
@@ -1645,10 +1861,12 @@ public class AutoFarmerScript extends Script {
             if (!Rs2Inventory.hasItem(compost.getItemId())) {
                 if (!Rs2Leprechaun.withdrawCompost(compost.getItemId())) {
                     log("Failed to withdraw " + compost.getCompostName() + " from leprechaun");
+                    if (!Rs2Inventory.hasItem(compost.getItemId())) recordPatchFailure("withdrawing compost");
                     return false;
                 }
                 return false;
             }
+            patchFailures.remove("withdrawing compost");
         }
 
         int xpBefore = Microbot.getClient().getSkillExperience(Skill.FARMING);
@@ -1664,12 +1882,14 @@ public class AutoFarmerScript extends Script {
 
         checkingCompost = false;
         if (!applied) {
+            recordPatchFailure("applying compost");
             log("Compost not confirmed; waiting before retry");
             sleep(1800, 2400);
             return false;
         } else if (config.dropEmptyBuckets() && !compost.isBottomless()) {
             Rs2Inventory.drop(ItemID.BUCKET_EMPTY);
         }
+        patchFailures.remove("applying compost");
         compostedPatches.add(obj.getWorldLocation());
         log("Compost confirmed; will not reapply to this patch during this run");
         sleep(1200, 1600);
@@ -1798,7 +2018,8 @@ public class AutoFarmerScript extends Script {
         if(keepInInventory(item))return true;
         int id=item.getId();
         if (id == ItemID.COINS) return true;
-        if (config.enableFruitTrees() && (Arrays.stream(FARMING_FOOD).anyMatch(food -> food == id)
+        if (id == ItemID.POH_TABLET_FORTISTELEPORT && config.enableVarlamore()) return true;
+        if (config.enableFruitTrees() && ((isBrimhavenTree(currentTree) && farmingFoodHealing(item) > 0)
                 || Arrays.stream(FARMING_ANTIPOISON).anyMatch(potion -> potion == id))) return true;
         if(id==ItemID.RAKE || id==ItemID.SPADE || id==ItemID.DIBBER || id==ItemID.FAIRY_ENCHANTED_SECATEURS
                 || id==ItemID.ECTOPHIAL || id==ItemID.AIR_BATTLESTAFF)return true;
@@ -1888,6 +2109,23 @@ public class AutoFarmerScript extends Script {
             if (balance < BANK_COIN_TARGET && !eventYielded) {
                 log("Carrying " + balance + " GP after bank top-up; target is " + BANK_COIN_TARGET + " GP.");
             }
+        } finally {
+            failureDetail = priorFailure;
+        }
+    }
+
+    private void topUpFortisTablets() {
+        int id = ItemID.POH_TABLET_FORTISTELEPORT;
+        if (!config.enableVarlamore() || !Rs2Bank.isOpen()
+                || Rs2Inventory.itemQuantity(id) >= FORTIS_TABLET_TARGET || Rs2Bank.count(id) <= 0
+                || Rs2Player.getQuestState(Quest.TWILIGHTS_PROMISE) != QuestState.FINISHED
+                || canCastFortisTeleport()) return;
+        if (Rs2Inventory.isFull() && !Rs2Inventory.hasItem(id)) return;
+
+        String priorFailure = failureDetail;
+        try {
+            Rs2Bank.setWithdrawAsItem();
+            topUpBankItem(id, FORTIS_TABLET_TARGET);
         } finally {
             failureDetail = priorFailure;
         }
@@ -1995,6 +2233,7 @@ public class AutoFarmerScript extends Script {
             seedRestocker.restockWhenEmpty(config.herbSeedType(),Microbot.getClient().getRealSkillLevel(Skill.FARMING));
         }
         topUpTravelCoins();
+        topUpFortisTablets();
         if(!preferBestBankedHerb())return false;
         // Withdraw herb seeds
         HerbSeedType seedType = config.herbSeedType();
@@ -2215,6 +2454,10 @@ public class AutoFarmerScript extends Script {
         progressSignature = "";
         cropBreak = false;preparingCropBreak=false;breakDestination=null;preferredNextRegion=null;allEnabledHerbs.clear();
         accountProfile = null;
+        dailyBreakProfile = null;
+        dailyBreakSchedule = null;
+        takingDailyBreak = false;
+        dailyBreakLoginAttemptAt = 0;
         loginAttemptAt = 0;
         loginSettledAt = 0;
         initialized = false;
@@ -2227,9 +2470,10 @@ public class AutoFarmerScript extends Script {
         treeActionStarted = 0;
         treeStops.clear();
         fortisDetourWaypoint = null;
+        nextFortisTeleportAttempt = 0;
         currentPatch = null;
         unreachableWalks = 0;
-        herbClearAttempts = 0;
+
         allotmentsByRegion.clear();
         flowerByRegion.clear();
         currentPhase = LocationPhase.HERB;

@@ -1,7 +1,9 @@
 package net.runelite.client.plugins.microbot.autofarmer;
 import net.runelite.client.plugins.microbot.Microbot;
 
+import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.ItemID;
+import net.runelite.api.gameval.VarbitID;
 import net.runelite.api.widgets.Widget;
 import net.runelite.client.plugins.microbot.util.Global;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
@@ -22,6 +24,7 @@ public final class Rs2Leprechaun {
 
     private static final int EXCHANGE_GROUP = 125;
     private static final int EXCHANGE_ROOT_CHILD = 0;
+    private static final int REMOVE_ONE_MODE = 0;
     private static final Map<Integer, Integer> COMPOST_WIDGET_CHILDREN = new HashMap<>();
 
     static {
@@ -72,13 +75,13 @@ public final class Rs2Leprechaun {
         int sideWidget = compostItemId == ItemID.BUCKET_COMPOST ? 8257546
                 : compostItemId == ItemID.BUCKET_SUPERCOMPOST ? 8257547 : 8257548;
         try {
-            if (!Rs2Widget.clickWidget(net.runelite.api.gameval.InterfaceID.FarmingTools.QUANTITY_ALL)) return false;
+            if (!Rs2Widget.clickWidget(InterfaceID.FarmingTools.QUANTITY_ALL)) return false;
             Global.sleep(350, 600);
             if (!Rs2Widget.clickWidget(sideWidget)) return false;
             return Global.sleepUntil(() -> Rs2Inventory.itemQuantity(noted) < before
                     && FarmingSupplies.stored(compostItemId) > storedBefore, 6000);
         } finally {
-            Rs2Widget.clickWidget(net.runelite.api.gameval.InterfaceID.FarmingTools.QUANTITY_1);
+            ensureRemoveOne();
             closeExchange();
         }
     }
@@ -93,21 +96,34 @@ public final class Rs2Leprechaun {
         if (!isExchangeOpen() && !openExchange()) {
             return false;
         }
-        Rs2Widget.clickWidget(net.runelite.api.gameval.InterfaceID.FarmingTools.QUANTITY_1);
-        Global.sleep(300, 600);
+        try {
+            if (!ensureRemoveOne()) {
+                Microbot.log("Could not confirm quantity 1 in the Tool Leprechaun exchange.");
+                return false;
+            }
 
-        Widget compostWidget = Rs2Widget.getWidget(EXCHANGE_GROUP, childId);
-        if (compostWidget == null) {
-            Microbot.log("Compost widget not found in leprechaun interface.");
+            Widget compostWidget = Rs2Widget.getWidget(EXCHANGE_GROUP, childId);
+            if (compostWidget == null) {
+                Microbot.log("Compost widget not found in leprechaun interface.");
+                return false;
+            }
+
+            int before = Rs2Inventory.itemQuantity(compostItemId);
+            return Rs2Widget.clickWidget(compostWidget)
+                    && Global.sleepUntil(() -> Rs2Inventory.itemQuantity(compostItemId) > before, 3000);
+        } finally {
             closeExchange();
-            return false;
         }
+    }
 
-        Rs2Widget.clickWidget(compostWidget);
-        Global.sleepUntil(() -> Rs2Inventory.hasItem(compostItemId), 3000);
-        Global.sleep(300, 600);
+    private static boolean ensureRemoveOne() {
+        if (!isExchangeOpen()) return false;
+        if (isRemoveOneSelected()) return true;
+        return Rs2Widget.clickWidget(InterfaceID.FarmingTools.QUANTITY_1)
+                && Global.sleepUntil(Rs2Leprechaun::isRemoveOneSelected, 2000);
+    }
 
-        closeExchange();
-        return Rs2Inventory.hasItem(compostItemId);
+    private static boolean isRemoveOneSelected() {
+        return Microbot.getVarbitValue(VarbitID.FARMING_TOOLS_SELECTEDQUANTITY) == REMOVE_ONE_MODE;
     }
 }
