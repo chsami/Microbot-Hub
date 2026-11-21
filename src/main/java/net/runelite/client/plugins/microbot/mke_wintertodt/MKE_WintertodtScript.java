@@ -2070,6 +2070,10 @@ public class MKE_WintertodtScript extends Script {
      */
     private void handleBankingState(GameState gameState) {
         try {
+            if (Rs2Player.getWorldLocation() == null) {
+                return;
+            }
+
             /* leave the arena BEFORE doing anything else */
             // Handle script-specific state management when leaving Wintertodt
             if (!isInsideWintertodtArea()) {
@@ -2949,10 +2953,10 @@ public class MKE_WintertodtScript extends Script {
     private boolean useBreadmaNpcForPotions(int concoctions, int herbs) {
         try {
             // Walk to Brew'ma NPC if not nearby
-            if (Rs2Player.getWorldLocation().distanceTo(BREWMA_NPC_LOCATION) > 10) {
+            if (!WintertodtLocationManager.isWithin(BREWMA_NPC_LOCATION, 10)) {
                 Microbot.log("Walking to Brew'ma NPC at " + BREWMA_NPC_LOCATION);
                 Rs2Walker.walkTo(BREWMA_NPC_INTERACT_LOCATION);
-                sleepUntilTrue(() -> Rs2Player.getWorldLocation().distanceTo(BREWMA_NPC_LOCATION) <= 10, 100, 10000);
+                sleepUntilTrue(() -> WintertodtLocationManager.isWithin(BREWMA_NPC_LOCATION, 10), 100, 10000);
                 return false; // Return false to retry next tick after walking
             }
 

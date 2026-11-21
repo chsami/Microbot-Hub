@@ -1,5 +1,6 @@
 package net.runelite.client.plugins.microbot.mke_wintertodt;
 
+import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.mke_wintertodt.startup.location.WintertodtLocationManager;
 import net.runelite.client.plugins.microbot.util.misc.Rs2Food;
@@ -55,6 +56,7 @@ class WintertodtBankingExitTest {
              MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class);
              MockedStatic<Rs2Widget> widget = mockStatic(Rs2Widget.class);
              MockedStatic<WintertodtLocationManager> location = mockStatic(WintertodtLocationManager.class)) {
+            player.when(Rs2Player::getWorldLocation).thenReturn(new WorldPoint(1630, 3997, 0));
             widget.when(() -> Rs2Widget.getChildWidgetText(396, 6)).thenReturn("Points<br>650");
             location.when(WintertodtLocationManager::isInsideGameRoom).thenReturn(true);
             location.when(() -> WintertodtLocationManager.attemptLeaveWintertodt(anyBoolean())).thenReturn(false);
@@ -84,6 +86,7 @@ class WintertodtBankingExitTest {
              MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class);
              MockedStatic<Rs2Widget> widget = mockStatic(Rs2Widget.class);
              MockedStatic<WintertodtLocationManager> location = mockStatic(WintertodtLocationManager.class)) {
+            player.when(Rs2Player::getWorldLocation).thenReturn(new WorldPoint(1630, 3997, 0));
             widget.when(() -> Rs2Widget.getChildWidgetText(396, 6)).thenReturn("Points<br>650");
             location.when(WintertodtLocationManager::isInsideGameRoom).thenReturn(true);
             location.when(() -> WintertodtLocationManager.attemptLeaveWintertodt(anyBoolean())).thenReturn(false);

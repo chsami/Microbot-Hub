@@ -38,6 +38,14 @@ public final class FightObs
 	public InputTiming.Tab tab = InputTiming.Tab.INVENTORY;
 	/** Weapon in hand: RANGED = bow, MAGIC = staff, MELEE = anything else. */
 	public Style weapon = Style.MELEE;
+	/**
+	 * Weapons we have (in the bag or in hand), 1.8.3: a prep that ran out of time once went in
+	 * without a bow and the fight kept trying to wield it. Old logs without the field: all true.
+	 */
+	public boolean haveBow = true;
+	public boolean haveStaff = true;
+	/** The sceptre or a halberd: melee, to make the boss switch its prayer when a weapon is missing. */
+	public boolean haveMelee = true;
 	/** Our bow/staff attack animation started this tick (= a swing at the boss). */
 	public boolean swung;
 	/** We're interacting with the boss (attack mode). */
@@ -125,6 +133,7 @@ public final class FightObs
 			i = j;
 		}
 		b.append('|').append(code(offenseStyle)).append('|').append(tab == null ? '-' : tab.name().charAt(0));
+		b.append('|').append(haveBow ? 'B' : '-').append(haveStaff ? 'S' : '-').append(haveMelee ? 'X' : '-');
 		return b.toString();
 	}
 
@@ -194,6 +203,12 @@ public final class FightObs
 		else if (o.offense)
 		{
 			o.offenseStyle = o.weapon; // 0.4.0/0.4.1 logs: assume it matched the weapon
+		}
+		if (f.length > 17 && f[17].length() >= 3)
+		{
+			o.haveBow = f[17].charAt(0) == 'B';
+			o.haveStaff = f[17].charAt(1) == 'S';
+			o.haveMelee = f[17].charAt(2) == 'X';
 		}
 		return o;
 	}

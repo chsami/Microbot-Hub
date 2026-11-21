@@ -27,7 +27,7 @@ import java.awt.*;
 )
 @Slf4j
 public class ValeTotemPlugin extends Plugin {
-    static final String version = "1.0.15";
+    static final String version = "1.0.16";
 
     @Inject
     private ValeTotemConfig config;

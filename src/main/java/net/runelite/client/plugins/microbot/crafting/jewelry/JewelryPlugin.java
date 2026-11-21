@@ -22,7 +22,7 @@ import java.awt.*;
 )
 public class JewelryPlugin extends Plugin {
 
-    static final String version = "1.0.4";
+    static final String version = "1.0.6";
 
 
     @Inject

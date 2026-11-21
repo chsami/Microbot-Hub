@@ -38,10 +38,13 @@ import net.runelite.client.plugins.tithefarm.TitheFarmPlantState;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 
 public class TitheFarmPlant {
     private static final Duration PLANT_TIME = Duration.ofMinutes(1);
+
+    private static volatile PatchSnapshot snapshot;
 
     @Getter
     @Setter
@@ -75,16 +78,35 @@ public class TitheFarmPlant {
         // tolerance match so the lookup is robust to this without rewriting all four
         // lane lists. Patches are 3 tiles apart so the tolerance can't match the
         // wrong neighbour.
-        return Microbot.getRs2TileObjectCache().query()
-                .where(o -> {
-                    if (!isTithePatchId(o.getId())) return false;
-                    WorldPoint wp = o.getWorldLocation();
-                    if (wp == null) return false;
-                    int dx = Math.abs(wp.getRegionX() - regionX);
-                    int dy = Math.abs(wp.getRegionY() - regionY);
-                    return dx <= 1 && dy <= 1;
-                })
-                .first();
+        for (Rs2TileObjectModel o : tithePatches()) {
+            WorldPoint wp = o.getWorldLocation();
+            if (wp == null) continue;
+            int dx = Math.abs(wp.getRegionX() - regionX);
+            int dy = Math.abs(wp.getRegionY() - regionY);
+            if (dx <= 1 && dy <= 1) return o;
+        }
+        return null;
+    }
+
+    private static List<Rs2TileObjectModel> tithePatches() {
+        int tick = Microbot.getClient().getTickCount();
+        PatchSnapshot current = snapshot;
+        if (current != null && current.tick == tick) return current.patches;
+        List<Rs2TileObjectModel> patches = Microbot.getRs2TileObjectCache().query()
+                .where(o -> isTithePatchId(o.getId()))
+                .toList();
+        snapshot = new PatchSnapshot(tick, patches);
+        return patches;
+    }
+
+    private static final class PatchSnapshot {
+        final int tick;
+        final List<Rs2TileObjectModel> patches;
+
+        PatchSnapshot(int tick, List<Rs2TileObjectModel> patches) {
+            this.tick = tick;
+            this.patches = patches;
+        }
     }
 
     private static boolean isTithePatchId(int id) {
@@ -194,12 +216,21 @@ public class TitheFarmPlant {
         Rs2TileObjectModel obj = getGameObject();
         if (obj == null) return false;
         int objId = obj.getId();
-        return Arrays.stream(expectedWateredObject()).anyMatch(id -> id == objId) || isStage1() || isStage2();
+        return Arrays.stream(expectedWateredObject()).anyMatch(id -> id == objId) || isSeedling() || isStage1() || isStage2();
     }
 
     public boolean isValidToHarvest() {
         Rs2TileObjectModel obj = getGameObject();
         return obj != null && obj.getId() == expectedHarvestObject();
+    }
+
+    public boolean isSeedling() {
+        Rs2TileObjectModel obj = getGameObject();
+        if (obj == null) return false;
+        int id = obj.getId();
+        return id == ObjectID.HOSIDIUS_TITHE_A_1_DRY
+                || id == ObjectID.HOSIDIUS_TITHE_B_1_DRY
+                || id == ObjectID.HOSIDIUS_TITHE_C_1_DRY;
     }
 
     public boolean isStage1() {
@@ -240,13 +271,33 @@ public class TitheFarmPlant {
         }
     }
 
-    public boolean growsWithin(Duration margin) {
-        return growsWithin(isStage2() ? 3 : 2, margin, Instant.now());
+    public int wateredStage() {
+        Rs2TileObjectModel obj = getGameObject();
+        if (obj == null) return 0;
+        switch (obj.getId()) {
+            case ObjectID.HOSIDIUS_TITHE_A_1_WET:
+            case ObjectID.HOSIDIUS_TITHE_B_1_WET:
+            case ObjectID.HOSIDIUS_TITHE_C_1_WET:
+                return 1;
+            case ObjectID.HOSIDIUS_TITHE_A_2_WET:
+            case ObjectID.HOSIDIUS_TITHE_B_2_WET:
+            case ObjectID.HOSIDIUS_TITHE_C_2_WET:
+                return 2;
+            case ObjectID.HOSIDIUS_TITHE_A_3_WET:
+            case ObjectID.HOSIDIUS_TITHE_B_3_WET:
+            case ObjectID.HOSIDIUS_TITHE_C_3_WET:
+                return 3;
+            default:
+                return 0;
+        }
     }
 
-    public boolean growsWithin(int nextStage, Duration margin, Instant now) {
-        if (planted == null) return true;
-        Instant grows = planted.plus(PLANT_TIME.multipliedBy(nextStage));
-        return !now.isBefore(grows.minus(margin));
+    public Duration timeUntilGrowth(Instant now) {
+        return timeUntilGrowth(isSeedling() ? 1 : isStage2() ? 3 : 2, now);
+    }
+
+    public Duration timeUntilGrowth(int nextStage, Instant now) {
+        if (planted == null) return null;
+        return Duration.between(now, planted.plus(PLANT_TIME.multipliedBy(nextStage)));
     }
 }

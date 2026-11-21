@@ -20,8 +20,16 @@ import java.util.stream.Collectors;
 
 @Slf4j
 public class ShopScript extends Script {
-    public static ShopType shopType = ShopType.GRAND_EXCHANGE;
     public static List<ShopItem> shopItems = new ArrayList<>();
+
+    static ShopType nextShopType(List<ShopItem> items) {
+        for (ShopItem item : items) {
+            if (item != null && item.getShopType() == ShopType.SLAYER_SHOP) {
+                return ShopType.SLAYER_SHOP;
+            }
+        }
+        return ShopType.GRAND_EXCHANGE;
+    }
 
     public boolean run(AIOFighterConfig config) {
 
@@ -65,6 +73,7 @@ public class ShopScript extends Script {
                     }
                 }
 
+                ShopType shopType = nextShopType(new ArrayList<>(shopItems));
                 switch (shopType) {
                     case SLAYER_SHOP:
                         log.info("ShopScript: Processing SLAYER_SHOP branch.");
@@ -73,23 +82,27 @@ public class ShopScript extends Script {
                             if (Rs2Shop.openShop(config.slayerMaster().getName())) {
                                 log.info("ShopScript: Shop opened successfully for slayer master: {}", config.slayerMaster().getName());
                                 Rs2Random.waitEx(1800, 300);
-                                // filtered list
-                                List<ShopItem> filteredList = shopItems.stream()
-                                        .filter(item -> item.getShopType() == ShopType.SLAYER_SHOP)
-                                        .collect(Collectors.toList());
-                                for (ShopItem item : filteredList) {
-                                    log.info("ShopScript: Attempting to buy item: {} with quantity: {}", item.getName(), item.getQuantity());
-                                    if (Rs2Shop.hasMinimumStock(item.getName(), item.getQuantity())) {
-                                        log.info("ShopScript: Item {} has minimum stock available. Buying now.", item.getName());
-                                        Rs2Shop.buyItemOptimally(item.getName(), item.getQuantity());
-                                        Rs2Random.waitEx(1800, 300);
-                                    } else {
-                                        log.info("ShopScript: Insufficient stock for item: {}", item.getName());
+                                if (Rs2Shop.isOpen()) {
+                                    List<ShopItem> filteredList = new ArrayList<>(shopItems).stream()
+                                            .filter(item -> item.getShopType() == ShopType.SLAYER_SHOP)
+                                            .collect(Collectors.toList());
+                                    for (ShopItem item : filteredList) {
+                                        log.info("ShopScript: Attempting to buy item: {} with quantity: {}", item.getName(), item.getQuantity());
+                                        if (Rs2Shop.hasMinimumStock(item.getName(), item.getQuantity())) {
+                                            log.info("ShopScript: Item {} has minimum stock available. Buying now.", item.getName());
+                                            Rs2Shop.buyItemOptimally(item.getName(), item.getQuantity());
+                                            Rs2Random.waitEx(1800, 300);
+                                        } else {
+                                            log.info("ShopScript: Insufficient stock for item: {}", item.getName());
+                                        }
                                     }
+                                    Rs2Shop.closeShop();
+                                    shopItems.removeAll(filteredList);
+                                    AIOFighterPlugin.needShopping = !shopItems.isEmpty();
+                                    log.info("ShopScript: SLAYER_SHOP purchases complete. Remaining shop items: {}", shopItems.size());
+                                } else {
+                                    log.info("ShopScript: Shop interface did not open for slayer master: {}", config.slayerMaster().getName());
                                 }
-                                 AIOFighterPlugin.needShopping = false;
-                                shopItems.clear();
-                                log.info("ShopScript: SLAYER_SHOP purchases complete. Shop items list cleared.");
                             } else {
                                 log.info("ShopScript: Failed to open shop for slayer master: {}", config.slayerMaster().getName());
                             }
@@ -167,6 +180,7 @@ public class ShopScript extends Script {
     public void shutdown() {
         super.shutdown();
          AIOFighterPlugin.needShopping = false;
+        shopItems.clear();
         log.info("ShopScript: Shutdown initiated. needShopping flag set to false.");
     }
 

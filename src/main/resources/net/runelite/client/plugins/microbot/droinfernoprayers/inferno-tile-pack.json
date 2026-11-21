@@ -1,0 +1,101 @@
+[
+ {
+  "regionId": 9043,
+  "regionX": 36,
+  "regionY": 46,
+  "z": 0,
+  "color": "#FF93928E"
+ },
+ {
+  "regionId": 9043,
+  "regionX": 42,
+  "regionY": 46,
+  "z": 0,
+  "color": "#FF93928E"
+ },
+ {
+  "regionId": 9043,
+  "regionX": 26,
+  "regionY": 46,
+  "z": 0,
+  "color": "#FF93928E"
+ },
+ {
+  "regionId": 9043,
+  "regionX": 20,
+  "regionY": 46,
+  "z": 0,
+  "color": "#FF93928E"
+ },
+ {
+  "regionId": 9043,
+  "regionX": 40,
+  "regionY": 46,
+  "z": 0,
+  "color": "#FFDF3C3C"
+ },
+ {
+  "regionId": 9043,
+  "regionX": 39,
+  "regionY": 46,
+  "z": 0,
+  "color": "#FFDF3C3C"
+ },
+ {
+  "regionId": 9043,
+  "regionX": 38,
+  "regionY": 46,
+  "z": 0,
+  "color": "#FFDF3C3C"
+ },
+ {
+  "regionId": 9043,
+  "regionX": 31,
+  "regionY": 45,
+  "z": 0,
+  "color": "#FFDF3C3C",
+  "label": "UNSAFE"
+ },
+ {
+  "regionId": 9043,
+  "regionX": 23,
+  "regionY": 46,
+  "z": 0,
+  "color": "#FFDF3C3C"
+ },
+ {
+  "regionId": 9043,
+  "regionX": 22,
+  "regionY": 46,
+  "z": 0,
+  "color": "#FFDF3C3C"
+ },
+ {
+  "regionId": 9043,
+  "regionX": 24,
+  "regionY": 46,
+  "z": 0,
+  "color": "#FFDF3C3C"
+ },
+ {
+  "regionId": 9043,
+  "regionX": 33,
+  "regionY": 43,
+  "z": 0,
+  "color": "#FF93928E"
+ },
+ {
+  "regionId": 9043,
+  "regionX": 32,
+  "regionY": 29,
+  "z": 0,
+  "color": "#FF93928E"
+ },
+ {
+  "regionId": 9043,
+  "regionX": 26,
+  "regionY": 34,
+  "z": 0,
+  "color": "#FF93928E"
+ }
+]

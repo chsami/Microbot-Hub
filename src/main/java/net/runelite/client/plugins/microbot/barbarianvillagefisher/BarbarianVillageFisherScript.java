@@ -45,6 +45,7 @@ public class BarbarianVillageFisherScript extends Script {
     private int currentlyCookingID = 0;
 
     private static int[] RawFish = {335, 331, 349};
+    static final int[] DroppableFish = {335, 331, 349, 333, 329, 351, 343};
     private static int BarbarianVillageFireID = 43475;
     private static WorldPoint BarbarianVillageFirePoint = new WorldPoint(3106, 3432, 0);
     private static WorldPoint BarbarianVilalgeFishingSpot = new WorldPoint(3108, 3432, 0);
@@ -105,8 +106,14 @@ public class BarbarianVillageFisherScript extends Script {
                 break;
             
             case DROPPING:
+                if (!Rs2Inventory.contains(DroppableFish)) {
+                    debug("Inventory is full with no fish to drop");
+                    Microbot.showMessage("Inventory is full and has no fish to drop. Free up inventory space and start the plugin again.");
+                    shutdown();
+                    return;
+                }
                 debug("Dropping items");
-                Rs2Inventory.dropAllExcept(rodName, baitName);
+                Rs2Inventory.dropAll(DroppableFish);
                 break;
             
             case WALK_TO_FISHING_SPOT:

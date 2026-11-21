@@ -138,6 +138,25 @@ public final class PrepGoal
 	}
 
 	/** The goal in a few words for the overlay ("Gather Ore", "Fight the Dragon", "Head home"). */
+	/** The same goal with another reason (1.8.3: the flip-flop guard says it's holding it). */
+	public PrepGoal withWhy(String newWhy)
+	{
+		PrepGoal g = new PrepGoal(type, resource, monster, slot, room, newWhy);
+		g.at = at;
+		g.groundItem = groundItem;
+		g.finalTrip = finalTrip;
+		g.teleportNow = teleportNow;
+		g.chore = chore;
+		return g;
+	}
+
+	/** What the goal is about, without the reason: two goals with the same key are the same plan. */
+	public String key()
+	{
+		return type + (resource != null ? " " + resource : "") + (monster != null ? " " + monster : "") + (slot != null ? " " + slot : "")
+			+ (room != null ? " " + room[0] + "," + room[1] : "") + (at != null ? " @" + at.getX() + "," + at.getY() : "");
+	}
+
 	public String headline()
 	{
 		switch (type)

@@ -28,7 +28,7 @@ import java.awt.*;
 @Slf4j
 public class GiantsFoundryPlugin extends Plugin {
 
-    public static final String version = "1.0.9";
+    public static final String version = "1.0.10";
 
     @Inject
     private GiantsFoundryConfig config;

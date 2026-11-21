@@ -84,21 +84,18 @@ public final class PrayerTask implements FourtifysTask
             return null;
         }
         AttackStyle style = fight.pendingAttack(now);
-        // A click shows from the next tick, so this tick's click sets the protection as the next tick ends.
-        AttackStyle minion = minionStyle(now + 1);
+        // A click takes effect at the start of the next tick, before anything attacks on it.
+        AttackStyle minion = minionStyle(now);
         if (minion != null)
         {
             // Husks and a risen parasite attack every few ticks, and the game reads the protection as each of them
-            // attacks, before that tick's clicks. It reads hers the same way as her missiles or magic launch, a tick
-            // before they land, or as her melee lands; the main game may read hers as her hit lands instead. So her
-            // protection is on as the tick before each of those ends, and the minion's at every other tick. In her
-            // third phase her attacks deal damage only as they launch, so there it is not on as her hit lands.
+            // attacks. It reads hers as her missiles or magic launch, a tick before they land, or as her melee lands.
+            // So her protection is on for that tick, and the minion's for every other tick.
             boolean hers = false;
             if (style != null)
             {
                 int lands = fight.getAttackTick() + style.getHitTicks();
-                int read = lands - (style == AttackStyle.MELEE ? 1 : 2);
-                hers = now + 1 == read || now + 1 == lands && fight.getPhase() != 3;
+                hers = now + 1 == (style == AttackStyle.MELEE ? lands : lands - 1);
             }
             return (hers ? style : minion).button(fight.isCursed());
         }
@@ -112,16 +109,16 @@ public final class PrayerTask implements FourtifysTask
     }
 
     /**
-     * The style to pray against as this tick ends for her husks or risen parasite: the missile husk's when it attacks
-     * on the next tick, otherwise the magic husk's while it lives, then the missile husk's, then the parasite's next
-     * attack; none without them. A risen parasite attacks the player when it cannot help her.
+     * The style to pray against on the next tick for her husks or risen parasite: the missile husk's when it attacks
+     * then, otherwise the magic husk's while it lives, then the missile husk's, then the parasite's next attack; none
+     * without them. A risen parasite attacks the player when it cannot help her.
      */
-    private AttackStyle minionStyle(int end)
+    private AttackStyle minionStyle(int now)
     {
         boolean missile = actions.nearest(Set.of(DreamData.RANGED_HUSK)) != null;
         if (actions.nearest(Set.of(DreamData.MAGIC_HUSK)) != null)
         {
-            return missile && fight.missileHuskAttacks(end + 1) ? AttackStyle.RANGED : AttackStyle.MAGIC;
+            return missile && fight.missileHuskAttacks(now + 1) ? AttackStyle.RANGED : AttackStyle.MAGIC;
         }
         if (missile)
         {

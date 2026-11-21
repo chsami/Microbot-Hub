@@ -38,6 +38,7 @@ public class TormentedDemonScript extends Script {
     private boolean lootAttempted = false;
     private String lastChatMessage = "";
     private boolean isRestocking = false;
+    final TormentedDemonBombDodge bombDodge = new TormentedDemonBombDodge();
 
     private static final WorldPoint SAFE_LOCATION = new WorldPoint(3150, 3634, 0);
 
@@ -201,8 +202,12 @@ public class TormentedDemonScript extends Script {
         }
     }
 
-    private void handleFighting(TormentedDemonConfig config) {
+    void handleFighting(TormentedDemonConfig config) {
         if (currentTarget == null || currentTarget.isDead()) {
+            if (isHeldForBombs()) {
+                return;
+            }
+
             disableAllPrayers();
 
             if (!lootAttempted) {
@@ -256,6 +261,10 @@ public class TormentedDemonScript extends Script {
             if (currentTarget == null) return;
 
             if (interactingActor == null || interactingIndex != currentTarget.getIndex()) {
+                if (isHeldForBombs()) {
+                    return;
+                }
+
                 boolean attackSuccessful = currentTarget.click("attack");
 
                 if (attackSuccessful) {
@@ -288,6 +297,10 @@ public class TormentedDemonScript extends Script {
         }
     }
 
+
+    private boolean isHeldForBombs() {
+        return bombDodge.hasPendingBombsNear(Rs2Player.getWorldLocation());
+    }
 
     private void switchDefensivePrayer(Rs2PrayerEnum newDefensivePrayer) {
         if (currentDefensivePrayer != null) {
@@ -557,7 +570,7 @@ public class TormentedDemonScript extends Script {
                 });
     }
 
-    void logOnceToChat(String message) {
+    synchronized void logOnceToChat(String message) {
         if (!message.equals(lastChatMessage)) {
             Microbot.log(message);
             lastChatMessage = message;
@@ -578,6 +591,7 @@ public class TormentedDemonScript extends Script {
         currentDefensivePrayer = null;
         currentOffensivePrayer = null;
         currentOverheadIcon = null;
+        bombDodge.reset();
         if (mainScheduledFuture != null && !mainScheduledFuture.isCancelled()) {
             mainScheduledFuture.cancel(true);
         }

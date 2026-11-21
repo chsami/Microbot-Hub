@@ -16,4 +16,11 @@ public class GabulhasGlassMakeInfo {
         Seaweed,
         GiantSeaweed
     }
+
+    public static boolean hasMaterials(items item, int seaweedCount, int sandCount) {
+        if (item == items.GiantSeaweed) {
+            return seaweedCount >= 3 && sandCount >= 18;
+        }
+        return seaweedCount >= 3 && sandCount >= 13;
+    }
 }

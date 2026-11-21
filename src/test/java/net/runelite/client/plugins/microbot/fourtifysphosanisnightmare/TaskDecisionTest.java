@@ -12,6 +12,7 @@ import net.runelite.api.events.AnimationChanged;
 import net.runelite.api.coords.WorldArea;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.VarPlayerID;
+import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.plugins.microbot.fourtifysphosanisnightmare.dream.DreamData;
 import net.runelite.client.plugins.microbot.fourtifysphosanisnightmare.dream.Hazards;
 import net.runelite.client.plugins.microbot.fourtifysphosanisnightmare.dream.Loadout;
@@ -83,7 +84,6 @@ public class TaskDecisionTest
         PluginTestFixture fixture = new PluginTestFixture();
         fixture.config.sleepwalker = "33716";
         fixture.world.equipment = new Item[] {new Item(33716, 50)};
-        fixture.inject("sight", (BiPredicate<WorldArea, WorldArea>) (from, to) -> true);
         fixture.enableAndDrain();
         fixture.boss.id = DreamData.BLAST;
         TestWorld.NpcTarget walker = fixture.world.npc(-12);
@@ -292,10 +292,13 @@ public class TaskDecisionTest
     {
         PluginTestFixture fixture = started();
         fixture.boss.id = DreamData.BLAST;
-        TestWorld.NpcTarget near = fixture.world.npc(3);
+        TestWorld.NpcTarget near = fixture.world.npc(-3);
         near.id = DreamData.SLEEPWALKER;
-        TestWorld.NpcTarget far = fixture.world.npc(6);
+        TestWorld.NpcTarget far = fixture.world.npc(-6);
         far.id = DreamData.SLEEPWALKER;
+        TestWorld.NpcTarget last = fixture.world.npc(-9);
+        last.id = DreamData.SLEEPWALKER;
+        ((TripState) fixture.read("trip")).setLoadout(Loadout.SLEEPWALKER);
         fixture.world.interacting = near.npc;
         fixture.world.animation = 7617;
         fixture.tick();
@@ -304,7 +307,7 @@ public class TaskDecisionTest
         fixture.tick();
         assertSame(far.npc, ((TripState) fixture.read("trip")).getTarget(), "the throw at the first is still playing");
         fixture.tick();
-        assertNull(((TripState) fixture.read("trip")).getTarget(), "the attack on the second has started");
+        assertSame(last.npc, ((TripState) fixture.read("trip")).getTarget(), "the attack on the second has started");
     }
 
     @Test
@@ -312,20 +315,47 @@ public class TaskDecisionTest
     {
         PluginTestFixture fixture = started();
         fixture.boss.id = DreamData.BLAST;
-        TestWorld.NpcTarget near = fixture.world.npc(3);
+        TestWorld.NpcTarget near = fixture.world.npc(-3);
         near.id = DreamData.SLEEPWALKER;
-        TestWorld.NpcTarget far = fixture.world.npc(6);
+        TestWorld.NpcTarget far = fixture.world.npc(-6);
         far.id = DreamData.SLEEPWALKER;
+        TestWorld.NpcTarget last = fixture.world.npc(-9);
+        last.id = DreamData.SLEEPWALKER;
+        ((TripState) fixture.read("trip")).setLoadout(Loadout.SLEEPWALKER);
         fixture.world.interacting = near.npc;
         fixture.world.animation = 7617;
         fixture.tick();
         assertSame(far.npc, ((TripState) fixture.read("trip")).getTarget());
+        fixture.tick();
         fixture.world.interacting = far.npc;
         AnimationChanged throwing = new AnimationChanged();
         throwing.setActor(fixture.world.player);
         fixture.plugin.onAnimationChanged(throwing);
         fixture.tick();
-        assertNull(((TripState) fixture.read("trip")).getTarget(), "the throw at the second went out on this tick");
+        assertSame(last.npc, ((TripState) fixture.read("trip")).getTarget(), "the throw at the second went out on this tick");
+    }
+
+    @Test
+    public void aBlockOutOfMeleeReachOfTheLastSleepwalkerIsNotAnAttackOnIt() throws Exception
+    {
+        PluginTestFixture fixture = new PluginTestFixture();
+        fixture.config.sleepwalker = "22804";
+        fixture.config.husk = "34027";
+        fixture.world.equipment = TestWorld.items(34027, 1);
+        fixture.world.inventory = TestWorld.items(PluginTestFixture.RING, 1, PluginTestFixture.FOOD, 5, PluginTestFixture.STAFF, 1,
+            22804, 28);
+        fixture.enableAndDrain();
+        fixture.boss.id = DreamData.BLAST;
+        fixture.plugin.setTickDelay(0);
+        TestWorld.NpcTarget walker = fixture.world.npc(-3);
+        walker.id = DreamData.SLEEPWALKER;
+        TripState trip = (TripState) fixture.read("trip");
+        trip.setLoadout(Loadout.HUSK);
+        fixture.world.interacting = walker.npc;
+        fixture.world.animation = 14471;
+        fixture.tick();
+        assertSame(walker.npc, trip.getTarget(), "Hallowfell's block three tiles short of it is not a hit");
+        assertEquals(Loadout.HUSK, trip.getLoadout());
     }
 
     @Test
@@ -338,11 +368,28 @@ public class TaskDecisionTest
     }
 
     @Test
+    public void herThirdPhaseSleepwalkersAreOrderedForTheThrowingWeaponsReach() throws Exception
+    {
+        assertEquals(0, firstFromUnderHer(33716), "a stake throws from six tiles");
+        assertEquals(2, firstFromUnderHer(22804), "a dragon knife throws from four");
+    }
+
+    private static int firstFromUnderHer(int weapon) throws Exception
+    {
+        int[][] tiles = {{-4, 11}, {11, 8}, {8, -7}, {-4, -7}};
+        List<NPC> walkers = new ArrayList<>();
+        PluginTestFixture fixture = risen(3, weapon, tiles, walkers);
+        fixture.world.position = fixture.boss.npc.getWorldLocation().dx(1).dy(3);
+        fixture.tick();
+        return walkers.indexOf(((TripState) fixture.read("trip")).getTarget());
+    }
+
+    @Test
     public void aSleepwalkerOffTheTileItRoseOnIsWalking() throws Exception
     {
         int[][] tiles = {{-7, -4}, {-7, 8}, {11, -4}, {11, 8}};
         List<NPC> walkers = new ArrayList<>();
-        PluginTestFixture fixture = risen(3, tiles, walkers);
+        PluginTestFixture fixture = risen(3, 33716, tiles, walkers);
         fixture.tick();
         WorldPoint corner = fixture.boss.npc.getWorldLocation();
         for (TestWorld.NpcTarget walker : fixture.world.npcs)
@@ -365,7 +412,7 @@ public class TaskDecisionTest
     private static int firstSleepwalker(int phase, int[][] tiles) throws Exception
     {
         List<NPC> walkers = new ArrayList<>();
-        PluginTestFixture fixture = risen(phase, tiles, walkers);
+        PluginTestFixture fixture = risen(phase, 33716, tiles, walkers);
         fixture.tick();
         assertEquals(phase, ((NightmareFight) fixture.read("fight")).getPhase());
         return walkers.indexOf(((TripState) fixture.read("trip")).getTarget());
@@ -386,6 +433,43 @@ public class TaskDecisionTest
         fixture.plugin.setTickDelay(0);
         fixture.tick();
         assertEquals("Turning on the special attack", fixture.plugin.getStatus());
+    }
+
+    @Test
+    public void aSleepwalkerOutOfViewInHerLastBlastIsStillOnItsWay() throws Exception
+    {
+        PluginTestFixture fixture = new PluginTestFixture();
+        fixture.config.spec = "13652";
+        fixture.config.redeem = false;
+        fixture.world.inventory = TestWorld.items(PluginTestFixture.RING, 1, PluginTestFixture.STAFF, 1, 13652, 1);
+        fixture.world.varps.put(VarPlayerID.SA_ENERGY, 1000);
+        fixture.enableAndDrain();
+        NightmareFight fight = (NightmareFight) fixture.read("fight");
+        fight.observeBoss(Stage.WAKING);
+        for (int blast = 1; blast < 3; blast++)
+        {
+            fight.observeBoss(Stage.TOTEMS);
+            fight.observeBoss(Stage.BLAST);
+            fight.observeBoss(Stage.SHIELD);
+        }
+        fight.observeBoss(Stage.TOTEMS);
+        fixture.boss.id = DreamData.BLAST;
+        TestWorld.NpcTarget killed = fixture.world.npc(-3);
+        killed.id = DreamData.SLEEPWALKER;
+        TestWorld.NpcTarget unseen = fixture.world.npc(-12);
+        unseen.id = DreamData.SLEEPWALKER;
+        unseen.index = 2;
+        fixture.tick();
+        assertEquals(3, fight.getPhase());
+        killed.dead = true;
+        fixture.world.npcs.remove(unseen);
+        fixture.tick();
+        TripState trip = (TripState) fixture.read("trip");
+        assertEquals(Loadout.SLEEPWALKER, trip.getLoadout(), "the one gone out of view is still walking to her");
+        fixture.world.npcs.add(unseen);
+        unseen.dead = true;
+        fixture.tick();
+        assertEquals(Loadout.SPEC, trip.getLoadout(), "once both are seen dying, her final phase comes next");
     }
 
     @Test
@@ -433,6 +517,8 @@ public class TaskDecisionTest
         fixture.tick();
         TripState trip = (TripState) fixture.read("trip");
         assertSame(walker.npc, trip.getTarget());
+        walker.dead = true;
+        fixture.tick();
         fixture.world.npcs.remove(walker);
         fixture.tick();
         assertEquals(phase, fight.getPhase());
@@ -440,9 +526,12 @@ public class TaskDecisionTest
     }
 
     /** Her blast in the phase, with sleepwalkers rising on the tiles from her south-west corner. */
-    private static PluginTestFixture risen(int phase, int[][] tiles, List<NPC> walkers) throws Exception
+    private static PluginTestFixture risen(int phase, int weapon, int[][] tiles, List<NPC> walkers) throws Exception
     {
-        PluginTestFixture fixture = started();
+        PluginTestFixture fixture = new PluginTestFixture();
+        fixture.config.sleepwalker = Integer.toString(weapon);
+        fixture.world.equipment = new Item[] {new Item(weapon, 50)};
+        fixture.enableAndDrain();
         NightmareFight fight = (NightmareFight) fixture.read("fight");
         for (int blast = 1; blast < phase; blast++)
         {
@@ -465,10 +554,84 @@ public class TaskDecisionTest
     }
 
     @Test
+    public void beforeHerSleepwalkersRiseAThrownWeaponTakesTheStyleThatLetsFewerThrough() throws Exception
+    {
+        assertTrue(longThrowsBeforeTheRise(1, 22804, true), "a dragon knife reaches more of them on longrange");
+        assertTrue(longThrowsBeforeTheRise(3, 22804, true), "in her third phase too");
+        assertFalse(longThrowsBeforeTheRise(3, 33716, true), "a stake reaches them all on rapid in her third phase");
+        assertFalse(longThrowsBeforeTheRise(1, 22804, false), "a weapon that is not thrown keeps its rapid style");
+    }
+
+    private static boolean longThrowsBeforeTheRise(int phase, int weapon, boolean thrown) throws Exception
+    {
+        PluginTestFixture fixture = risen(phase, weapon, new int[0][], new ArrayList<>());
+        if (thrown)
+        {
+            fixture.world.varbits.put(VarbitID.COMBAT_WEAPON_CATEGORY, 19);
+        }
+        fixture.tick();
+        return ((TripState) fixture.read("trip")).isLongThrows();
+    }
+
+    @Test
+    public void aDragonKnifeOnLongrangeThrowsTwoTilesFarther() throws Exception
+    {
+        assertFalse(struckFromFiveTiles(1), "on rapid it throws from four tiles");
+        assertTrue(struckFromFiveTiles(3), "on longrange from six");
+    }
+
+    @Test
+    public void aBlockBeforeTheNextThrowIsDueIsNotAThrow() throws Exception
+    {
+        PluginTestFixture fixture = knives(3);
+        TestWorld.NpcTarget thrown = fixture.world.npc(2);
+        thrown.id = DreamData.SLEEPWALKER;
+        TestWorld.NpcTarget next = fixture.world.npc(-2);
+        next.id = DreamData.SLEEPWALKER;
+        TestWorld.NpcTarget last = fixture.world.npc(4);
+        last.id = DreamData.SLEEPWALKER;
+        fixture.world.interacting = thrown.npc;
+        fixture.world.animation = 806;
+        fixture.tick();
+        fixture.world.interacting = next.npc;
+        fixture.tick();
+        fixture.world.animation = 424;
+        fixture.tick();
+        assertSame(next.npc, ((TripState) fixture.read("trip")).getTarget(),
+            "her hit's block comes a tick before a throw on longrange can, so the player keeps going for it");
+    }
+
+    private static PluginTestFixture knives(int style) throws Exception
+    {
+        PluginTestFixture fixture = new PluginTestFixture();
+        fixture.config.sleepwalker = "22804";
+        fixture.world.equipment = new Item[] {new Item(22804, 50)};
+        fixture.enableAndDrain();
+        fixture.world.varbits.put(VarbitID.COMBAT_WEAPON_CATEGORY, 19);
+        fixture.world.styleButtons = new Object[][] {{0, 1, 3}, {"(Accurate)<br>(Light)", "(Rapid)<br>(Light)", "(Longrange)<br>(Light)"}};
+        fixture.world.varps.put(VarPlayerID.COM_MODE, style);
+        fixture.boss.id = DreamData.BLAST;
+        ((TripState) fixture.read("trip")).setLoadout(Loadout.SLEEPWALKER);
+        return fixture;
+    }
+
+    private static boolean struckFromFiveTiles(int style) throws Exception
+    {
+        PluginTestFixture fixture = knives(style);
+        TestWorld.NpcTarget walker = fixture.world.npc(5);
+        walker.id = DreamData.SLEEPWALKER;
+        fixture.world.interacting = walker.npc;
+        fixture.world.animation = 7617;
+        fixture.tick();
+        return ((TripState) fixture.read("trip")).getTarget() != walker.npc;
+    }
+
+    @Test
     public void anAttackOnASleepwalkerOutOfReachIsNotAStrike() throws Exception
     {
         PluginTestFixture fixture = started();
         fixture.boss.id = DreamData.BLAST;
+        ((TripState) fixture.read("trip")).setLoadout(Loadout.SLEEPWALKER);
         TestWorld.NpcTarget near = fixture.world.npc(3);
         near.id = DreamData.SLEEPWALKER;
         TestWorld.NpcTarget far = fixture.world.npc(10);

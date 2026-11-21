@@ -1,5 +1,6 @@
 package net.runelite.client.plugins.microbot.fourtifysphosanisnightmare.dream;
 
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
 
@@ -77,20 +78,37 @@ public class NightmareFightTest
         assertEquals(0, fight.blastDamage(), "no blast is coming");
         for (int index = 1; index <= 4; index++)
         {
-            fight.observeSleepwalker(index, false);
+            fight.observeSleepwalker(index, false, false);
         }
         assertEquals(5, fight.blastDamage());
-        fight.observeSleepwalker(3, true);
+        fight.observeSleepwalker(3, true, false);
         assertEquals(41, fight.blastDamage(), "one reached her before she took her blast form");
         fight.observeBoss(Stage.BLAST);
-        fight.observeSleepwalker(4, true);
-        fight.observeSleepwalker(4, true);
+        fight.observeSleepwalker(4, true, false);
+        fight.observeSleepwalker(4, true, false);
         assertEquals(77, fight.blastDamage(), "two of four");
         fight.observeBoss(Stage.SHIELD);
         assertEquals(0, fight.blastDamage(), "her blast has ended");
-        fight.observeSleepwalker(7, false);
-        fight.observeSleepwalker(8, true);
+        fight.observeSleepwalker(7, false, false);
+        fight.observeSleepwalker(8, true, false);
         assertEquals(77, fight.blastDamage(), "one of two, counted afresh for the next blast");
+    }
+
+    @Test
+    public void aSleepwalkerNeitherSeenDyingNorReachingHerIsOutOfViewOnlyWhileUnseen()
+    {
+        NightmareFight fight = new NightmareFight();
+        fight.observeBoss(Stage.BLAST);
+        fight.observeSleepwalker(1, true, false);
+        fight.observeSleepwalker(2, false, true);
+        fight.observeSleepwalker(3, false, false);
+        assertTrue(fight.sleepwalkerOutOfView(Set.of()), "the third has not been seen dying");
+        assertFalse(fight.sleepwalkerOutOfView(Set.of(3)));
+        fight.observeSleepwalker(3, false, true);
+        assertFalse(fight.sleepwalkerOutOfView(Set.of()), "all three are done");
+        fight.observeSleepwalker(4, false, false);
+        fight.observeBoss(Stage.SHIELD);
+        assertFalse(fight.sleepwalkerOutOfView(Set.of()), "her blast has ended");
     }
 
     @Test
@@ -98,8 +116,8 @@ public class NightmareFightTest
     {
         NightmareFight fight = new NightmareFight();
         fight.observeBoss(Stage.DESPERATION);
-        fight.observeSleepwalker(1, false);
-        fight.observeSleepwalker(2, true);
+        fight.observeSleepwalker(1, false, false);
+        fight.observeSleepwalker(2, true, false);
         assertEquals(0, fight.blastDamage(), "each hits for 15 on its own");
         assertFalse(fight.sleepwalkersUp());
     }
@@ -207,7 +225,7 @@ public class NightmareFightTest
         fight.observeBoss(Stage.TOTEMS);
         for (int index = 1; index <= 3; index++)
         {
-            fight.observeSleepwalker(index, false);
+            fight.observeSleepwalker(index, false, false);
         }
         fight.observeBoss(Stage.BLAST);
         assertEquals(2, fight.getPhase(), "three sleepwalkers: her second blast");
@@ -216,7 +234,7 @@ public class NightmareFightTest
         fight.observeBoss(Stage.TOTEMS);
         for (int index = 4; index <= 7; index++)
         {
-            fight.observeSleepwalker(index, false);
+            fight.observeSleepwalker(index, false, false);
         }
         fight.observeBoss(Stage.BLAST);
         assertEquals(3, fight.getPhase());
@@ -232,7 +250,7 @@ public class NightmareFightTest
         // A sleepwalker left from another phase does not change the count.
         for (int index = 1; index <= 3; index++)
         {
-            fight.observeSleepwalker(index, false);
+            fight.observeSleepwalker(index, false, false);
         }
         fight.observeBoss(Stage.BLAST);
         assertEquals(1, fight.getPhase());

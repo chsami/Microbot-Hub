@@ -51,7 +51,7 @@ import net.runelite.client.util.HotkeyListener;
 )
 public class CgPrepPlugin extends Plugin
 {
-	static final String version = "1.8.2";
+	static final String version = "1.8.5";
 
 	@Inject
 	private CgPrepConfig config;
@@ -370,6 +370,10 @@ public class CgPrepPlugin extends Plugin
 	@Subscribe
 	public void onChatMessage(net.runelite.api.events.ChatMessage e)
 	{
+		if (LobbyDeposit.isGameText(e.getType()) && LobbyDeposit.isEntryRefusal(e.getMessage()))
+		{
+			script.entryRefusedAtMs = System.currentTimeMillis();
+		}
 		if (e.getType() == net.runelite.api.ChatMessageType.GAMEMESSAGE)
 		{
 			script.boss.onChat(e.getMessage());

@@ -89,7 +89,7 @@ import net.runelite.client.util.Text;
                     iconUrl = "https://chsami.github.io/Microbot-Hub/FourtifysPhosanisNightmarePlugin/assets/icon.png")
 public class FourtifysPhosanisNightmarePlugin extends Plugin
 {
-    public static final String VERSION = "1.0.0";
+    public static final String VERSION = "1.0.1";
     /** Tiles around the player searched for a safe step: far enough to cross the arena floor to where a surge lands. */
     private static final int STEP_REACH = 16;
     /** The run setting shows a toggle a tick later; resending sooner would switch it back. */
@@ -394,7 +394,7 @@ public class FourtifysPhosanisNightmarePlugin extends Plugin
             return;
         }
         // Her messages come coloured, as in "<col=a53fff>The Nightmare has cursed you...</col>".
-        String message = Text.removeTags(event.getMessage());
+        String message = Text.removeTags(event.getMessage()).replaceAll("@mes_\\w+@", "");
         if (DreamData.CURSED.equals(message))
         {
             fight.setCursed(true);
@@ -668,6 +668,7 @@ public class FourtifysPhosanisNightmarePlugin extends Plugin
             fight.observeBoss(boss == null ? null : Stage.fromNpcId(boss.getId()));
             hazards.expire(tick);
             hazards.observeBoss(boss == null ? null : boss.getWorldArea());
+            hazards.observeStage(fight.getStage());
             hazards.observePlayer(actions.position());
             observeJump(boss);
             observeLastStand(boss);
@@ -675,7 +676,7 @@ public class FourtifysPhosanisNightmarePlugin extends Plugin
             // A hit already on its way can kill a sleepwalker as she absorbs it, and it still counts for her blast.
             for (NPC walker : actions.npcs(Set.of(DreamData.SLEEPWALKER), true))
             {
-                fight.observeSleepwalker(walker.getIndex(), walker.getAnimation() == DreamData.SLEEPWALKER_ABSORBED);
+                fight.observeSleepwalker(walker.getIndex(), walker.getAnimation() == DreamData.SLEEPWALKER_ABSORBED, walker.isDead());
             }
             for (Map.Entry<WorldPoint, Integer> rift : actions.graphicAges(DreamData.RIFT_GRAPHIC).entrySet())
             {

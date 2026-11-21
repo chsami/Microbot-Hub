@@ -4,6 +4,7 @@ import com.google.inject.Provides;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.GameObject;
 import net.runelite.api.GraphicsObject;
+import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.GameObjectSpawned;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.GraphicsObjectCreated;
@@ -14,6 +15,7 @@ import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.PluginConstants;
+import net.runelite.client.plugins.microbot.moonsofperil.handlers.RewardHandler;
 import net.runelite.client.plugins.microbot.util.tile.Rs2Tile;
 import net.runelite.client.ui.overlay.OverlayManager;
 
@@ -27,7 +29,7 @@ import java.time.Instant;
         tags = {"bossing", "pvm", "moneymaking", "combat", "microbot"},
         authors = "The Funk",
         version = MoonsOfPerilPlugin.version,
-        minClientVersion = "2.0.14",
+        minClientVersion = "2.2.4",
         iconUrl = "https://chsami.github.io/Microbot-Hub/MoonsOfPerilPlugin/assets/icon.png",
         cardUrl = "https://chsami.github.io/Microbot-Hub/MoonsOfPerilPlugin/assets/card.png",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -35,7 +37,7 @@ import java.time.Instant;
 )
 @Slf4j
 public class MoonsOfPerilPlugin extends Plugin {
-    static final String version = "1.0.7";
+    static final String version = "1.0.12";
     @Inject
     private MoonsOfPerilConfig config;
     @Provides
@@ -72,6 +74,11 @@ public class MoonsOfPerilPlugin extends Plugin {
         if (graphicEvent.getId() == SpotanimID.VFX_DJINN_ICE_FLOOR_SPAWN_01) {
             Rs2Tile.addDangerousGraphicsObjectTile(graphicEvent, 600 * 3);
         }
+    }
+
+    @Subscribe
+    public void onChatMessage(ChatMessage event) {
+        RewardHandler.onChatMessage(event.getType(), event.getMessage());
     }
 
     @Subscribe

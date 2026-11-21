@@ -23,7 +23,7 @@ import net.runelite.client.plugins.microbot.fourtifysphosanisnightmare.util.task
  * swapped for parasites and special attacks, and only the weapon for husks and sleepwalkers. A two-handed swap leaves
  * the shield off. A husk or parasite weapon whose crush button is known is wielded with its style in one request.
  * While the player still attacks her as her husks rise, the husk is attacked first. Husk and parasite weapons
- * then use a crush style, a ranged sleepwalker weapon its rapid style, the magic weapon
+ * then use a crush style, a ranged sleepwalker weapon its rapid or longrange style, the magic weapon
  * alone its longrange style, and the melee weapon its starting style.
  */
 public final class GearTask implements FourtifysTask
@@ -129,7 +129,7 @@ public final class GearTask implements FourtifysTask
         if (loadout == Loadout.SLEEPWALKER && weapon != null && weapon > 0)
         {
             // A ranged weapon attacks most often on its rapid style; a weapon without one keeps its style.
-            return actions.styleButton("(Rapid)");
+            return actions.styleButton(trip.isLongThrows() ? "(Longrange)" : "(Rapid)");
         }
         if (loadout == Loadout.LONGRANGE)
         {

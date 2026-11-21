@@ -1,0 +1,554 @@
+[
+{
+"regionId": 7216,
+"regionX": 15,
+"regionY": 33,
+"z": 0,
+"color": "#00000000"
+},
+{
+"regionId": 7216,
+"regionX": 19,
+"regionY": 40,
+"z": 0,
+"color": "#FFA311A0"
+},
+{
+"regionId": 7216,
+"regionX": 23,
+"regionY": 43,
+"z": 0,
+"color": "#FF00FFFF",
+"label": "A"
+},
+{
+"regionId": 7216,
+"regionX": 23,
+"regionY": 42,
+"z": 0,
+"color": "#FFFFFF00",
+"label": "B"
+},
+{
+"regionId": 7216,
+"regionX": 30,
+"regionY": 32,
+"z": 0,
+"color": "#FF00FFFF",
+"label": "A"
+},
+{
+"regionId": 7216,
+"regionX": 33,
+"regionY": 28,
+"z": 0,
+"color": "#FFFFFF00",
+"label": "B"
+},
+{
+"regionId": 7216,
+"regionX": 21,
+"regionY": 43,
+"z": 0,
+"color": "#FFD400FF"
+},
+{
+"regionId": 7216,
+"regionX": 26,
+"regionY": 50,
+"z": 0,
+"color": "#FFFFA500"
+},
+{
+"regionId": 7216,
+"regionX": 25,
+"regionY": 50,
+"z": 0,
+"color": "#FFFFA500"
+},
+{
+"regionId": 7216,
+"regionX": 23,
+"regionY": 36,
+"z": 0,
+"color": "#FF000000"
+},
+{
+"regionId": 7216,
+"regionX": 17,
+"regionY": 41,
+"z": 0,
+"color": "#FF59CD62",
+"label": "1"
+},
+{
+"regionId": 7216,
+"regionX": 16,
+"regionY": 38,
+"z": 0,
+"color": "#FF59CD62",
+"label": "2"
+},
+{
+"regionId": 7216,
+"regionX": 26,
+"regionY": 44,
+"z": 0,
+"color": "#FF1919B8"
+},
+{
+"regionId": 7216,
+"regionX": 19,
+"regionY": 46,
+"z": 0,
+"color": "#FFFF0060"
+},
+{
+"regionId": 7216,
+"regionX": 28,
+"regionY": 40,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 29,
+"regionY": 40,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 30,
+"regionY": 40,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 31,
+"regionY": 40,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 31,
+"regionY": 39,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 31,
+"regionY": 38,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 31,
+"regionY": 37,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 31,
+"regionY": 36,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 30,
+"regionY": 36,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 29,
+"regionY": 36,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 28,
+"regionY": 36,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 27,
+"regionY": 36,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 27,
+"regionY": 37,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 27,
+"regionY": 38,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 27,
+"regionY": 39,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 27,
+"regionY": 40,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 27,
+"regionY": 29,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 27,
+"regionY": 30,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 27,
+"regionY": 31,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 27,
+"regionY": 32,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 27,
+"regionY": 33,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 28,
+"regionY": 33,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 29,
+"regionY": 33,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 30,
+"regionY": 33,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 31,
+"regionY": 33,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 31,
+"regionY": 32,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 31,
+"regionY": 31,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 31,
+"regionY": 30,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 31,
+"regionY": 29,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 30,
+"regionY": 29,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 29,
+"regionY": 29,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 28,
+"regionY": 29,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 34,
+"regionY": 33,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 34,
+"regionY": 32,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 34,
+"regionY": 31,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 34,
+"regionY": 30,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 34,
+"regionY": 29,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 35,
+"regionY": 29,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 36,
+"regionY": 29,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 37,
+"regionY": 29,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 38,
+"regionY": 29,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 38,
+"regionY": 30,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 38,
+"regionY": 31,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 38,
+"regionY": 32,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 38,
+"regionY": 33,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 37,
+"regionY": 33,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 36,
+"regionY": 33,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 35,
+"regionY": 33,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 34,
+"regionY": 36,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 34,
+"regionY": 37,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 34,
+"regionY": 38,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 34,
+"regionY": 39,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 34,
+"regionY": 40,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 35,
+"regionY": 40,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 36,
+"regionY": 40,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 37,
+"regionY": 40,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 38,
+"regionY": 40,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 38,
+"regionY": 39,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 38,
+"regionY": 38,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 38,
+"regionY": 37,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 38,
+"regionY": 36,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 37,
+"regionY": 36,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 36,
+"regionY": 36,
+"z": 0,
+"color": "#01000000"
+},
+{
+"regionId": 7216,
+"regionX": 35,
+"regionY": 36,
+"z": 0,
+"color": "#01000000"
+}
+]

@@ -46,6 +46,80 @@ public class PrayerDriverContractTest {
         assertTrue(f.state.menus.isEmpty());assertNotNull(f.driver.queued.get());
         assertFalse(f.driver.protectionReady());
     }
+    @Test public void aMousePressDeliveredAfterTheTickRolledOverIsNeverPressedAgain()throws Exception {
+        Fixture f=new Fixture();f.mode.set(FcFightInput.NATURAL_MOUSE);f.begin(100);f.plan();
+        FcPrayers.Dispatch late=f.driver.queued.get();
+        assertEquals(PrayerLedger.Type.ON,late.command.type);
+        f.clock.addAndGet(570_000_000L);f.begin(101);
+        f.driver.pressed(late,true,true,null);
+        assertEquals(1<<late.command.channel,f.driver.ledger.pendingMask());
+        f.plan();
+        assertNull(f.driver.queued.get(), "A second press would toggle the arriving prayer off again");
+        f.state.varbits.put(Rs2PrayerEnum.PROTECT_MAGIC.getVarbit(),1);
+        f.clock.addAndGet(570_000_000L);f.begin(102);f.plan();
+        assertEquals(0,f.driver.ledger.pendingMask());assertNull(f.driver.queued.get());
+        assertTrue(f.driver.protectionReady());
+    }
+    @Test public void aLateMousePressDroppedAtDeliveryIsPressedAgain()throws Exception {
+        Fixture f=new Fixture();f.mode.set(FcFightInput.NATURAL_MOUSE);f.begin(100);f.plan();
+        FcPrayers.Dispatch late=f.driver.queued.get();
+        f.clock.addAndGet(570_000_000L);f.begin(101);
+        f.driver.pressed(late,true,false,null);
+        assertEquals(0,f.driver.ledger.pendingMask());
+        f.plan();
+        assertNotNull(f.driver.queued.get());assertEquals(PrayerLedger.Type.ON,f.driver.queued.get().command.type);
+    }
+    @Test public void aResetWhoseOnHalfLandsInTheNextTickAwaitsThatOn()throws Exception {
+        Fixture f=new Fixture();f.mode.set(FcFightInput.NATURAL_MOUSE);f.begin(100);f.plan();
+        int magic=f.driver.queued.get().command.channel;
+        FcPrayers.Dispatch reset=new FcPrayers.Dispatch(f.driver.current,f.driver.decision,
+            new PrayerLedger.Command(magic,PrayerLedger.Type.RESET),f.clock.get());
+        f.driver.queued.set(reset);
+        f.clock.addAndGet(570_000_000L);f.begin(101);
+        f.driver.pressed(reset,true,true,null);
+        assertEquals(1<<magic,f.driver.ledger.pendingMask());
+        f.plan();
+        assertNull(f.driver.queued.get());
+    }
+    @Test public void aResetPressedInItsTickWhoseOnHalfMissedTheServerTickAwaitsThatOn()throws Exception {
+        Fixture f=new Fixture();f.mode.set(FcFightInput.NATURAL_MOUSE);
+        f.state.varbits.put(Rs2PrayerEnum.PROTECT_MAGIC.getVarbit(),1);f.begin(100);f.plan();
+        int magic=Integer.numberOfTrailingZeros(f.driver.observedMask);
+        FcPrayers.Dispatch reset=new FcPrayers.Dispatch(f.driver.current,f.driver.decision,
+            new PrayerLedger.Command(magic,PrayerLedger.Type.RESET),f.clock.get());
+        f.driver.queued.set(reset);
+        f.driver.pressed(reset,true,true,null);
+        f.plan();
+        assertEquals(0,f.driver.ledger.pendingMask());assertNull(f.driver.queued.get());
+        f.state.varbits.put(Rs2PrayerEnum.PROTECT_MAGIC.getVarbit(),0);
+        f.clock.addAndGet(540_000_000L);f.begin(101);f.plan();
+        assertEquals(1<<magic,f.driver.ledger.pendingMask());
+        assertNull(f.driver.queued.get(), "A second press would toggle the arriving prayer off again");
+        f.state.varbits.put(Rs2PrayerEnum.PROTECT_MAGIC.getVarbit(),1);
+        f.clock.addAndGet(570_000_000L);f.begin(102);f.plan();
+        assertEquals(0,f.driver.ledger.pendingMask());assertTrue(f.driver.protectionReady());
+    }
+    @Test public void naturalMouseHoldsAnActiveOverheadInsteadOfResettingIt()throws Exception {
+        for(Rs2PrayerEnum overhead:new Rs2PrayerEnum[]{Rs2PrayerEnum.PROTECT_MELEE,Rs2PrayerEnum.PROTECT_MAGIC}) {
+            Fixture f=new Fixture();f.mode.set(FcFightInput.NATURAL_MOUSE);
+            Protection guard=overhead==Rs2PrayerEnum.PROTECT_MELEE?Protection.MELEE:Protection.MAGIC;
+            f.state.varbits.put(overhead.getVarbit(),1);
+            for(int tick=100;tick<=103;tick++) {
+                f.driver.gameTick(f.state.frame(tick,List.of(),guard),guard,f.clock.get());
+                f.clock.addAndGet(30_000_000L);f.plan();
+                assertNull(f.driver.queued.get(),overhead+" must stay on: two mouse presses cannot share a tick");
+                f.clock.addAndGet(570_000_000L);
+            }
+            assertTrue(f.driver.ledger.synchronised());assertEquals(guard,f.driver.requested());
+            assertTrue(f.driver.protectionReady());assertTrue(f.state.menus.isEmpty());
+        }
+    }
+    @Test public void invokesStillResetAHeldOverheadInOneClientTick()throws Exception {
+        Fixture f=new Fixture();f.state.varbits.put(Rs2PrayerEnum.PROTECT_MAGIC.getVarbit(),1);
+        for(int tick=100;tick<=102;tick++){f.begin(tick);f.plan();f.clock.addAndGet(570_000_000L);}
+        assertEquals(2,f.state.menus.size());
+        assertEquals("Deactivate",f.state.menus.get(0).get(5));assertEquals("Activate",f.state.menus.get(1).get(5));
+    }
     @Test public void outsideTheCaveLeaseInvokesNeverReplaceTheMouse()throws Exception {
         FirecapeTestClient state=new FirecapeTestClient();state.instance=true;AtomicLong clock=new AtomicLong(1_000_000_000L);
         Driver d=new Driver(state,clock,new FcInput(()->FcFightInput.INVOKES,null,()->false),null);

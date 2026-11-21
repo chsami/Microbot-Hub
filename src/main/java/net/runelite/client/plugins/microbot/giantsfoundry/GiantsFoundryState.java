@@ -5,6 +5,7 @@ import lombok.Setter;
 import net.runelite.api.widgets.Widget;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.giantsfoundry.enums.Heat;
+import net.runelite.client.plugins.microbot.giantsfoundry.enums.SmithableBars;
 import net.runelite.client.plugins.microbot.giantsfoundry.enums.Stage;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
@@ -20,7 +21,7 @@ public class GiantsFoundryState {
     private static final int VARBIT_PROGRESS = 13949;
 
     public static final int VARBIT_ORE_COUNT = 13934;
-    public static final int VARBIT_FORTE_SELECTED = 13910;
+    static final int VARBIT_BRONZE_COUNT = 13931;    public static final int VARBIT_FORTE_SELECTED = 13910;
     public static final int VARBIT_BLADE_SELECTED = 13911;
     public static final int VARBIT_TIP_SELECTED = 13912;
 
@@ -61,6 +62,18 @@ public class GiantsFoundryState {
 
     public static int getProgressAmount() {
         return Microbot.getVarbitValue(VARBIT_PROGRESS);
+    }
+
+    public static int getCrucibleCount(SmithableBars bar) {
+        return Microbot.getVarbitValue(VARBIT_BRONZE_COUNT + bar.ordinal());
+    }
+
+    static int barsStillNeeded(int configuredAmount, int alreadyInCrucible) {
+        return Math.max(0, configuredAmount - Math.max(0, alreadyInCrucible));
+    }
+
+    static int secondBarsNeeded(boolean sameMetal, int firstAmount, int secondAmount, int secondInCrucible) {
+        return barsStillNeeded(secondAmount, sameMetal ? secondInCrucible - firstAmount : secondInCrucible);
     }
 
     public static double getHeatRangeRatio() {

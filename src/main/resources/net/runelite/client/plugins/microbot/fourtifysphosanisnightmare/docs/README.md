@@ -22,7 +22,8 @@ both gone.
    the plugin asks.
 4. Enter your gear as comma-separated item IDs in **Melee gear IDs** and
    **Magic gear IDs**, and one item ID for each swap weapon. The defaults
-   are a strong setup; replace them with your own.
+   are a strong setup; replace them with your own. Blisterwood stakes
+   are the best sleepwalker weapon: they reach every sleepwalker in time.
 5. Set the supplies, their thresholds and the **Next kill** minimums.
 6. Optional: on the Arceuus spellbook, turn on **Ghostly thrall** for
    the totems and **Death Charge** before special attacks. The thrall

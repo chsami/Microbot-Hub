@@ -20,6 +20,7 @@ import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.player.models.Rs2PlayerModel;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2Cannon;
 import net.runelite.client.plugins.microbot.util.grounditem.LootingParameters;
@@ -48,12 +49,16 @@ import net.runelite.client.plugins.microbot.slayer.profile.SlayerTaskProfileJson
 import javax.inject.Inject;
 import java.awt.event.KeyEvent;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -117,6 +122,24 @@ public class SlayerScript extends Script {
     private static final int CRASH_HOP_DELAY_MS = 20000; // 20 seconds before hopping
     private static final int WORLD_HOP_COOLDOWN_MS = 60000; // 1 minute cooldown between hops
     private static final int REFUSED_HOP_RETRY_MS = 10000;
+    private static final int TAKEN_NPC_COOLDOWN_MS = 30000;
+    private static final int TAKEN_MESSAGE_WINDOW_MS = 5000;
+    private final Map<Integer, Long> takenNpcCooldowns = new ConcurrentHashMap<>();
+    private volatile int lastAttackTargetIndex = -1;
+    private volatile long lastAttackClickAt = 0;
+    private volatile String lastAttackTargetName = null;
+    private boolean takenWaitAnnounced = false;
+
+    private static final int DRAGONFIRE_BURN_WINDOW_MS = 10000;
+    private static final String DRAGONFIRE_STOP_ADVICE_SETUP =
+            "Add antifire potions (or an anti-dragon / dragonfire shield) to the inventory setup for this task, then start the plugin again.";
+    private static final String DRAGONFIRE_STOP_ADVICE_NO_SETUP =
+            "You are at the bank. This task has no inventory setup, so the plugin cannot restock: "
+                    + "create one with antifire potions (or an anti-dragon / dragonfire shield), then start the plugin again.";
+    private static final String DRAGONFIRE_STOP_ADVICE_BANK_EMPTY =
+            "You are at the bank, but it has no antifire potions either: buy some, then start the plugin again.";
+    private volatile long lastDragonfireBurnAt = 0;
+    private boolean retreatedFromDragonfire = false;
 
     // Task completion loot delay
     private long taskCompletedTime = 0;
@@ -1490,7 +1513,17 @@ public class SlayerScript extends Script {
         // Get the active inventory setup (cannon or regular)
         var activeSetup = getActiveInventorySetup();
         if (activeSetup == null) {
+            if (retreatedFromDragonfire && !Rs2Bank.isOpen()) {
+                openOrWalkToBank();
+                return;
+            }
             log.warn("No inventory setup configured, skipping banking");
+            if (retreatedFromDragonfire) {
+                Rs2Bank.closeBank();
+            }
+            if (stopIfStillUnprotectedFromDragonfire(DRAGONFIRE_STOP_ADVICE_NO_SETUP)) {
+                return;
+            }
             if (config.enableAutoTravel()) {
                 SlayerPlugin.setState(SlayerState.TRAVELING);
             } else {
@@ -1501,15 +1534,7 @@ public class SlayerScript extends Script {
 
         // If bank is not open, walk to bank and open it
         if (!Rs2Bank.isOpen()) {
-            if (!Rs2Player.isMoving()) {
-                // Try to open bank if we're near one
-                if (Rs2Bank.openBank()) {
-                    sleepUntil(Rs2Bank::isOpen, 3000);
-                } else {
-                    log.info("Walking to nearest bank");
-                    Rs2Bank.walkToBank();
-                }
-            }
+            openOrWalkToBank();
             return;
         }
 
@@ -1524,6 +1549,9 @@ public class SlayerScript extends Script {
             Rs2Bank.closeBank();
             sleepUntil(() -> !Rs2Bank.isOpen(), 2000);
             initialSetupDone = true;
+            if (stopIfStillUnprotectedFromDragonfire()) {
+                return;
+            }
 
             // Check if we need to swap spellbook based on inventory setup
             if (needsSpellbookSwap()) {
@@ -1547,6 +1575,9 @@ public class SlayerScript extends Script {
             Rs2Bank.closeBank();
             sleepUntil(() -> !Rs2Bank.isOpen(), 2000);
             initialSetupDone = true;
+            if (stopIfStillUnprotectedFromDragonfire()) {
+                return;
+            }
 
             // Check if we need to swap spellbook based on inventory setup
             if (needsSpellbookSwap()) {
@@ -1559,7 +1590,29 @@ public class SlayerScript extends Script {
             }
         } else {
             log.warn("Failed to load inventory setup completely");
+            stopIfBankHasNoAntifire();
         }
+    }
+
+    private void openOrWalkToBank() {
+        if (Rs2Player.isMoving()) {
+            return;
+        }
+        if (Rs2Bank.openBank()) {
+            sleepUntil(Rs2Bank::isOpen, 3000);
+        } else {
+            log.info("Walking to nearest bank");
+            Rs2Bank.walkToBank();
+        }
+    }
+
+    private boolean stopIfBankHasNoAntifire() {
+        if (!retreatedFromDragonfire || hasAntifireDose()
+                || Rs2Bank.hasItem("antifire") || Rs2Bank.hasItem("anti-fire")) {
+            return false;
+        }
+        Rs2Bank.closeBank();
+        return stopIfStillUnprotectedFromDragonfire(DRAGONFIRE_STOP_ADVICE_BANK_EMPTY);
     }
 
     private void withdrawFinishingItems() {
@@ -2213,7 +2266,8 @@ public class SlayerScript extends Script {
         }
 
         // Check if we need to bank
-        if (config.enableAutoBanking() && needsBanking()) {
+        boolean dragonfireRetreat = shouldRetreatFromDragonfire();
+        if (dragonfireRetreat || (config.enableAutoBanking() && needsBanking())) {
             // Pick up cannon before leaving - it can't be picked up from the bank
             if (cannonPlaced) {
                 log.info("Picking up cannon before banking");
@@ -2226,11 +2280,15 @@ public class SlayerScript extends Script {
             deactivateProfilePrayer();
             // Go to POH first to heal before banking (saves supplies)
             if (config.usePohPool() && shouldUsePoh()) {
-                log.info("Low on supplies - healing at POH before banking");
+                if (!dragonfireRetreat) {
+                    log.info("Low on supplies - healing at POH before banking");
+                }
                 stateAfterPoh = SlayerState.BANKING;
                 SlayerPlugin.setState(SlayerState.RESTORING_AT_POH);
             } else {
-                log.info("Low on supplies, transitioning to BANKING");
+                if (!dragonfireRetreat) {
+                    log.info("Low on supplies, transitioning to BANKING");
+                }
                 SlayerPlugin.setState(SlayerState.BANKING);
             }
             return;
@@ -2373,9 +2431,76 @@ public class SlayerScript extends Script {
         }
 
         // Handle super antifire (from JSON profile) - for dragon tasks
-        if (activeJsonProfile != null && activeJsonProfile.isSuperAntifire()) {
+        boolean profileAntifire = activeJsonProfile != null && activeJsonProfile.isSuperAntifire();
+        String profileVariant = activeJsonProfile != null ? activeJsonProfile.getVariant() : null;
+        if (profileAntifire || (isDragonfireTask(Rs2Slayer.getSlayerTask(), profileVariant) && hasAntifireDose())) {
             handleSuperAntifire();
         }
+    }
+
+    static boolean isDragonfireTask(String taskName, String variant) {
+        if (taskName == null || !taskName.toLowerCase().contains("dragon")) {
+            return false;
+        }
+        return variant == null || !variant.toLowerCase().contains("baby");
+    }
+
+    private boolean hasAntifireDose() {
+        return Rs2Inventory.get(item ->
+                item != null && item.getName() != null &&
+                (item.getName().toLowerCase().contains("antifire") ||
+                 item.getName().toLowerCase().contains("anti-fire"))) != null;
+    }
+
+    public void onDragonfireBurnMessage() {
+        lastDragonfireBurnAt = System.currentTimeMillis();
+    }
+
+    private boolean shouldRetreatFromDragonfire() {
+        if (!isDragonfireTask(Rs2Slayer.getSlayerTask(), null)) {
+            retreatedFromDragonfire = false;
+            return false;
+        }
+        if (retreatedFromDragonfire) {
+            return true;
+        }
+        if (System.currentTimeMillis() - lastDragonfireBurnAt > DRAGONFIRE_BURN_WINDOW_MS) {
+            return false;
+        }
+        if (Microbot.getVarbitValue(SUPER_ANTIFIRE_VARBIT) > 0 || Microbot.getVarbitValue(ANTIFIRE_VARBIT) > 0) {
+            return false;
+        }
+        if (hasAntifireDose()) {
+            return false;
+        }
+        String retreatReason = "Out of antifire and taking dragonfire damage: going to the bank to restock"
+                + (config.enableAutoBanking() ? "." : " (auto banking is off, this is a safety retreat).");
+        log.warn(retreatReason);
+        Microbot.log(retreatReason);
+        retreatedFromDragonfire = true;
+        return true;
+    }
+
+    private boolean stopIfStillUnprotectedFromDragonfire() {
+        return stopIfStillUnprotectedFromDragonfire(DRAGONFIRE_STOP_ADVICE_SETUP);
+    }
+
+    private boolean stopIfStillUnprotectedFromDragonfire(String advice) {
+        if (!retreatedFromDragonfire) {
+            return false;
+        }
+        retreatedFromDragonfire = false;
+        lastDragonfireBurnAt = 0;
+        if (!isDragonfireTask(Rs2Slayer.getSlayerTask(), null) || hasAntifireDose()) {
+            return false;
+        }
+        String reason = "you were burnt by dragonfire and have no antifire potions left. " + advice;
+        log.warn("Slayer stopped: {}", reason);
+        Microbot.log("Slayer stopped: " + reason);
+        SlayerPlugin.setState(SlayerState.IDLE);
+        Microbot.stopPlugin(SlayerPlugin.class);
+        Microbot.showMessage("Slayer stopped: " + reason);
+        return true;
     }
 
     /**
@@ -2980,6 +3105,11 @@ public class SlayerScript extends Script {
 
         // Find attackable NPCs matching target monsters
         // Prioritize NPCs that are already attacking us (interacting with player)
+        boolean multiCombat = Rs2Player.isInMulti();
+        Set<Actor> npcsFoughtByOthers = multiCombat ? Collections.emptySet() : findNpcsFoughtByOtherPlayers();
+        long now = System.currentTimeMillis();
+        takenNpcCooldowns.values().removeIf(expiry -> expiry <= now);
+        Set<String> takenMonsterNames = ConcurrentHashMap.newKeySet();
         List<Rs2NpcModel> attackableNpcs = Microbot.getRs2NpcCache().query()
                 .where(SlayerScript::isLivingTarget)
                 .where(npc -> npc.getName() != null)
@@ -2987,6 +3117,17 @@ public class SlayerScript extends Script {
                         .anyMatch(monster -> matchesTargetMonster(npc.getName(), monster)))
                 .where(npc -> destination == null ||
                         npc.getWorldLocation().distanceTo(destination) <= config.attackRadius())
+                .where(npc -> {
+                    if (multiCombat || !isTakenBySomeoneElse(
+                            npc.getInteracting(),
+                            Microbot.getClient().getLocalPlayer(),
+                            npcsFoughtByOthers.contains(npc.getNpc()),
+                            takenNpcCooldowns.containsKey(npc.getIndex()))) {
+                        return true;
+                    }
+                    takenMonsterNames.add(npc.getName());
+                    return false;
+                })
                 .toListOnClientThread()
                 .stream()
                 .sorted(Comparator
@@ -3010,7 +3151,14 @@ public class SlayerScript extends Script {
                     .map(Rs2NpcModel::getName)
                     .distinct()
                     .collect(Collectors.toList());
-            if (!nearbyNpcNames.isEmpty()) {
+            boolean allTaken = !takenMonsterNames.isEmpty();
+            if (allTaken) {
+                if (!takenWaitAnnounced) {
+                    takenWaitAnnounced = true;
+                    log.info(allTakenMessage(takenMonsterNames, config.hopWhenCrashed(), destination != null,
+                            CRASH_HOP_DELAY_MS / 1000));
+                }
+            } else if (!nearbyNpcNames.isEmpty()) {
                 log.info("Nearby attackable NPCs: {} (looking for: {})", nearbyNpcNames, targetMonsters);
             }
 
@@ -3036,8 +3184,14 @@ public class SlayerScript extends Script {
                                 log.debug("Last world hop was refused, retrying in {} seconds",
                                         (REFUSED_HOP_RETRY_MS - timeSinceRefusedHop) / 1000);
                             } else if (timeSinceLastHop >= WORLD_HOP_COOLDOWN_MS) {
-                                log.info("No targets found for {} seconds - hopping worlds (likely crashed)",
-                                        CRASH_HOP_DELAY_MS / 1000);
+                                if (allTaken) {
+                                    log.info("All {} still taken after {} seconds - hopping worlds",
+                                            String.join(", ", takenMonsterNames), CRASH_HOP_DELAY_MS / 1000);
+                                } else {
+                                    log.info("No targets found for {} seconds - hopping worlds (likely crashed)",
+                                            CRASH_HOP_DELAY_MS / 1000);
+                                }
+                                takenWaitAnnounced = false;
                                 hopToNewWorld();
                                 return;
                             } else {
@@ -3057,13 +3211,64 @@ public class SlayerScript extends Script {
             crashDetectionStartTime = 0;
             log.debug("Reset crash detection timer - found targets");
         }
+        takenWaitAnnounced = false;
 
         // Attack the first NPC (prioritizes those attacking us, then closest)
         Rs2NpcModel target = attackableNpcs.get(0);
+        lastAttackTargetIndex = target.getIndex();
+        lastAttackTargetName = target.getName();
+        lastAttackClickAt = System.currentTimeMillis();
         if (target.click("Attack")) {
             log.info("Attacking {}", target.getName());
             sleepUntil(Rs2Player::isInteracting, 1000);
         }
+    }
+
+    static String allTakenMessage(Collection<String> monsterNames, boolean hopWhenCrashed, boolean canHop, int hopDelaySeconds) {
+        String message = "All " + String.join(", ", monsterNames)
+                + " here are being fought by other players - waiting for a free one.";
+        if (!hopWhenCrashed) {
+            return message + " Turn on Hop When Crashed in the Combat settings to hop automatically.";
+        }
+        if (canHop) {
+            return message + " Hopping worlds in " + hopDelaySeconds + " seconds if none frees up.";
+        }
+        return message;
+    }
+
+    static String targetTakenMessage(String monsterName, int cooldownSeconds) {
+        return (monsterName == null ? "Target" : monsterName)
+                + " is being fought by someone else - skipping it for " + cooldownSeconds + " seconds";
+    }
+
+    static boolean isTakenBySomeoneElse(Actor npcTarget, Actor localPlayer, boolean foughtByOtherPlayer, boolean onCooldown) {
+        if (npcTarget != null && npcTarget == localPlayer) {
+            return false;
+        }
+        return npcTarget instanceof Player || foughtByOtherPlayer || onCooldown;
+    }
+
+    private static Set<Actor> findNpcsFoughtByOtherPlayers() {
+        return Microbot.getClientThread().runOnClientThreadOptional(() -> {
+            Player localPlayer = Microbot.getClient().getLocalPlayer();
+            Set<Actor> npcs = Microbot.getRs2PlayerCache().getStream()
+                    .map(Rs2PlayerModel::getPlayer)
+                    .filter(other -> other != null && other != localPlayer)
+                    .map(Player::getInteracting)
+                    .filter(net.runelite.api.NPC.class::isInstance)
+                    .collect(Collectors.toSet());
+            return npcs;
+        }).orElse(Collections.emptySet());
+    }
+
+    public void onTargetTakenMessage() {
+        int index = lastAttackTargetIndex;
+        long now = System.currentTimeMillis();
+        if (index < 0 || now - lastAttackClickAt > TAKEN_MESSAGE_WINDOW_MS) {
+            return;
+        }
+        takenNpcCooldowns.put(index, now + TAKEN_NPC_COOLDOWN_MS);
+        log.info(targetTakenMessage(lastAttackTargetName, TAKEN_NPC_COOLDOWN_MS / 1000));
     }
 
     /**
@@ -3106,6 +3311,7 @@ public class SlayerScript extends Script {
             isSearchingForTargets = false;
             crashDetectionStartTime = 0;
             lastWorldHopTime = System.currentTimeMillis();
+            takenNpcCooldowns.clear();
 
             log.info("Successfully hopped to world {}", world);
         } catch (Exception e) {
@@ -4302,6 +4508,12 @@ public class SlayerScript extends Script {
         resetSkipState();
         resetPohState();
         resetCannonState();
+        takenNpcCooldowns.clear();
+        lastAttackTargetIndex = -1;
+        lastAttackTargetName = null;
+        takenWaitAnnounced = false;
+        lastDragonfireBurnAt = 0;
+        retreatedFromDragonfire = false;
         initialSetupDone = false;
         super.shutdown();
     }

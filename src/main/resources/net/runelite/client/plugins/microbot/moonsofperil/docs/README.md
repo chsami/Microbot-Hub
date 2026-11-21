@@ -32,6 +32,7 @@ Babysit until you are 100% comfortable.Run the latest nightly build.
 
 ## Boss Notes
 - New in 1.0.7: during the main attack phase the script eats when your HP drops below Health % topup and drinks when prayer drops below Prayer % topup (both in General settings). Lower these values, for example to 50%, for more DPS, or raise them if you die.
+- New in 1.0.11: Eclipse Moon now starts the shield lap earlier to avoid the first hit, walks it with run off, and eats during the lap when HP is below Health % topup; babysit your first few kills and report it in Bug Reports if you still take damage on the lap. In the main attack phase of every boss the script now waits until it stands on the exact attack tile before it attacks, instead of attacking while still walking there. In the Eclipse clone phase it reacts every game tick. The script eats one food at a time instead of several clicks at once. Needs Microbot client 2.2.4 or newer.
 - **Eclipse Moon:** use your best **stab** weapon.
   - Clone phase = burst DPS with your highest-hit 2-handed weapon. 
   - If you spawn into the boss arena mid-shield special attack, the script exits the arena and re-enters.
@@ -49,6 +50,7 @@ The script sits on “Idle”. What now?
 - Verify you selected an InventorySetup after any edits (switch to another preset, then back).
 - Degraded gear users (eg Barrows, Moons): enable Fuzzy matching so degraded armour is recognised.
 - If it still idles, create a brand-new inventory setup and re-select it.
+- If the overlay says Lunar Chest sealed, the chest had no rewards and the script found no moon to fight. Stop the plugin, defeat a moon yourself, then start it again, and report it in Bug Reports with the 'Lunar Chest is sealed' log line.
 
 ## How do I report a bug?
 - Enable Debug Logs in the plugin configuration, record a clip or video, and post it in the discord Bug Reports channel, following the Microbot template for Bug Reporting. 

@@ -6,13 +6,17 @@ import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.aiofighter.AIOFighterConfig;
 import net.runelite.client.plugins.microbot.aiofighter.AIOFighterPlugin;
+import net.runelite.client.plugins.microbot.aiofighter.bank.BankerScript;
 import net.runelite.client.plugins.microbot.aiofighter.enums.State;
+import net.runelite.client.plugins.microbot.inventorysetups.InventorySetup;
+import net.runelite.client.plugins.microbot.inventorysetups.MInventorySetupsPlugin;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 
+import java.util.Collection;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
@@ -46,7 +50,7 @@ public class SafetyScript extends Script {
                         setupName = config.inventorySetup().getName();
                     }
                 }
-                if (config.lowHealth() && Rs2Inventory.getInventoryFood().isEmpty() && !bankRestocksFood(config, setupName)){
+                if (config.lowHealth() && Rs2Inventory.getInventoryFood().isEmpty() && !bankRestocksFood(config, setupName, MInventorySetupsPlugin.getInventorySetups())){
                     if (Rs2Player.getHealthPercentage() < config.healthSafetyValue()){
                         stopAndLog("Low health: " + Rs2Player.getHealthPercentage() + "%");
                     }
@@ -58,9 +62,10 @@ public class SafetyScript extends Script {
         return true;
     }
 
-    static boolean bankRestocksFood(AIOFighterConfig config, String setupName) {
-        return config.bank() && config.useInventorySetup() && config.currentInventorySetup() != null
-                && setupName != null && !setupName.isEmpty();
+    static boolean bankRestocksFood(AIOFighterConfig config, String setupName, Collection<InventorySetup> setups) {
+        return config.bank() && config.useInventorySetup()
+                && setupName != null && !setupName.isEmpty()
+                && BankerScript.setupRestocksFood(setups, setupName);
     }
 
     public void stopAndLog(String reason) {

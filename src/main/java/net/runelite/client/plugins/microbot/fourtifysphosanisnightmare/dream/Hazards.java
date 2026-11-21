@@ -30,6 +30,7 @@ public class Hazards
     private WorldArea body;
     private WorldPoint player;
     private boolean walking;
+    private boolean lastStand;
     private int stillTicks = WALK_GAP_TICKS;
     private int now;
 
@@ -45,6 +46,7 @@ public class Hazards
         body = null;
         player = null;
         walking = false;
+        lastStand = false;
         stillTicks = WALK_GAP_TICKS;
     }
 
@@ -59,6 +61,11 @@ public class Hazards
         {
             centre = new WorldPoint(area.getX(), area.getY(), area.getPlane());
         }
+    }
+
+    public void observeStage(Stage stage)
+    {
+        lastStand = stage == Stage.DESPERATION;
     }
 
     /** Her sleeping place at the arena's centre, where she also charges her blast; none before she is seen. */
@@ -217,8 +224,9 @@ public class Hazards
     }
 
     /**
-     * Her claws will come up here: a rift's tile, or under her while her rifts are out. While she walks toward a
-     * player out of her reach, any tile next to her can end up under her too.
+     * Her claws will come up here: a rift's tile, or under her while her rifts are out. Before her final phase she
+     * walks toward a player out of her reach, and in it she may still walk, so then any tile next to her can end up
+     * under her too.
      */
     private boolean clawed(WorldPoint tile)
     {
@@ -230,7 +238,7 @@ public class Hazards
         {
             return false;
         }
-        boolean coming = walking && player != null && !new WorldArea(player, 1, 1).isInMeleeDistance(body);
+        boolean coming = (walking || !lastStand) && player != null && !new WorldArea(player, 1, 1).isInMeleeDistance(body);
         return coming ? new WorldArea(body.getX() - 1, body.getY() - 1, body.getWidth() + 2, body.getHeight() + 2,
             body.getPlane()).contains(tile) : body.contains(tile);
     }
@@ -297,7 +305,8 @@ public class Hazards
      * The nearest tile clear of her hazards, preferring one whose way there is clear too. The game checks her claws
      * and spores against the tile the player ends a tick on, and a slowed player ends a tick on every tile of the
      * way. So with no clear way, the way may still cross a flower or surge lane, but not her claws or a spore: the
-     * player waits instead, unless a hit will land where the player stands.
+     * player waits instead, unless a hit will land where the player stands. Then the way may cross anything but a
+     * claw the player, slowed or running, would end a tick on as it comes up.
      */
     private WorldPoint nearestSafe(WorldPoint player, Collection<WorldPoint> reachable, WorldArea boss, boolean besideOnly,
         Predicate<WorldPoint> wanted)
@@ -309,7 +318,15 @@ public class Hazards
             boolean slowed = nearSpore(player);
             best = nearestSafe(player, reachable, boss, besideOnly, wanted, tile -> clawed(tile) || !slowed && nearSpore(tile));
         }
-        return best != null || !harmful(player) ? best : nearestSafe(player, reachable, boss, besideOnly, wanted, step -> false);
+        return best != null || !harmful(player) ? best
+            : nearestSafe(player, reachable, boss, besideOnly, wanted, step -> endsATickAsItsClawsLand(player, step));
+    }
+
+    private boolean endsATickAsItsClawsLand(WorldPoint player, WorldPoint step)
+    {
+        Integer lands = rifts.get(step);
+        int steps = Math.max(Math.abs(step.getX() - player.getX()), Math.abs(step.getY() - player.getY()));
+        return lands != null && (lands == now + steps + 1 || steps % 2 == 0 && lands == now + steps / 2 + 1);
     }
 
     /** A hit lands here: her claws, an unsafe flower quarter or her surge lane. A spore only slows the player. */

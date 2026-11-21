@@ -94,6 +94,11 @@ public class CgPrepScript extends StateMachineScript<CgState>
 	static final int CHEST_MAX_TRIES = 3;
 	/** Entrance clicks in a row that didn't get us in (review: a locked Corrupted Gauntlet looped forever). */
 	private int enterFails;
+	volatile long entryRefusedAtMs;
+	/** When the deposit box last emptied what we had to (a refusal before this has been dealt with). */
+	private long lastBankedMs;
+	private int depositFails;
+	volatile boolean depositBlocked;
 	/** Set after {@link #ENTER_GIVE_UP} failed entries: no more Enter clicks until Continue / the Gauntlet setting changes / restart. */
 	volatile String enterBlocked;
 	private CgMode enterBlockedMode;
@@ -531,6 +536,19 @@ public class CgPrepScript extends StateMachineScript<CgState>
 		{
 			keep.add(id);
 		}
+		// 1.8.3: without a bow or a staff the boss can block the one we have for good; the sceptre
+		// (or a halberd) makes it switch its prayer, so it stays.
+		boolean noBow = !Rs2Inventory.hasItem(m.bow) && !net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment.isWearing(m.bow);
+		boolean noStaff = !Rs2Inventory.hasItem(m.staff) && !net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment.isWearing(m.staff);
+		if (noBow || noStaff)
+		{
+			for (int id : m.halberd)
+			{
+				keep.add(id);
+			}
+			keep.add(net.runelite.api.gameval.ItemID.GAUNTLET_SCEPTRE);
+			keep.add(net.runelite.api.gameval.ItemID.GAUNTLET_SCEPTRE_HM);
+		}
 		net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel junk = Rs2Inventory.items(it -> it != null && !keep.contains(it.getId())
 				&& junkDropFails.getOrDefault(it.getId(), 0) < 3) // one that won't drop never holds up the boss
 			.findFirst().orElse(null);
@@ -636,6 +654,7 @@ public class CgPrepScript extends StateMachineScript<CgState>
 		{
 			// A new run started (or we started the plugin mid-run).
 			maze.resetForNewRun();
+			planner.flipGuard.reset();
 			nav.reset();
 			combat.reset();
 			gather.reset();
@@ -675,6 +694,9 @@ public class CgPrepScript extends StateMachineScript<CgState>
 			}
 			chestFails = 0;
 			chestBlocked = false;
+			depositFails = 0;
+			depositBlocked = false;
+			topUps = 0;
 			pl("RUN", "started mode=" + mode() + " profile=" + config.profile() + " dryRun=" + config.dryRun()
 				+ " skipDemi=" + config.skipDemiBosses() + " fishTarget=" + config.fishTarget()
 				+ " antiban=" + antiban.isActive() + " seed=" + runSeed + " autoMode=" + config.autoMode() + (bossAuto() ? " (bot fights, no handover)" : ""));
@@ -923,7 +945,7 @@ public class CgPrepScript extends StateMachineScript<CgState>
 			gather.weave = config.weaveAttacks() && n.get(net.runelite.client.plugins.microbot.cgprep.data.Resource.SHARDS) > 0;
 			prayer.lazyFlick = config.lazyFlick();
 			gather.meleeWeapon = styleNow == net.runelite.client.plugins.microbot.cgprep.fight.PrayerGuard.Style.MELEE;
-			lootNeeds = in.gather != null ? in.gather : n;
+			lootNeeds = net.runelite.client.plugins.microbot.cgprep.plan.PrepPlanner.lootNeeds(in);
 			perfPlan = (System.nanoTime() - t2) / 1_000_000;
 			long total = perfMaze + perfLedger + perfPlan;
 			if (total > 150 && System.currentTimeMillis() - lastPerfLogMs > 5000)
@@ -1156,6 +1178,10 @@ public class CgPrepScript extends StateMachineScript<CgState>
 				if (bossAuto() && !bossOnly() && ensureRapid())
 				{
 					break;
+				}
+				if (bossAuto() && !bossOnly() && !config.dryRun() && topUpBeforeBoss())
+				{
+					break; // one bite / sip per loop, then the barrier
 				}
 				maybeEnterBoss();
 				break;
@@ -2278,13 +2304,13 @@ public class CgPrepScript extends StateMachineScript<CgState>
 			: maze.inStartRoom() ? ActionResult.DONE : ActionResult.WALKING;
 	}
 
-	/** Deposit everything, then enter. TODO(recon): entrance object + option for Corrupted. */
 	/**
-	 * Lobby, between runs: open the Reward Chest if a reward is waiting (loop on) and keep the loot
-	 * (the Gauntlet holds your items while you're inside and gives them back when you leave); bank
-	 * everything at the deposit box only when fewer than "Bank loot below free slots" are free before
-	 * opening the chest (or the chest won't open twice in a row with space short). Then wait 1-12 s
-	 * (countdown in the overlay) and "Enter-corrupted". Same after a kill or a death.
+	 * Lobby, between runs: open the Reward Chest if a reward is waiting (loop on), first banking the
+	 * bag at the deposit box when fewer than "Bank loot below free slots" are free (or the chest won't
+	 * open twice in a row with space short). Then wait 1-12 s (countdown in the overlay) and
+	 * "Enter-corrupted". Only if the game refuses entry because of what's carried or worn does
+	 * everything (worn items too) go into the deposit box, then it enters again (1.8.5). Same after a
+	 * kill or a death.
 	 */
 	private void lobbySetup()
 	{
@@ -2317,8 +2343,20 @@ public class CgPrepScript extends StateMachineScript<CgState>
 			blockChest();
 			return;
 		}
+		if (depositBlocked)
+		{
+			if (!continueRequested)
+			{
+				lastAction = "lobby: stopped, can't bank your items (see chat)";
+				return;
+			}
+			depositBlocked = false;
+			depositFails = 0;
+		}
 		int free = Rs2Inventory.emptySlotCount();
-		boolean needBank = reward && (free < config.bankBelowFreeSlots() || (chestFails >= 2 && free < 8));
+		boolean wearing = Rs2Equipment.isWearing();
+		boolean refused = entryRefusedAtMs > lastBankedMs;
+		boolean needBank = LobbyDeposit.needed(reward, free, config.bankBelowFreeSlots(), chestFails, Rs2Inventory.count(), wearing, refused);
 		if (needBank || Rs2DepositBox.isOpen())
 		{
 			reenterAtMs = -1;
@@ -2326,18 +2364,45 @@ public class CgPrepScript extends StateMachineScript<CgState>
 			{
 				lastLobbyClickMs = now;
 				ActionResult r = clickLobbyObject(new int[]{CgIds.OBJ_LOBBY_DEPOSIT_BOX}, "Deposit");
-				record("lobby: deposit box (" + free + " free slots)", r);
+				record(reward ? "lobby: deposit box (" + free + " free slots)"
+					: "lobby: the Gauntlet refused entry with items: banking what's carried and worn", r);
 				if (r == ActionResult.CLICKED && !Global.sleepUntil(Rs2DepositBox::isOpen, 6000))
 				{
-					pl("LOBBY", "deposit box didn't open (retrying)");
+					depositFails++;
+					if (LobbyDeposit.giveUp(depositFails))
+					{
+						blockDeposit();
+						return;
+					}
+					pl("LOBBY", "deposit box didn't open: trying again (" + depositFails + "/" + LobbyDeposit.MAX_TRIES + ")");
 				}
 				return;
 			}
 			Rs2DepositBox.depositAll();
-			boolean done = Global.sleepUntil(() -> Rs2Inventory.count() == 0, 3000);
+			boolean worn = LobbyDeposit.depositWorn(refused, wearing);
+			if (worn)
+			{
+				Rs2DepositBox.depositEquipment();
+			}
+			boolean done = Global.sleepUntil(() -> Rs2Inventory.count() == 0 && (!worn || !Rs2Equipment.isWearing()), 3000);
 			Rs2DepositBox.closeDepositBox();
 			chestFails = 0;
-			pl("LOBBY", "bag nearly full (" + free + " free): banked the loot" + (done ? "" : " (not confirmed yet, checking again)"));
+			if (done)
+			{
+				depositFails = 0;
+				lastBankedMs = System.currentTimeMillis();
+				pl("LOBBY", reward ? "bag nearly full (" + free + " free): banked the bag" + (worn ? " and worn items" : "")
+					: "banked what the Gauntlet refused" + (worn ? " (bag and worn items)" : " (bag)"));
+				return;
+			}
+			depositFails++;
+			if (LobbyDeposit.giveUp(depositFails))
+			{
+				blockDeposit();
+				return;
+			}
+			pl("LOBBY", (reward ? "tried to bank the bag to make room for the loot" : "tried to bank what the Gauntlet refused")
+				+ ", items still there: trying again (" + depositFails + "/" + LobbyDeposit.MAX_TRIES + ")");
 			return;
 		}
 		if (reward)
@@ -2407,7 +2472,14 @@ public class CgPrepScript extends StateMachineScript<CgState>
 		record("lobby: " + mode().entranceOption(), r);
 		if (r == ActionResult.CLICKED)
 		{
-			boolean in = Global.sleepUntil(() -> Microbot.getVarbitValue(CgIds.VB_PLAYER_IN_GAUNTLET) != 0, 10000);
+			Global.sleepUntil(() -> Microbot.getVarbitValue(CgIds.VB_PLAYER_IN_GAUNTLET) != 0 || entryRefusedAtMs >= now, 10000);
+			boolean in = Microbot.getVarbitValue(CgIds.VB_PLAYER_IN_GAUNTLET) != 0;
+			if (!in && entryRefusedAtMs >= now && (Rs2Inventory.count() > 0 || Rs2Equipment.isWearing()))
+			{
+				reenterAtMs = -1;
+				pl("LOBBY", "the Gauntlet refused entry because items are still carried or worn: banking them first");
+				return;
+			}
 			pl("LOBBY", mode().entranceOption() + (in ? ": entered" : ": not in yet (" + (enterFails + 1) + "/" + ENTER_GIVE_UP + ")"));
 			if (in)
 			{
@@ -2427,6 +2499,18 @@ public class CgPrepScript extends StateMachineScript<CgState>
 		String msg = "Auto Gauntlet: the Reward Chest didn't open after " + CHEST_MAX_TRIES + " tries, so it stopped here to keep your loot."
 			+ " Open it yourself (or make room in your bag), then press " + config.continueKey() + " to go again.";
 		chestBlocked = true;
+		continueRequested = false;
+		reenterAtMs = -1;
+		pl("LOBBY", "WARN " + msg);
+		Microbot.getClientThread().invoke(() ->
+			Microbot.getClient().addChatMessage(net.runelite.api.ChatMessageType.GAMEMESSAGE, "", "<col=ff0000>" + msg + "</col>", null));
+	}
+
+	private void blockDeposit()
+	{
+		String msg = "Auto Gauntlet: couldn't put your items in the deposit box after " + LobbyDeposit.MAX_TRIES + " tries, so it stopped here."
+			+ " Check your bank isn't full, deposit everything you carry and wear yourself, then press " + config.continueKey() + " to go again.";
+		depositBlocked = true;
 		continueRequested = false;
 		reenterAtMs = -1;
 		pl("LOBBY", "WARN " + msg);
@@ -2617,9 +2701,18 @@ public class CgPrepScript extends StateMachineScript<CgState>
 			{
 				brewReadySinceMs = now;
 			}
+			// Bit by bit (1.8.5, player feedback): a shorter run does the steps that fit it (about
+			// 2 tiles a tick running), the rest on the next run.
+			int fits = (left - 2) / 2;
+			if (!longRun && fits >= 1)
+			{
+				k = bc.plan(mode(), l.waterVials, l.get(net.runelite.client.plugins.microbot.cgprep.data.Resource.GRYM), l.unfinishedPotions,
+					l.dust, l.get(net.runelite.client.plugins.microbot.cgprep.data.Resource.SHARDS), l.pestle, l.freeSlots, n.potionsToMake, fits);
+				longRun = k > 0;
+			}
 			if (!longRun && now - brewReadySinceMs < 20_000)
 			{
-				return false; // wait for a longer run
+				return false; // wait for a run
 			}
 		}
 		brewReadySinceMs = 0;
@@ -2732,6 +2825,57 @@ public class CgPrepScript extends StateMachineScript<CgState>
 	private boolean bossOnly()
 	{
 		return config.autoMode() == CgPrepConfig.AutoMode.BOSS_ONLY;
+	}
+
+	/** Last time a pre-fight bite or sip went out (ms): food and potions each need ~3 ticks between. */
+	private long lastTopUpMs;
+	/** Pre-fight bites / sips this run (capped: a click that never lands can't keep us from the barrier). */
+	private int topUps;
+
+	/**
+	 * 1.8.3: at the barrier, eat until within 20 HP of full and drink a dose under 30% prayer, so
+	 * the fight doesn't start with it (8-11 Nov: 10 fights started under 80 HP, 11 under 20 prayer;
+	 * all 4 deaths started under 80 HP). Uses prep seconds that are usually left over; not in the
+	 * last 8 s. True while it ate or drank this loop.
+	 */
+	private boolean topUpBeforeBoss()
+	{
+		if (secondsLeft >= 0 && secondsLeft < 8 || bossStarted || topUps >= 8 || System.currentTimeMillis() - lastTopUpMs < 1900)
+		{
+			return false;
+		}
+		net.runelite.api.Client c = Microbot.getClient();
+		int hp = Microbot.getClientThread().runOnClientThreadOptional(() -> c.getBoostedSkillLevel(net.runelite.api.Skill.HITPOINTS)).orElse(99);
+		int hpMax = Microbot.getClientThread().runOnClientThreadOptional(() -> c.getRealSkillLevel(net.runelite.api.Skill.HITPOINTS)).orElse(99);
+		int pr = Microbot.getClientThread().runOnClientThreadOptional(() -> c.getBoostedSkillLevel(net.runelite.api.Skill.PRAYER)).orElse(99);
+		int prMax = Microbot.getClientThread().runOnClientThreadOptional(() -> c.getRealSkillLevel(net.runelite.api.Skill.PRAYER)).orElse(99);
+		if (hp <= hpMax - 20 && Rs2Inventory.hasItem(CgIds.PADDLEFISH))
+		{
+			pace.before(Pace.Kind.INVENTORY);
+			boolean sent = Rs2Inventory.interact(CgIds.PADDLEFISH, "Eat");
+			pace.after(Pace.Kind.INVENTORY);
+			lastTopUpMs = System.currentTimeMillis();
+			topUps++;
+			act("before the boss: eat (" + hp + "/" + hpMax + " HP)" + (sent ? "" : " (click didn't go out)"));
+			return true;
+		}
+		if (pr * 100 < prMax * 30)
+		{
+			for (int id : new int[]{CgIds.EGNIOL_1, CgIds.EGNIOL_2, CgIds.EGNIOL_3, CgIds.EGNIOL_4})
+			{
+				if (Rs2Inventory.hasItem(id))
+				{
+					pace.before(Pace.Kind.INVENTORY);
+					boolean sent = Rs2Inventory.interact(id, "Drink");
+					pace.after(Pace.Kind.INVENTORY);
+					lastTopUpMs = System.currentTimeMillis();
+					topUps++;
+					act("before the boss: drink a dose (" + pr + "/" + prMax + " prayer)" + (sent ? "" : " (click didn't go out)"));
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 
 	/** No handover when the bot fights: Quick-pass the boss barrier (every 4 s until the fight starts). */

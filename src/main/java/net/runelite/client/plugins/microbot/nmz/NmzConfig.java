@@ -44,6 +44,28 @@ public interface NmzConfig extends Config {
     default boolean inventorySetupon() { return true; }
 
     @ConfigItem(
+            keyName = "repeatRounds",
+            name = "Repeat rounds",
+            description = "Restock and enter the previous dream after each round. Overrides Stop after death.",
+            position = 2,
+            section = generalSection
+    )
+    default boolean repeatRounds() {
+        // Retain the previous stop preference until this option is configured.
+        return !stopAfterDeath();
+    }
+
+    @ConfigItem(
+            keyName = "fillPotionBarrels",
+            name = "Fill potion barrels when buying",
+            description = "When a barrel lacks enough doses for this trip, buy enough to fill it to 255 doses.",
+            position = 3,
+            section = generalSection
+    )
+    default boolean fillPotionBarrels() { return false; }
+
+    @Range(min = 0, max = 28)
+    @ConfigItem(
             keyName = "How many overload potions to use",
             name = "How many overload potions to use",
             description = "How many overload potions to use",
@@ -55,6 +77,7 @@ public interface NmzConfig extends Config {
         return 8;
     }
 
+    @Range(min = 0, max = 28)
     @ConfigItem(
             keyName = "How many absorption potions to use",
             name = "How many absorption potions to use",
@@ -70,7 +93,7 @@ public interface NmzConfig extends Config {
     @ConfigItem(
             keyName = "Stop after death",
             name = "Stop after death",
-            description = "Stop after death",
+            description = "Stop after death when Repeat rounds is off",
             position = 4,
             section = generalSection
     )

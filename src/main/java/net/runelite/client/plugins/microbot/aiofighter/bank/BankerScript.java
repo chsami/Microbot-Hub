@@ -147,9 +147,8 @@ public class BankerScript extends Script {
             return true;
         }
         
-        // Double-check if inventory setup is still valid
-        if (config.currentInventorySetup() == null){
-            return false; // No current inventory setup, and also no default setup, so no need to bank because of the inventory setup
+        if (!hasRestockSetup(config)) {
+            return false;
         }
 
         String setupName = null;
@@ -237,6 +236,33 @@ public class BankerScript extends Script {
             Microbot.log("Inventory setup " + setupName + " not found; reselect it in AIO Fighter config");
         }
         return false;
+    }
+
+    static boolean hasRestockSetup(AIOFighterConfig config) {
+        if (config.slayerMode()) {
+            return config.currentInventorySetup() != null;
+        }
+        return config.useInventorySetup() && config.inventorySetup() != null;
+    }
+
+    public static boolean setupRestocksFood(Collection<InventorySetup> setups, String setupName) {
+        if (setups == null || setupName == null) {
+            return false;
+        }
+        InventorySetup setup = findSetupByName(setups, setupName);
+        if (setup == null) {
+            setup = setups.stream()
+                    .filter(Objects::nonNull)
+                    .filter(candidate -> "default".equals(candidate.getName()))
+                    .findFirst()
+                    .orElse(null);
+        }
+        if (setup == null || setup.getInventory() == null) {
+            return false;
+        }
+        Set<Integer> foodIds = Rs2Food.getIds();
+        return setup.getInventory().stream()
+                .anyMatch(item -> item != null && item.getId() != -1 && foodIds.contains(item.getId()));
     }
 
     static boolean isSetupResolvable(Collection<String> setupNames, String setupName) {

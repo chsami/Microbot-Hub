@@ -1,0 +1,33 @@
+# Dro Elf Thieving
+
+Created by **DRO (droplugins)**.
+
+Dro Elf Thieving pickpockets elves in Prifddinas. On start it locks onto the nearest elf and the nearest bank, then walks between them with its own built-in Prifddinas route planner. It eats, opens coin pouches, keeps a Dodgy necklace on, and restocks food and necklaces at the bank.
+
+## Requirements
+
+- Microbot client version 2.6.55 or later.
+- Access to Prifddinas and 85+ Thieving.
+- Food and Dodgy necklaces in the bank (both optional; amounts are set in the config).
+- Optional: Shadow Veil (Arceuus spellbook) with Cosmic runes, plus a Lava battlestaff or Earth and Fire runes. The staff is only taken from the bank when neither is in the inventory.
+
+## Usage
+
+1. Stand next to the elf you want to thieve in Prifddinas.
+2. Set food, food amount, eat-below HP % and Dodgy necklace amount under **Consumables**.
+3. Optional: turn on **Shadow Veil**, adjust **Adaptive behavior**, and set up **Break manager**.
+4. Enable **[Dro] Elf Thieving**.
+
+## Safety stops
+
+- **Low HP:** at or below **Eat below HP %** it eats. With nothing to eat (or **Use food** off) it stops and shows a message.
+- **Out of supplies:** if the bank has none of the food, Dodgy necklaces or Shadow Veil supplies it needs, it stops and names what is missing.
+- **AFK breaks** are capped at 10 minutes so they stay under the game's idle logout.
+
+## Full inventory
+
+With fewer than 2 free slots it drops empty Jugs, then food above the set amount, then the cheapest tradeable items worth less than **Keep items above value**. Untradeable items (Crystal shards, your own gear), coins, coin pouches, Enhanced crystal teleport seeds, supplies and anything in **Keep items** are never dropped. If that still doesn't free space, it banks.
+
+## Walking
+
+The route planner uses an embedded Prifddinas collision map and checks the live scene before each step, opening doors on the way. Run is turned back on automatically when the game turns it off and energy has come back. It never clicks the run orb when run is already on, and it waits about two game ticks before clicking, so it does not undo a run toggle from the Microbot client's own auto-run.

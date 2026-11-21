@@ -12,6 +12,14 @@ final class ZulrahBoatRoute
         return distance > 4 && (!clickable || retry);
     }
 
+    static String boardAction(String[] actions)
+    {
+        if (actions != null)
+            for (String action : actions)
+                if ("Quick-board".equalsIgnoreCase(action)) return "Quick-board";
+        return "Board";
+    }
+
     static List<int[]> approaches(int sx, int sy, int bx, int by, ZulrahSafeRoute.Edge edge)
     {
         List<int[]> result = new ArrayList<>();

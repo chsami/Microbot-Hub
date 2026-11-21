@@ -12,6 +12,7 @@ public final class TripState
     private boolean restored;
     private NPC target;
     private Loadout loadout = Loadout.MELEE;
+    private boolean longThrows;
 
     public TripPhase getPhase()
     {
@@ -84,6 +85,16 @@ public final class TripState
     public void setLoadout(Loadout loadout)
     {
         this.loadout = loadout;
+    }
+
+    public boolean isLongThrows()
+    {
+        return longThrows;
+    }
+
+    public void setLongThrows(boolean longThrows)
+    {
+        this.longThrows = longThrows;
     }
 
     public int getTrips()

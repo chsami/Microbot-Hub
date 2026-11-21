@@ -126,6 +126,31 @@ class MahoganyHomesScriptTest {
         assertFalse(MahoganyHomesScript.isOnPlane(new WorldPoint(2615, 3293, 1), 0));
     }
 
+    @Test
+    void contractIsDroppedAfterTwoUnrewardedHomeownerTalks() {
+        MahoganyHomesScript script = new MahoganyHomesScript();
+        assertFalse(script.shouldDropContract(Home.ROSS, Home.ROSS));
+        assertTrue(script.shouldDropContract(Home.ROSS, Home.ROSS));
+    }
+
+    @Test
+    void rewardedHomeownerTalkResetsUnrewardedCount() {
+        MahoganyHomesScript script = new MahoganyHomesScript();
+        assertFalse(script.shouldDropContract(Home.ROSS, Home.ROSS));
+        assertFalse(script.shouldDropContract(Home.ROSS, null));
+        assertFalse(script.shouldDropContract(Home.ROSS, Home.ROSS));
+        assertTrue(script.shouldDropContract(Home.ROSS, Home.ROSS));
+    }
+
+    @Test
+    void unrewardedTalksAreCountedPerHome() {
+        MahoganyHomesScript script = new MahoganyHomesScript();
+        assertFalse(script.shouldDropContract(Home.ROSS, Home.ROSS));
+        assertFalse(script.shouldDropContract(Home.BARBARA, Home.BARBARA));
+        assertTrue(script.shouldDropContract(Home.BARBARA, Home.BARBARA));
+        assertFalse(script.shouldDropContract(null, null));
+    }
+
     private static MahoganyHomesScript scriptWithPlugin() {
         MahoganyHomesScript script = new MahoganyHomesScript();
         script.plugin = new MahoganyHomesPlugin();

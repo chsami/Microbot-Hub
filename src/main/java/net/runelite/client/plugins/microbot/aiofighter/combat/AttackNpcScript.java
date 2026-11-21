@@ -63,6 +63,10 @@ public class AttackNpcScript extends Script {
         currentNpc = null;
     }
 
+    static boolean needsCenterInit(boolean manualCenterTile, boolean slayerMode, WorldPoint center) {
+        return !manualCenterTile && !slayerMode && center != null && center.getX() == 0 && center.getY() == 0;
+    }
+
     @SneakyThrows
     public void run(AIOFighterConfig config) {
         try {
@@ -98,6 +102,10 @@ public class AttackNpcScript extends Script {
                 WorldPoint playerLocation = Rs2Player.getWorldLocation();
                 if (playerLocation == null)
                     return;
+                if (needsCenterInit(config.toggleCenterTile(), config.slayerMode(), config.centerLocation())) {
+                    AIOFighterPlugin.setCenter(playerLocation);
+                    return;
+                }
                 if (config.centerLocation().distanceTo(playerLocation) < config.attackRadius()
                         && !config.centerLocation().equals(new WorldPoint(0, 0, 0))
                         && AIOFighterPlugin.getState() != State.BANKING) {
@@ -130,7 +138,7 @@ public class AttackNpcScript extends Script {
 
 
                 attackableArea = new Rs2WorldArea(config.centerLocation().toWorldArea());
-                attackableArea = attackableArea.offset(config.attackRadius());
+                attackableArea = attackableArea.offset(AIOFighterConfig.boundedAttackRadius(config.attackRadius()));
                 final Set<String> npcsToAttack = Arrays.stream(config.attackableNpcs().split(","))
                         .map(x -> x.trim().toLowerCase())
                         .filter(x -> !x.isEmpty())

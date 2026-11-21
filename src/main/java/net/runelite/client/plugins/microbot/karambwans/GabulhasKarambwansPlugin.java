@@ -17,7 +17,7 @@ import java.awt.*;
         description = "",
         tags = {"GabulhasKarambwans", "Gabulhas"},
         version = GabulhasKarambwansPlugin.version,
-        minClientVersion = "2.0.13",
+        minClientVersion = "2.6.44",
         cardUrl = "",
         iconUrl = "",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -25,7 +25,7 @@ import java.awt.*;
 )
 @Slf4j
 public class GabulhasKarambwansPlugin extends Plugin {
-    public static final String version = "1.2.2";
+    public static final String version = "1.2.3";
     @Inject
     private GabulhasKarambwansConfig config;
 
