@@ -15,6 +15,7 @@ import java.util.stream.Stream;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.startsWith;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -105,6 +106,49 @@ class WildernessAgilityBankingTest {
         }
 
         assertEquals("BANKING", get(script, "currentState").toString());
+    }
+
+    @Test
+    void stopReasonNamesItemsAndSettingsAndLootingBagNoticeIsLoggedOnce() throws Exception {
+        WildernessAgilityScript script = bankingScript();
+        WildernessAgilityConfig config = (WildernessAgilityConfig) get(script, "config");
+        when(config.withdrawVenomProtection()).thenReturn(WildernessAgilityConfig.VenomProtectionOption.AntiVenomPlus);
+
+        try (MockedStatic<Microbot> microbot = mockMicrobot();
+             MockedStatic<Rs2Bank> bank = mockStatic(Rs2Bank.class);
+             MockedStatic<Rs2Inventory> inventory = mockStatic(Rs2Inventory.class)) {
+            bank.when(Rs2Bank::isOpen).thenReturn(true);
+            inventory.when(Rs2Inventory::items).thenAnswer(i -> Stream.empty());
+
+            script.handleBanking();
+            script.handleBanking();
+            script.handleBanking();
+
+            String expected = "Stopped: could not take Knife, Coins, Anti-venom+ (4 dose) from the bank after 3 tries. Put them in your bank, or turn off 'Withdraw Knife' / 'Withdraw Coins' / 'Withdraw Venom Protection' in the Banking settings.";
+            assertEquals(expected, Microbot.status);
+            microbot.verify(() -> Microbot.log("[WildernessAgility] " + expected));
+            microbot.verify(() -> Microbot.log(startsWith("[WildernessAgility] No looting bag")), times(1));
+        }
+    }
+
+    @Test
+    void partialCoinStackIsToppedUpToTarget() throws Exception {
+        WildernessAgilityScript script = bankingScript();
+
+        try (MockedStatic<Microbot> microbot = mockMicrobot();
+             MockedStatic<Rs2Bank> bank = mockStatic(Rs2Bank.class);
+             MockedStatic<Rs2Inventory> inventory = mockStatic(Rs2Inventory.class)) {
+            bank.when(Rs2Bank::isOpen).thenReturn(true);
+            inventory.when(Rs2Inventory::items).thenAnswer(i -> Stream.of(item(KNIFE_ID), item(COINS_ID)));
+            inventory.when(() -> Rs2Inventory.hasItem(KNIFE_ID)).thenReturn(true);
+            inventory.when(() -> Rs2Inventory.hasItem(COINS_ID)).thenReturn(true);
+            inventory.when(() -> Rs2Inventory.itemQuantity(COINS_ID)).thenReturn(100000);
+
+            script.handleBanking();
+
+            bank.verify(Rs2Bank::depositAll, never());
+            bank.verify(() -> Rs2Bank.withdrawX(COINS_ID, 50000));
+        }
     }
 
     private static MockedStatic<Microbot> mockMicrobot() {
