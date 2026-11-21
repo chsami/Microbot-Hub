@@ -12,10 +12,10 @@ final class InfernoOverlayInputShield extends MouseAdapter implements AutoClosea
     private final Predicate<Point> area;
     private final Predicate<Point> motionArea;
     private Canvas canvas;
-    private MouseListener buttons;
-    private MouseMotionListener motion;
-    private final java.util.Set<Integer> captured=new java.util.HashSet<>();
-    private final java.util.Set<Integer> forwarded=new java.util.HashSet<>();
+    private volatile MouseListener buttons;
+    private volatile MouseMotionListener motion;
+    private final java.util.Set<Integer> captured=java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private final java.util.Set<Integer> forwarded=java.util.concurrent.ConcurrentHashMap.newKeySet();
     InfernoOverlayInputShield(Predicate<Point> area){this(area,area);}
     InfernoOverlayInputShield(Predicate<Point> area,Predicate<Point> motionArea){this.area=area;this.motionArea=motionArea;}
     void attach(Canvas next){
@@ -30,12 +30,12 @@ final class InfernoOverlayInputShield extends MouseAdapter implements AutoClosea
     }
     private boolean inside(MouseEvent e){var p=StretchMapper.toCanvas(e.getX(),e.getY());return area.test(new Point(p.getX(),p.getY()));}
     private boolean blocksMotion(MouseEvent e){var p=StretchMapper.toCanvas(e.getX(),e.getY());return motionArea.test(new Point(p.getX(),p.getY()));}
-    @Override public void mouseMoved(MouseEvent e){if(!BotEventGuard.isSynthetic()){captured.clear();if(!blocksMotion(e))motion.mouseMoved(e);}}
-    @Override public void mouseDragged(MouseEvent e){if(!BotEventGuard.isSynthetic()&&captured.isEmpty()&&!blocksMotion(e))motion.mouseDragged(e);}
-    @Override public void mousePressed(MouseEvent e){if(BotEventGuard.isSynthetic())return;if(inside(e)){if(blocksMotion(e))captured.add(e.getButton());else captured.remove(e.getButton());forwarded.remove(e.getButton());}else{captured.remove(e.getButton());forwarded.add(e.getButton());buttons.mousePressed(e);}}
-    @Override public void mouseReleased(MouseEvent e){if(BotEventGuard.isSynthetic())return;if(forwarded.remove(e.getButton()))buttons.mouseReleased(e);captured.remove(e.getButton());}
-    @Override public void mouseEntered(MouseEvent e){if(!BotEventGuard.isSynthetic()&&!blocksMotion(e))buttons.mouseEntered(e);}
-    @Override public void mouseExited(MouseEvent e){if(!BotEventGuard.isSynthetic())buttons.mouseExited(e);}
+    @Override public void mouseMoved(MouseEvent e){MouseMotionListener target=motion;if(target==null||BotEventGuard.isSynthetic())return;captured.clear();if(!blocksMotion(e))target.mouseMoved(e);}
+    @Override public void mouseDragged(MouseEvent e){MouseMotionListener target=motion;if(target!=null&&!BotEventGuard.isSynthetic()&&captured.isEmpty()&&!blocksMotion(e))target.mouseDragged(e);}
+    @Override public void mousePressed(MouseEvent e){MouseListener target=buttons;if(target==null||BotEventGuard.isSynthetic())return;if(inside(e)){if(blocksMotion(e))captured.add(e.getButton());else captured.remove(e.getButton());forwarded.remove(e.getButton());}else{captured.remove(e.getButton());forwarded.add(e.getButton());target.mousePressed(e);}}
+    @Override public void mouseReleased(MouseEvent e){MouseListener target=buttons;if(target==null||BotEventGuard.isSynthetic())return;if(forwarded.remove(e.getButton()))target.mouseReleased(e);captured.remove(e.getButton());}
+    @Override public void mouseEntered(MouseEvent e){MouseListener target=buttons;if(target!=null&&!BotEventGuard.isSynthetic()&&!blocksMotion(e))target.mouseEntered(e);}
+    @Override public void mouseExited(MouseEvent e){MouseListener target=buttons;if(target!=null&&!BotEventGuard.isSynthetic())target.mouseExited(e);}
     @Override public void close(){
         if(canvas!=null){canvas.removeMouseListener(this);canvas.removeMouseMotionListener(this);canvas.addMouseListener(buttons);canvas.addMouseMotionListener(motion);}
         canvas=null;buttons=null;motion=null;captured.clear();forwarded.clear();
