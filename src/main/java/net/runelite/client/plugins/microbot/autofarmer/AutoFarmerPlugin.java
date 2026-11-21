@@ -24,7 +24,7 @@ import java.awt.*;
 )
 
 public class AutoFarmerPlugin extends Plugin {
-    public static final String version = "1.10.15";
+    public static final String version = "1.10.17";
     @Inject
     private AutoFarmerConfig config;
 

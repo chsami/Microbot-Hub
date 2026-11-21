@@ -2211,6 +2211,8 @@ public class AutoFarmerScript extends Script {
         seedRestocker = null;
         seenLoggedIn = false;
         offlineSince = 0;
+        runStartedAt = 0;
+        progressSignature = "";
         cropBreak = false;preparingCropBreak=false;breakDestination=null;preferredNextRegion=null;allEnabledHerbs.clear();
         accountProfile = null;
         loginAttemptAt = 0;
