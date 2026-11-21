@@ -438,7 +438,11 @@ public class AutoFishingScript extends Script {
             }
 
             Rs2Inventory.waitForInventoryChanges(1800);
-            sleepUntil(() -> !Rs2Inventory.isFull(), 5000);
+
+            if (Rs2Inventory.isFull()) {
+                log.error("Inventory still full after deposit");
+                return;
+            }
 
             // Human-like timing + antiban after banking action
             if (usingDepositBox) {
