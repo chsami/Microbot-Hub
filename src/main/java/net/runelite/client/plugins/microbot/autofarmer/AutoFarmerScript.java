@@ -92,6 +92,9 @@ public class AutoFarmerScript extends Script {
     };
     private long nextRecoveryAction;
     private static final int GARDENER_CLEAR_COST = 200;
+    private static final int MAX_TRAVEL_DEFERRALS = 3;
+    private static final String PATCH_RETRY_DELAY = "PATCH_RETRY_DELAY";
+    private final Map<String, Integer> travelDeferrals = new HashMap<>();
     private int unreachableWalks = 0;
 
     @Inject
@@ -367,6 +370,13 @@ public class AutoFarmerScript extends Script {
             }
         }
     }
+    private void releaseAutoLogin() {
+        if (heldAutoLogin != null) {
+            Microbot.startPlugin(heldAutoLogin);
+            heldAutoLogin = null;
+        }
+    }
+
     private void scheduleCropBreak() {
         initialized=false;runStartedAt=0;loginSettledAt=0;
         breakDestination=CropBreakPlan.next(allEnabledHerbs.values(),ledger);
@@ -379,6 +389,12 @@ public class AutoFarmerScript extends Script {
         if(breakDestination==null){failRun("No enabled and accessible patch for the next crop check");return;}
         preferredNextRegion=breakDestination.getRegionName();
         nextRunAt=Math.max(System.currentTimeMillis(),ledger.checkAt(preferredNextRegion));
+        boolean waitBeforeTravel = PATCH_RETRY_DELAY.equals(ledger.outcome(preferredNextRegion))
+                && !ledger.due(preferredNextRegion, System.currentTimeMillis());
+        if (waitBeforeTravel) {
+            scheduleCropWait(preferredNextRegion);
+            return;
+        }
         preparingCropBreak=true;cropBreak=false;
         prepositionStartedAt=System.currentTimeMillis();lastProgressAt=prepositionStartedAt;
         prepositionUnreachable=0;prepositionSuppliesChecked=false;
@@ -389,15 +405,19 @@ public class AutoFarmerScript extends Script {
         log("Preparing next patch "+preferredNextRegion+"; check due "+java.time.Instant.ofEpochMilli(nextRunAt));
     }
     private void scheduleTreeCheck(TreeStop tree) {
-        preferredNextRegion = tree.key();
-        nextRunAt = Math.max(System.currentTimeMillis(), ledger.checkAt(tree.key()));
+        scheduleCropWait(tree.key());
+    }
+
+    private void scheduleCropWait(String region) {
+        preferredNextRegion = region;
+        nextRunAt = Math.max(System.currentTimeMillis(), ledger.checkAt(region));
         preparingCropBreak = false;
         cropBreak = config.repeatRuns() && config.logoutBetweenRuns();
-        waitReason = "Waiting for " + tree.key();
+        waitReason = "Waiting for " + region;
         configManager.setRSProfileConfiguration("AutoFarmer", "nextCropCheck", Long.toString(nextRunAt));
         configManager.setRSProfileConfiguration("AutoFarmer", "nextCropRegion", preferredNextRegion);
         configManager.unsetRSProfileConfiguration("AutoFarmer", "cropTravelPending");
-        log("Next crop check: " + tree.key() + " at " + java.time.Instant.ofEpochMilli(nextRunAt));
+        log("Next crop check: " + region + " at " + java.time.Instant.ofEpochMilli(nextRunAt));
         if (cropBreak) holdAutoLogin();
         AutoFarmerPlugin.status = waitReason;
     }
@@ -422,15 +442,11 @@ public class AutoFarmerScript extends Script {
             Rs2Bank.closeBank();
             if (walkToHerbPatch(breakDestination, 6) == WalkerState.UNREACHABLE
                     && ++prepositionUnreachable >= patchRetryLimit()) {
-                log("Deferring " + preferredNextRegion + ": retry limit reached for scheduled travel");
-                long retryAt = now + TimeUnit.MINUTES.toMillis(15);
-                ledger.record(preferredNextRegion, "PATCH_RETRY_DELAY",
-                        Math.max(retryAt, ledger.checkAt(preferredNextRegion)));
-                saveMemory();
-                scheduleCropBreak();
+                if (deferUnreachablePatch(preferredNextRegion)) scheduleCropBreak();
             }
             return true;
         }
+        travelDeferrals.remove(preferredNextRegion);
         preparingCropBreak=false;prepositionUnreachable=0;
         configManager.unsetRSProfileConfiguration("AutoFarmer","cropTravelPending");
         // Travel used some of the growth time. Keep the original planting deadline.
@@ -524,7 +540,10 @@ public class AutoFarmerScript extends Script {
     private int currentAllotmentId = -1;
 
     private boolean handleDailyBreak() {
-        if (!config.dailyBreak() && !takingDailyBreak) return false;
+        if (!config.dailyBreak()) {
+            if (takingDailyBreak) cancelDailyBreak();
+            return false;
+        }
         String profile = configManager.getRSProfileKey();
         if (profile == null && Microbot.isLoggedIn()) return false;
         if (profile == null) profile = dailyBreakProfile;
@@ -587,6 +606,28 @@ public class AutoFarmerScript extends Script {
         return false;
     }
 
+    private void cancelDailyBreak() {
+        long now = System.currentTimeMillis();
+        if (dailyBreakSchedule.activeAt(now)) {
+            dailyBreakSchedule = dailyBreakSchedule.endNow(now);
+            saveDailyBreakSchedule();
+        }
+        takingDailyBreak = false;
+        dailyBreakLoginAttemptAt = 0;
+        lastProgressAt = now;
+        offlineSince = 0;
+        runStartedAt = initialized ? now : 0;
+        if (preparingCropBreak) prepositionStartedAt = now;
+        if (!Microbot.isLoggedIn()) {
+            preparingCropBreak = false;
+            cropBreak = true;
+            nextRunAt = Math.max(now, nextRunAt);
+            loginAttemptAt = 0;
+        }
+        if (!cropBreak) releaseAutoLogin();
+        log("Daily break turned off; resuming saved crop schedule");
+    }
+
     private void saveDailyBreakSchedule() {
         configManager.setRSProfileConfiguration("AutoFarmer", DAILY_BREAK_KEY, dailyBreakSchedule.encode());
     }
@@ -606,10 +647,28 @@ public class AutoFarmerScript extends Script {
     }
 
     private void deferCurrentPatch(String reason) {
-        String region = currentPatch.getRegionName();
+        deferPatch(currentPatch.getRegionName(), reason);
+        advancePastDeferredPatch();
+    }
+
+    private boolean deferUnreachablePatch(String region) {
+        if (travelDeferrals.merge(region, 1, Integer::sum) >= MAX_TRAVEL_DEFERRALS) {
+            failRun("Could not reach the herb patch at " + region
+                    + " after several tries. Check your teleport items and quest unlocks, or turn it off in Location toggles");
+            return false;
+        }
+        deferPatch(region, "retry limit reached for travel");
+        return true;
+    }
+
+    private void deferPatch(String region, String reason) {
         long retryAt = System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(15);
-        remember("PATCH_RETRY_DELAY", Math.max(retryAt, ledger.checkAt(region)));
+        ledger.record(region, PATCH_RETRY_DELAY, Math.max(retryAt, ledger.checkAt(region)));
+        saveMemory();
         log("Deferring " + region + ": " + reason);
+    }
+
+    private void advancePastDeferredPatch() {
         currentPatch = null;
         handledAllotmentIds.clear();
         currentAllotmentId = -1;
@@ -659,6 +718,7 @@ public class AutoFarmerScript extends Script {
             if (activeProfile == null) return;
             if (!activeProfile.equals(accountProfile)) {
                 accountProfile = activeProfile;
+                travelDeferrals.clear();
                 fortisDetourWaypoint = null;
                 ledger.load(configManager.getRSProfileConfiguration("AutoFarmer", "patchMemory"));
                 initialized = false;
@@ -793,6 +853,7 @@ public class AutoFarmerScript extends Script {
             }
             unreachableWalks = 0;
             if (!patchWorkStarted) {
+                travelDeferrals.remove(currentPatch.getRegionName());
                 patchWorkStarted = true;
                 patchStartedAt = System.currentTimeMillis();
                 log("Arrived at " + currentPatch.getRegionName() + "; starting patch work timer");
@@ -938,7 +999,7 @@ public class AutoFarmerScript extends Script {
         if (++unreachableWalks < patchRetryLimit()) {
             return;
         }
-        deferCurrentPatch("retry limit reached for travel");
+        if (deferUnreachablePatch(currentPatch.getRegionName())) advancePastDeferredPatch();
     }
 
     private long nextGrowingCheck(String region, long now) {
@@ -1004,7 +1065,7 @@ public class AutoFarmerScript extends Script {
 
             for (String region : allHerbsByRegion.keySet()) {
                 boolean alreadyInList = herbPatches.stream().anyMatch(p -> p.getRegionName().equals(region));
-                if (alreadyInList || ("PATCH_RETRY_DELAY".equals(ledger.outcome(region))
+                if (alreadyInList || (PATCH_RETRY_DELAY.equals(ledger.outcome(region))
                         && !ledger.due(region, System.currentTimeMillis()))) continue;
                 boolean hasAllotmentWork = allotmentsByRegion.containsKey(region);
                 boolean hasFlowerWork = flowerByRegion.containsKey(region);
@@ -2441,10 +2502,8 @@ public class AutoFarmerScript extends Script {
         super.shutdown();
         navigationGuard.release();
         mouseFeel.restore();
-        if (heldAutoLogin != null) {
-            Microbot.startPlugin(heldAutoLogin);
-            heldAutoLogin = null;
-        }
+        releaseAutoLogin();
+        travelDeferrals.clear();
         failureStop = null;
         failureProfile = null;
         seedRestocker = null;

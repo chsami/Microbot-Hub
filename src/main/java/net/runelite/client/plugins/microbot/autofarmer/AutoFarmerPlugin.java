@@ -18,7 +18,7 @@ import java.awt.*;
         tags = {"herb", "farming", "money making", "skilling"},
         authors = {"Mocrosoft"},
         version = AutoFarmerPlugin.version,
-        minClientVersion = "2.6.43",
+        minClientVersion = "2.6.59",
         iconUrl = "https://chsami.github.io/Microbot-Hub/AutoFarmerPlugin/assets/icon.jpg",
         cardUrl = "https://chsami.github.io/Microbot-Hub/AutoFarmerPlugin/assets/card.jpg",
         enabledByDefault = false,

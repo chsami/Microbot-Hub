@@ -37,6 +37,10 @@ final class DailyBreakSchedule {
         return new DailyBreakSchedule(day, startsAt, now + duration);
     }
 
+    DailyBreakSchedule endNow(long now) {
+        return new DailyBreakSchedule(day, startsAt, now);
+    }
+
     boolean activeAt(long now) {
         return endsAt > now;
     }
