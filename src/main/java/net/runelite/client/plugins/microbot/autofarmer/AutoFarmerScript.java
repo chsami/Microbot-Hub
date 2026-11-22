@@ -115,7 +115,7 @@ public class AutoFarmerScript extends Script {
     private volatile long runStartedAt;
     private static final String DAILY_BREAK_KEY = "dailyBreakSchedule";
     private String dailyBreakProfile;
-    private DailyBreakSchedule dailyBreakSchedule;
+    private volatile DailyBreakSchedule dailyBreakSchedule;
     private volatile boolean takingDailyBreak;
     private long dailyBreakLoginAttemptAt;
     private final Map<String, Integer> patchFailures = new HashMap<>();
@@ -343,7 +343,7 @@ public class AutoFarmerScript extends Script {
     private volatile boolean cropBreak;
     private volatile boolean preparingCropBreak;
     private HerbPatch breakDestination;
-    private String preferredNextRegion;
+    private volatile String preferredNextRegion;
     private long prepositionStartedAt;
     private int prepositionUnreachable;
     private boolean prepositionSuppliesChecked;
@@ -538,6 +538,29 @@ public class AutoFarmerScript extends Script {
     private final Map<String, FarmingPatch> flowerByRegion = new HashMap<>();
     private final Set<Integer> handledAllotmentIds = new HashSet<>();
     private int currentAllotmentId = -1;
+
+    boolean isTakingDailyBreak() {
+        return takingDailyBreak;
+    }
+
+    boolean isWaitingForCrops() {
+        return cropBreak;
+    }
+
+    String nextCropName() {
+        String region = preferredNextRegion;
+        return region == null ? "next patch" : region;
+    }
+
+    long nextCropCheckAt() {
+        return nextRunAt;
+    }
+
+    long dailyBreakMillisRemaining() {
+        if (!takingDailyBreak) return 0;
+        DailyBreakSchedule schedule = dailyBreakSchedule;
+        return schedule == null ? 0 : Math.max(0, schedule.endsAt() - System.currentTimeMillis());
+    }
 
     private boolean handleDailyBreak() {
         if (!config.dailyBreak()) {
