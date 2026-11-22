@@ -103,7 +103,7 @@ public class AutoFarmerScript extends Script {
     @Inject
     ClientThread clientThread;
     private volatile FailureLatch failureStop;
-    private String failureProfile;
+    private volatile String failureProfile;
     private SeedRestocker seedRestocker;
     private volatile boolean stopping;
     @Inject
@@ -154,20 +154,22 @@ public class AutoFarmerScript extends Script {
     }
 
     private synchronized void failRun(String reason) {
-        if (stopping || failureStop == null || failureStop.active()) return;
-        if (Microbot.isLoggedIn() && !failureProfile.equals(configManager.getRSProfileKey())) return;
+        FailureLatch latch = failureStop;
+        String profile = failureProfile;
+        if (stopping || latch == null || profile == null || latch.active()) return;
+        if (Microbot.isLoggedIn() && !profile.equals(configManager.getRSProfileKey())) return;
         stopping = true;
         String patch = currentTree != null ? currentTree.key()
                 : currentPatch == null ? null : currentPatch.getRegionName();
         try {
-            failureStop.trip(reason, patch, System.currentTimeMillis());
+            latch.trip(reason, patch, System.currentTimeMillis());
         } catch (java.io.IOException e) {
             log.error("Could not save AutoFarmer failure for the active profile", e);
         }
         try {
             cropBreak = false;
             preparingCropBreak = false;
-            if (failureProfile.equals(configManager.getRSProfileKey())) {
+            if (profile.equals(configManager.getRSProfileKey())) {
                 configManager.unsetRSProfileConfiguration("AutoFarmer", "nextCropCheck");
                 configManager.unsetRSProfileConfiguration("AutoFarmer", "nextCropRegion");
                 configManager.unsetRSProfileConfiguration("AutoFarmer", "cropTravelPending");
