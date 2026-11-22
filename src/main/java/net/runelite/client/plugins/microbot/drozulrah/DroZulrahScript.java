@@ -193,6 +193,11 @@ public class DroZulrahScript extends Script
         status = Microbot.status = terminalLogout.message();
     }
 
+    protected boolean runsWhileLoggedOut()
+    {
+        return true;
+    }
+
     public boolean run(DroZulrahConfig config)
     {
         this.config = config;
