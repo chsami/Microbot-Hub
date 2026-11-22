@@ -296,6 +296,80 @@ public class InfernoPrayerLogicTest
         assertTrue(rigourOff, "Rigour should turn OFF on non-attack ticks");
     }
 
+    private JsonObject openArena(JsonObject snapshot)
+    {
+        JsonArray flags = new JsonArray();
+        for (int i = 0; i < 64 * 64; i++) flags.add(0);
+        snapshot.getAsJsonObject("collision").add("flags", flags);
+        return snapshot;
+    }
+
+    private JsonArray idleWaveOne()
+    {
+        JsonArray npcs = new JsonArray();
+        npcs.add(createNpc(1, 7691, "Jal-Nib", 2262, 5352, 1, -1, -1));
+        npcs.add(createNpc(2, 7692, "Jal-MejRah", 2270, 5362, 1, -1, 1));
+        return npcs;
+    }
+
+    private static boolean enables(List<JsonObject> decisions, String prayer)
+    {
+        for (JsonObject cmd : decisions)
+        {
+            JsonObject args = cmd.getAsJsonObject("args");
+            if (prayer.equals(args.get("prayer").getAsString()) && args.get("on").getAsBoolean()) return true;
+        }
+        return false;
+    }
+
+    private static boolean touchesProtection(List<JsonObject> decisions)
+    {
+        for (JsonObject cmd : decisions)
+            if (cmd.getAsJsonObject("args").get("prayer").getAsString().startsWith("PROTECT_")) return true;
+        return false;
+    }
+
+    @Test
+    public void testQuietWaveDoesNotDefaultToProtectFromMagic()
+    {
+        for (long tick = 10; tick <= 14; tick++)
+        {
+            List<JsonObject> decisions = engine.decide(openArena(baseSnapshot(tick, 1, List.of(), idleWaveOne())));
+            assertFalse(touchesProtection(decisions), "No protection prayer should be forced while nothing can hit");
+        }
+    }
+
+    @Test
+    public void testManualReleaseIsKeptWhileNothingIsDue()
+    {
+        engine.decide(openArena(baseSnapshot(10, 2, List.of("PROTECT_FROM_MISSILES"), idleWaveOne())));
+        for (long tick = 11; tick <= 14; tick++)
+        {
+            List<JsonObject> decisions = engine.decide(openArena(baseSnapshot(tick, 2, List.of(), idleWaveOne())));
+            assertFalse(touchesProtection(decisions), "A prayer the player switched off must stay off while nothing is due");
+        }
+    }
+
+    @Test
+    public void testQuietWaveKeepsTheActiveProtection()
+    {
+        for (long tick = 10; tick <= 12; tick++)
+        {
+            List<JsonObject> decisions = engine.decide(openArena(baseSnapshot(tick, 1, List.of("PROTECT_FROM_MELEE"), idleWaveOne())));
+            assertFalse(touchesProtection(decisions), "The active protection should be kept while nothing is due");
+        }
+    }
+
+    @Test
+    public void testBatInRangeStillGetsRangeProtection()
+    {
+        JsonArray npcs = new JsonArray();
+        npcs.add(createNpc(1, 7692, "Jal-MejRah", 2270, 5343, 1, -1, 1));
+        List<JsonObject> decisions = engine.decide(openArena(baseSnapshot(10, 1, List.of(), npcs)));
+        assertTrue(enables(decisions, "PROTECT_FROM_MISSILES"), "A bat in range should still get Protect from Missiles");
+        assertFalse(enables(decisions, "PROTECT_FROM_MAGIC"), "Protect from Magic should not be chosen against a bat");
+    }
+
     @Test
     public void testCommandOrderSortsProtectionAheadOfOffense()
     {
