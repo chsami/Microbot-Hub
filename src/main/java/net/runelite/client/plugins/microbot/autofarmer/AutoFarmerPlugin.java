@@ -33,7 +33,7 @@ import java.awt.*;
 )
 
 public class AutoFarmerPlugin extends Plugin {
-    public static final String version = "1.10.28";
+    public static final String version = "1.10.29";
     @Inject
     private AutoFarmerConfig config;
 
