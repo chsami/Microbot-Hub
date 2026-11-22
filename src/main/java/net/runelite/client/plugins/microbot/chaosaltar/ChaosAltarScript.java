@@ -18,6 +18,7 @@ import net.runelite.client.plugins.microbot.util.player.Rs2Pvp;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
+import org.slf4j.event.Level;
 
 import java.util.Comparator;
 import java.util.concurrent.TimeUnit;
@@ -34,6 +35,9 @@ public class ChaosAltarScript extends Script {
     public static final WorldPoint CHAOS_ALTAR_POINT_SOUTH = new WorldPoint(2972, 3810, 0);
 
     private static final int CHAOS_ALTAR = 411;
+
+    static final String OUT_OF_AMULETS_MESSAGE = "Chaos Altar stopped: out of burning amulets. Bank more burning amulets, then start Chaos Altar again.";
+    static final String OUT_OF_BONES_MESSAGE = "Chaos Altar stopped: out of dragon bones. Bank more dragon bones, then start Chaos Altar again.";
 
     private ChaosAltarConfig config;
     private boolean autoRetaliate = false;
@@ -191,7 +195,18 @@ public class ChaosAltarScript extends Script {
         }
     }
 
-    private void handleBanking() {
+    void stopForMissingSupply(String message) {
+        if (Rs2Bank.isOpen()) {
+            Rs2Bank.closeBank();
+        }
+        Microbot.log(message, Level.WARN);
+        Microbot.status = message;
+        shutdown();
+        Microbot.stopPlugin(ChaosAltarPlugin.class);
+        Microbot.showMessage(message);
+    }
+
+    void handleBanking() {
         if (Rs2Inventory.contains(Rs2ItemModel.matches(false, "Burning amulet"))) {
             Rs2Inventory.wear("Burning amulet");
         }
@@ -208,19 +223,16 @@ public class ChaosAltarScript extends Script {
         Rs2Bank.depositAll();
 
         if (!Rs2Bank.hasItem(DRAGON_BONES)) {
-            Microbot.log("NO BONES, SHUTTING DOWN");
-            shutdown();
-            return;
-        }
-
-        if (!Rs2Bank.hasBankItem("Burning Amulet")) {
-            Microbot.log("NO BURNING AMULET, SHUTTING DOWN");
-            shutdown();
+            stopForMissingSupply(OUT_OF_BONES_MESSAGE);
             return;
         }
 
         // If amulet not equipped or in inventory
         if (!hasBurningAmulet()) {
+            if (!Rs2Bank.hasBankItem("Burning Amulet")) {
+                stopForMissingSupply(OUT_OF_AMULETS_MESSAGE);
+                return;
+            }
             sleep(400);
             Microbot.log("Withdrawing burning amulet");
             Rs2Bank.withdrawAndEquip("burning amulet");
@@ -244,7 +256,7 @@ public class ChaosAltarScript extends Script {
         return Rs2Inventory.contains(x -> x != null && x.getName().contains("Burning amulet")) || Rs2Equipment.isWearing("Burning amulet", false);
     }
 
-    private State determineState() {
+    State determineState() {
         final int boneCount = Rs2Inventory.getBones().size();
         final boolean inWilderness = Rs2Pvp.isInWilderness();
         final boolean hasBones = boneCount > 4;
@@ -253,8 +265,10 @@ public class ChaosAltarScript extends Script {
 
         if (didWeDie) {
             didWeDie = false;
-            Microbot.log("We died! Going to the bank...");
-            return State.BANK;
+            if (!hasBones || !hasBurningAmulet()) {
+                Microbot.log("We died! Going to the bank...");
+                return State.BANK;
+            }
         }
         if (!inWilderness && !hasBones) {
             return State.BANK;
