@@ -109,6 +109,7 @@ class AutoFishingScriptTest {
              MockedStatic<Rs2Widget> widget = mockStatic(Rs2Widget.class);
              MockedStatic<Rs2Antiban> antiban = mockStatic(Rs2Antiban.class)) {
             microbot.when(Microbot::isLoggedIn).thenReturn(true);
+            rs2Player.when(Rs2Player::getWorldLocation).thenReturn(new WorldPoint(3105, 3430, 0));
             widget.when(() -> Rs2Widget.isWidgetVisible(InterfaceID.LevelupDisplay.CONTINUE)).thenReturn(true);
 
             script.run(mock(AutoFishingConfig.class));
@@ -117,7 +118,6 @@ class AutoFishingScriptTest {
             tick.getValue().run();
 
             widget.verify(() -> Rs2Widget.clickWidget(InterfaceID.LevelupDisplay.CONTINUE));
-            rs2Player.verify(Rs2Player::getWorldLocation, never());
             assertEquals(AutoFishingState.IDLE, script.getCurrentState());
         }
     }

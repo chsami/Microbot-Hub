@@ -30,7 +30,7 @@ import net.runelite.client.plugins.microbot.PluginConstants;
 @Slf4j
 public class AnonymousPlugin extends Plugin {
 
-	static final String version = "1.0.3";
+	static final String version = "1.0.4";
 
 	@Inject
 	private Client client;
