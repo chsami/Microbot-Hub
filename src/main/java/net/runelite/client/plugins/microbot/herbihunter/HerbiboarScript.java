@@ -2112,6 +2112,25 @@ public class HerbiboarScript extends Script {
         return 5000 + (long) (roll * roll * 35000);
     }
 
+    /** Why this account can't hunt herbiboars, or null when it can. Boosted levels: the game accepts boosts. Pure. */
+    static String levelShortfall(int hunter, int herblore) {
+        if (hunter < 80) return "Herbi Hunter needs 80 Hunter to track herbiboars (you have " + hunter + "). Boost it or train it, then start again.";
+        if (herblore < 31) return "Herbi Hunter needs 31 Herblore to harvest herbiboars (you have " + herblore + "). Boost it or train it, then start again.";
+        return null;
+    }
+
+    /** Stops the run when a level is short; true when it stopped. */
+    private boolean stopIfLevelsTooLow(HerbiHunterPlugin herbiboarPlugin) {
+        int hunter = Rs2Player.getBoostedSkillLevel(Skill.HUNTER);
+        int herblore = Rs2Player.getBoostedSkillLevel(Skill.HERBLORE);
+        String why = levelShortfall(hunter, herblore);
+        if (why == null) return false;
+        hbLog.problem("PROBLEM", why);
+        herbiboarPlugin.setStopReason(hunter < 80 ? "Hunter below 80" : "Herblore below 31");
+        logOutAndStop();
+        return true;
+    }
+
     /** Ends the run for good: the client's auto-login is told this logout is meant, and no further pass acts. */
     private void logOutAndStop() {
         stopping = true;
@@ -2598,6 +2617,7 @@ public class HerbiboarScript extends Script {
                     case INITIALIZING:
                         Microbot.status = "Starting...";
                         hbLog.detail("START", "Initializing...");
+                        if (stopIfLevelsTooLow(herbiboarPlugin)) return;
                         setState(HerbiboarState.CHECK_AUTO_RETALIATE);
                         break;
                     case CHECK_AUTO_RETALIATE:
@@ -2622,6 +2642,8 @@ public class HerbiboarScript extends Script {
                         Microbot.status = "Finding start location";
                         if (herbiboarPlugin.getCurrentGroup() == null) {
                             if (!startChosen) {
+                                // Re-checked on every pick: a refused rock re-picks here, and a boost can wear off mid-run.
+                                if (stopIfLevelsTooLow(herbiboarPlugin)) return;
                                 startChosen = true;
                                 WorldPoint me = Rs2Player.getWorldLocation();
                                 List<WorldPoint> rocks = HerbiHunterPlugin.START_LOCATIONS;

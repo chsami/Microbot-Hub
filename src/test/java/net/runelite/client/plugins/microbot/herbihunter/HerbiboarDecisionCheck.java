@@ -58,6 +58,7 @@ public final class HerbiboarDecisionCheck
         theLogWritesOnlyWhatTheSettingAllows();
         theCatchLineAndTheNothingMessage();
         reaching99LogsOutOnlyWhenAsked();
+        tooLowALevelStopsTheRun();
         breaksAreRespectedAndNotCounted();
         theStrongerPotionsAreSupported();
         focusedFollowsTheTrailWithTheCamera();
@@ -1479,6 +1480,13 @@ public final class HerbiboarDecisionCheck
         check("trail moved the tick before: not real", false, HerbiHunterPlugin.nothingWasReal(100, 99));
         check("trail last moved long ago: real", true, HerbiHunterPlugin.nothingWasReal(100, 90));
         check("trail never moved: real", true, HerbiHunterPlugin.nothingWasReal(100, -1));
+    }
+
+    private static void tooLowALevelStopsTheRun()
+    {
+        check("80 Hunter and 31 Herblore can hunt", true, HerbiboarScript.levelShortfall(80, 31) == null);
+        check("78 Hunter is refused", true, HerbiboarScript.levelShortfall(78, 99).contains("80 Hunter"));
+        check("30 Herblore is refused", true, HerbiboarScript.levelShortfall(99, 30).contains("31 Herblore"));
     }
 
     private static void check(String what, Object expected, Object actual)
