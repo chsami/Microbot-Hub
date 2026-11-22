@@ -3,6 +3,7 @@ package net.runelite.client.plugins.microbot.chillRunecraft;
 import net.runelite.api.Client;
 import net.runelite.api.Quest;
 import net.runelite.api.QuestState;
+import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.util.Global;
@@ -67,6 +68,7 @@ class AutoRunecraftScriptBankTest {
         antiban = mockStatic(Rs2Antiban.class);
         camera = mockStatic(Rs2Camera.class);
         player = mockStatic(Rs2Player.class);
+        player.when(Rs2Player::getWorldLocation).thenReturn(new WorldPoint(3253, 3420, 0));
         fatigue = mockStatic(SessionFatigue.class);
         inventory = mockStatic(Rs2Inventory.class);
         equipment = mockStatic(Rs2Equipment.class);
