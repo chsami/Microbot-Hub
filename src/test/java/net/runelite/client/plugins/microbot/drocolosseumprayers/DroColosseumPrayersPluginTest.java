@@ -20,7 +20,7 @@ class DroColosseumPrayersPluginTest
 	{
 		assertEquals(Plugin.class, DroColosseumPrayersPlugin.class.getSuperclass());
 		assertEquals("[Dro] Colosseum Prayers", descriptor.name());
-		assertEquals("2.0.0", descriptor.version());
+		assertEquals("2.0.1", descriptor.version());
 		assertTrue(descriptor.isExternal());
 		assertFalse(descriptor.enabledByDefault());
 	}

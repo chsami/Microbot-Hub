@@ -7,8 +7,9 @@ import java.util.Collection;
  * checked on. Monsters whose attack clock is unknown or overdue are reported as due on every tick, so their
  * overhead stays up (and is held with same-tick pairs) until their rhythm is seen.
  *
- * <p>When attacks of different styles are checked on the same tick the one that can hit hardest is protected; on an
- * equal weight the overhead already up is kept.</p>
+ * <p>When attacks of different styles are checked on the same tick, a known attack beats a guessed one (an unknown or
+ * overdue clock, or a monster pre-armed out of sight), so a guess never leaves a real hit unprotected. Between attacks
+ * of the same kind the one that can hit hardest is protected; on an equal weight the overhead already up is kept.</p>
  */
 public final class GuardPlanner
 {
@@ -97,6 +98,10 @@ public final class GuardPlanner
 
 	private static boolean heavier(Threat a, Threat b, Guard current)
 	{
+		if (a.guessed() != b.guessed())
+		{
+			return !a.guessed();
+		}
 		if (a.weight() != b.weight())
 		{
 			return a.weight() > b.weight();

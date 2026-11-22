@@ -17,7 +17,9 @@ gear, potions, inventory and Sol Heredit's grapple.
   answered on the two ticks after it throws. The order is read from its charged orbs.
 - Sol Heredit: only Triple Parry is prayable. Protect from Melee is switched on for each spear's tick and nowhere
   else, because praying early makes Sol shut the prayer off. His other attacks are typeless.
-- Two styles checked on the same tick: the harder-hitting one is protected.
+- Two styles checked on the same tick: a known attack beats a guessed one (a monster that has not attacked yet, is
+  overdue, or is pre-armed out of sight), so a guess never leaves a real hit unprotected. Between two of the same kind
+  the harder-hitting one is protected.
 
 Releases and pairs are only sent while ticks arrive on a steady cadence. After a lag spike the overhead is kept
 rather than released late.

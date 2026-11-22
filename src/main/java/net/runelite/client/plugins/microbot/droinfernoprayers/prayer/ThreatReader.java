@@ -123,23 +123,38 @@ public final class ThreatReader
 			boolean contact = distance == 1;
 			boolean shifting = meMoving || moving(npc);
 			Guard guard = spec.meleeInContactAttacker() && contact ? Guard.MELEE : spec.guard;
-			int due = Math.max(nextTick, clock.nextAttack(npc.getIndex(), spec.speed, nextTick) + spec.checkDelay());
+			int delay = spec.checkDelay();
+			Integer last = clock.lastAttack(npc.getIndex());
+			// The tick the last attack's rhythm puts the next check on; unknown until it has attacked once.
+			Integer rhythm = last == null ? null : last + spec.speed + delay;
+			int due = rhythm == null ? nextTick : Math.max(nextTick, rhythm);
+			// An unknown or overdue clock is a guess: the monster may attack on any tick.
+			boolean guessed = rhythm == null || rhythm < nextTick;
+			if (delay > 0 && last != null && tick - last <= delay - 1)
+			{
+				// A swing seen this recently is still checked after its delay: that check is known.
+				due = last + delay;
+				guessed = false;
+			}
 			boolean ready = due == nextTick;
 			boolean reaches;
 			if (spec.contactOnlyAttacker() || guard == Guard.MELEE)
 			{
 				// One step can close a two-tile gap before the next check.
 				reaches = contact || shifting && ready && distance == 2;
+				guessed |= !contact;
 			}
 			else
 			{
 				boolean inRange = distance >= 1 && distance <= spec.range;
 				// Out of sight now, but a step by either side can open the line before the next check.
-				reaches = inRange && (area.hasLineOfSightTo(view, mine) || shifting && ready);
+				boolean sight = area.hasLineOfSightTo(view, mine);
+				reaches = inRange && (sight || shifting && ready);
+				guessed |= !sight;
 			}
 			if (reaches)
 			{
-				threats.add(new Threat(spec.name, guard, due, spec.weight));
+				threats.add(new Threat(spec.name, guard, due, spec.weight, guessed));
 			}
 		}
 		return threats;

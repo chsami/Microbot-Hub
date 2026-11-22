@@ -18,7 +18,7 @@ class DroInfernoPrayersPluginTest
 	{
 		assertEquals(Plugin.class, DroInfernoPrayersPlugin.class.getSuperclass());
 		assertEquals("[Dro] Inferno Prayers", descriptor.name());
-		assertEquals("2.0.0", descriptor.version());
+		assertEquals("2.0.1", descriptor.version());
 		assertTrue(descriptor.isExternal());
 		assertFalse(descriptor.enabledByDefault());
 	}

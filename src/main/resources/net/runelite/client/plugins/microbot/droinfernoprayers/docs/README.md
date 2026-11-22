@@ -16,7 +16,9 @@ potions and inventory.
   it are moving, since a single step can open its line of sight.
 - Jal-Nib is only prayed against when it is attacking you, not the pillars.
 - Jal-Ak and JalTok-Jad are answered from the style their attack animation shows.
-- Two styles checked on the same tick: the harder-hitting one is protected.
+- Two styles checked on the same tick: a known attack beats a guessed one (a monster that has not attacked yet, is
+  overdue, or is pre-armed out of sight), so a guess never leaves a real hit unprotected. Between two of the same kind
+  the harder-hitting one is protected.
 - TzKal-Zuk and Jal-MejJak are typeless and are not prayed against.
 
 Releases and pairs are only sent while ticks arrive on a steady cadence. After a lag spike the overhead is kept

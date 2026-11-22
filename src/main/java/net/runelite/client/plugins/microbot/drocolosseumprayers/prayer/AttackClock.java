@@ -28,6 +28,12 @@ public final class AttackClock
 		return Math.max(nextTick, due);
 	}
 
+	/** The last attack tick, or null if this monster has not been seen attacking. */
+	public Integer lastAttack(int npcIndex)
+	{
+		return lastAttack.get(npcIndex);
+	}
+
 	public boolean attackedWithin(int npcIndex, int tick, int ticks)
 	{
 		Integer last = lastAttack.get(npcIndex);

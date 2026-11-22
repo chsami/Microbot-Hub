@@ -43,6 +43,25 @@ class GuardPlannerTest
 	}
 
 	@Test
+	void knownRangerDueNextTickBeatsAnUnknownMager()
+	{
+		Threat ranger = new Threat("ranger", Guard.RANGE, 11, 46);
+		Threat mager = new Threat("mager", Guard.MAGIC, 11, 70, true);
+		GuardPlanner.Decision d = GuardPlanner.decide(List.of(mager, ranger), 11, Guard.MAGIC);
+		assertEquals(Guard.RANGE, d.guard());
+		assertSame(ranger, d.answered());
+		assertTrue(d.conflict());
+	}
+
+	@Test
+	void betweenGuessesTheHeavierHitWins()
+	{
+		GuardPlanner.Decision d = GuardPlanner.decide(List.of(
+			new Threat("ranger", Guard.RANGE, 11, 46, true), new Threat("mager", Guard.MAGIC, 11, 70, true)), 11, Guard.RANGE);
+		assertEquals(Guard.MAGIC, d.guard());
+	}
+
+	@Test
 	void passedAttacksAreIgnored()
 	{
 		GuardPlanner.Decision d = GuardPlanner.decide(List.of(t(Guard.MAGIC, 10, 70)), 11, Guard.MAGIC);

@@ -125,7 +125,8 @@ final class ColosseumSpecials
 			int distance = area == null ? Integer.MAX_VALUE : area.distanceTo(mine);
 			if (distance >= 1 && distance <= MANTICORE_RANGE && area.hasLineOfSightTo(view, mine))
 			{
-				threats.add(new Threat(MANTICORE, order.get(0), nextTick, MANTICORE_WEIGHT));
+				// The throw tick is not known in advance: holding the first orb is a guess.
+				threats.add(new Threat(MANTICORE, order.get(0), nextTick, MANTICORE_WEIGHT, true));
 			}
 		}
 		return threats;

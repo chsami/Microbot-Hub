@@ -41,7 +41,7 @@ import net.runelite.client.ui.overlay.OverlayManager;
 )
 public class DroInfernoPrayersPlugin extends Plugin
 {
-	static final String version = "2.0.0";
+	static final String version = "2.0.1";
 	static final int INFERNO_REGION = 9043;
 
 	@Inject
