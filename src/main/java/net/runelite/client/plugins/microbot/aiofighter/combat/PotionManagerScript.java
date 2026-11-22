@@ -2,18 +2,23 @@ package net.runelite.client.plugins.microbot.aiofighter.combat;
 
 import net.runelite.api.Skill;
 import net.runelite.api.gameval.ItemID;
+import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.aiofighter.AIOFighterConfig;
 import net.runelite.client.plugins.microbot.aiofighter.AIOFighterPlugin;
+import net.runelite.client.plugins.microbot.aiofighter.enums.AttackStyle;
 import net.runelite.client.plugins.microbot.aiofighter.enums.State;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 public class PotionManagerScript extends Script {
+    private static final Set<Integer> POWERED_STAFF_CATEGORIES = Set.of(24, 29);
+
     public boolean run(AIOFighterConfig config) {
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
@@ -38,21 +43,25 @@ public class PotionManagerScript extends Script {
 
                 // Only drink combat potions when in combat
                 if (Rs2Combat.inCombat()) {
+                    AttackStyle style = currentStyle(config.useMagic(),
+                            Microbot.getVarbitValue(VarbitID.COMBAT_WEAPON_CATEGORY),
+                            Rs2Combat.getWeaponAttackStyle());
+
                     // Attempt to drink ranging potion
-                    if (Rs2Player.drinkCombatPotionAt(Skill.RANGED, false)) {
+                    if (style == AttackStyle.RANGED && Rs2Player.drinkCombatPotionAt(Skill.RANGED, false)) {
                         Rs2Player.waitForAnimation();
                     }
 
                     // Attempt to drink magic potion
-                    if (Rs2Player.drinkCombatPotionAt(Skill.MAGIC, false)) {
+                    if (style == AttackStyle.MAGE && Rs2Player.drinkCombatPotionAt(Skill.MAGIC, false)) {
                         Rs2Player.waitForAnimation();
                     }
 
                     // Attempt to drink combat potions for STR, ATT, DEF
-                    if (Rs2Player.drinkCombatPotionAt(Skill.STRENGTH)) {
+                    if (style == AttackStyle.MELEE && Rs2Player.drinkCombatPotionAt(Skill.STRENGTH)) {
                         Rs2Player.waitForAnimation();
                     }
-                    if (Rs2Player.drinkCombatPotionAt(Skill.ATTACK)) {
+                    if (style == AttackStyle.MELEE && Rs2Player.drinkCombatPotionAt(Skill.ATTACK)) {
                         Rs2Player.waitForAnimation();
                     }
                     if (Rs2Player.drinkCombatPotionAt(Skill.DEFENCE)) {
@@ -75,6 +84,17 @@ public class PotionManagerScript extends Script {
             }
         }, 0, 600, TimeUnit.MILLISECONDS);
         return true;
+    }
+
+    static AttackStyle currentStyle(boolean useMagic, int weaponCategory, String attackStyleName) {
+        if (useMagic || POWERED_STAFF_CATEGORIES.contains(weaponCategory)
+                || "Casting".equals(attackStyleName) || "Defensive Casting".equals(attackStyleName)) {
+            return AttackStyle.MAGE;
+        }
+        if ("Ranging".equals(attackStyleName) || "Longrange".equals(attackStyleName)) {
+            return AttackStyle.RANGED;
+        }
+        return AttackStyle.MELEE;
     }
 
 
