@@ -27,5 +27,6 @@ Kills revenants in the revenant cave
 3. Adjust plugin settings to match your preferences.
 
 ## Troubleshooting
+- If the plugin turns itself off at the bank, a popup and the log say which supply ran out. Restock it and start the plugin again.
 - If the script is sitting idle at the bank. Chances are you're missing an item or your inventory setup.
 - If all else fails; feel free to ask away in the Rev Killer thread in discord. 
