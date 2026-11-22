@@ -3,7 +3,7 @@ package net.runelite.client.plugins.microbot.qualityoflife.scripts;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.qualityoflife.QoLConfig;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2Cannon;
+import net.runelite.client.plugins.microbot.util.cannon.Rs2Cannon;
 
 import java.util.concurrent.TimeUnit;
 
