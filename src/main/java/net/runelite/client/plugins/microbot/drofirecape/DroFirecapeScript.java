@@ -219,7 +219,7 @@ public class DroFirecapeScript extends Script {
         pendingAttackIndex=-1;attackAttempts=0;pendingAttackAcknowledged=false;
         stopCamera();lastCameraPivotMonster=-1;lastMonsterCameraTurnAt=0;magicThreatUntil=-1;enabled=true;initialized=false;hadCave=false;cameraSet=false;failed=false;exitRequested=false;
         pauseConfirmed=false;jadDeath=false;rewardConfirmed=false;playerDeath=false;forceReengage=false;
-        warning="Experimental — in-game validation required";teleportAt=0;
+        warning="Experimental — in-game validation required";teleportAt=0;tzhaarRoute.cancel();walkerRouteAt=walkerRouteNextAt=0;
         initialCapeCount=0;expectedHop=-1;enteredAt=0;emptyAt=0;lastSupplyAt=0;
         lastMoveTick=-1;lastPlanTick=-1;lastSavedWave=-1;preparedWave=-1;prepositioned=false;
         healers.reset();healerCancelTick=healerCancelIndex=-1;healerRetreat=null;exitTile=null;frame=null;plan=null;
@@ -454,9 +454,29 @@ public class DroFirecapeScript extends Script {
         if(observeOnly()){status="Observe only: outside-cave preparation would run here";return;}
         switch(state) {
             case TELEPORT: {
-                if(f.inTzhaar){teleportAt=0;setState(State.WALK_BANK,"Walking to TzHaar bank");return;}
-                if(teleportAt>0){if(now-teleportAt<25_000){status="Waiting for minigame teleport landing";return;}fail("Minigame teleport did not land; check cooldown, combat, teleblock, or restricted area");return;}
+                if(f.inTzhaar){teleportAt=0;
+                    if(walkerRouteAt>0){tzhaarRoute.cancel();walkerRouteAt=0;}
+                    setState(State.WALK_BANK,"Walking to TzHaar bank");return;}
+                if(walkerRouteAt==0&&teleportAt==0&&TzhaarGroupingTeleport.groupingCooldown())beginWalkerRoute(now,"Grouping teleport on cooldown");
+                if(walkerRouteAt>0) {
+                    if(now-walkerRouteAt>WALKER_ROUTE_MS) {
+                        String reason=tzhaarRoute.lastFailure();tzhaarRoute.cancel();
+                        fail("TzHaar walker route did not arrive"+(reason==null?"":": "+reason));return;
+                    }
+                    if(now>=walkerRouteNextAt) {
+                        walkerRouteNextAt=now+WALKER_ROUTE_REQUEST_MS;
+                        String problem=tzhaarRoute.request(BANK,true);
+                        if(problem!=null){fail(problem);return;}
+                    }
+                    status="Grouping teleport unavailable: walking to TzHaar";return;
+                }
                 if(elapsed(90_000)){fail("Minigame teleport unavailable from this location/interface");return;}
+                if(teleportAt>0){
+                    String dialogue=actions.minigameDialogueStep();
+                    if(dialogue!=null){status=dialogue;teleportAt=now;return;}
+                    if(now-teleportAt<25_000){status="Waiting for minigame teleport landing";return;}
+                    beginWalkerRoute(now,"Minigame teleport did not land");return;
+                }
                 status=actions.minigameStep();if("TELEPORT_SENT".equals(status)){teleportAt=now;status="TzHaar teleport sent; waiting for landing";}
                 break;
             }
@@ -2185,10 +2205,18 @@ public class DroFirecapeScript extends Script {
         }
         if(e.getGameState()==GameState.LOGGED_IN)transitionGuardUntil=client.getTickCount()+2;
     }
+    // Grouping teleport fallback: one walker re-request every 1.8 s for at most 5 min.
+    static final long WALKER_ROUTE_MS=300_000L,WALKER_ROUTE_REQUEST_MS=1800L;
+    private final FcTzhaarRoute tzhaarRoute=new FcTzhaarRoute();
+    private long walkerRouteAt,walkerRouteNextAt;
+    private void beginWalkerRoute(long now,String reason) {
+        walkerRouteAt=now;walkerRouteNextAt=0;teleportAt=0;
+        trace.event("tzhaar-route",reason+"; walker route to the TzHaar bank");
+    }
     @Override public void shutdown() {
         enabled=false;FcTickPrayers driver=tickPrayers;tickPrayers=null;
         if(driver!=null)driver.detach();actions.tickPrayerDriver(null);
-        stopCamera();baseProfile.shutdown();if(pointerLease!=null){pointerLease.close();pointerLease=null;}trace.event("shutdown","wave="+waves.wave()+" damage="+damage.get());trace.close();
+        stopCamera();baseProfile.shutdown();if(pointerLease!=null){pointerLease.close();pointerLease=null;}tzhaarRoute.cancel();trace.event("shutdown","wave="+waves.wave()+" damage="+damage.get());trace.close();
         // Preserve the current protective overhead when a user stops mid-cave.
         if(frame==null||!frame.cave)actions.prayersOff();
         super.shutdown();state=State.STOPPED;status="Stopped";

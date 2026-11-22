@@ -5,7 +5,7 @@
 
 ![Dro Firecape](assets/card.png)
 
-Automated Fight Caves for Microbot: all **63 waves and 15 rotations**, TzHaar travel, banking, equipment, positioning, protection prayers, potions and supported thralls. Version **0.3.89**, requiring **Microbot 2.6.32 or newer**.
+Automated Fight Caves for Microbot: all **63 waves and 15 rotations**, TzHaar travel, banking, equipment, positioning, protection prayers, potions and supported thralls. Version **0.3.90**, requiring **Microbot 2.6.32 or newer**.
 
 **There is no guarantee of a Fire cape. Better gear and adequate supplies improve the chances. Test under supervision.** Normal ranged mode has completed capes; Pure has substantial live testing but no confirmed completed cape in the retained evidence. Melee remains untested.
 
@@ -16,11 +16,13 @@ Automated Fight Caves for Microbot: all **63 waves and 15 rotations**, TzHaar tr
 3. Start the plugin. It prepares the interface, travels to TzHaar, banks and gears up, then enters the cave. Avoid other plugins that compete for controls.
 4. Keep **Record run** enabled. Review the status during rotation waits and recovery pauses.
 
-Fresh startup may reset keybindings, set zoom to 150 and disable auto-retaliate. Starting inside an active cave uses the resume path instead of repeating bank preparation. The built-in spawn predictor supports fresh entry; installing another FC Spawn Predictor is not required. Entry rotation `0` accepts any calibrated rotation; `1–15` waits for that rotation on the current world.
+Fresh startup never changes your game keybindings (tabs are opened with your F-keys or by clicking the visible tab). It may set zoom to 150 and disable auto-retaliate. Starting inside an active cave uses the resume path instead of repeating bank preparation. The built-in spawn predictor supports fresh entry; installing another FC Spawn Predictor is not required. Entry rotation `0` accepts any calibrated rotation; `1–15` waits for that rotation on the current world.
 
 ## Controller and prayers
 
-Version 0.3.89 returns to the 0.3.75 engine (visible prayer, inventory and spellbook clicks; no Fight input, Manual movement or Prayers only modes) and keeps the magic-weapon support added since.
+Version 0.3.89 returns to the 0.3.75 engine (visible prayer, inventory and spellbook clicks; no Fight input, Manual movement or Prayers only modes) and keeps the magic-weapon support added since. If you had one of the removed settings (Prayers only, Manual movement, Start at entrance, Logout No Supplies) on, the first start after updating stops once with an explanation and clears it; turn the plugin on again to run.
+
+When the Fight Pit grouping teleport is on cooldown or does not land, the script walks to TzHaar with the Microbot walker instead. The first-time Fight Pit world notice and its "No, and don't ask again" prompt are answered automatically.
 
 | Selection | Controller |
 |---|---|

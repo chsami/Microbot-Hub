@@ -49,6 +49,21 @@ class FcRuntimeConfigTest {
         assertTrue(resolved.nativeTickPrayers(),"1-tick prayers are on by default");
     }
 
+    @Test void controllersResolveTheRawInjectedConfigBeforeChoosing() throws Exception {
+        ConfigManager manager=mock(ConfigManager.class);
+        DroFirecapeConfig raw=realProxy(manager);
+        assertThrows(NullPointerException.class,()->FcControllers.selectsOptional(raw),"the raw proxy cannot answer pureMode()");
+        FcControllers controllers=new FcControllers();
+        DroFirecapeScript regular=mock(DroFirecapeScript.class);OptionalFirecapeScript optional=mock(OptionalFirecapeScript.class);
+        for(String name:new String[]{"regular","optional"}) {
+            var field=FcControllers.class.getDeclaredField(name);field.setAccessible(true);
+            field.set(controllers,name.equals("regular")?regular:optional);
+        }
+        controllers.run(raw);
+        verify(optional).run(argThat(c->c!=raw&&FcRuntimeConfig.resolve(c)==c&&c.pureMode()));
+        verify(regular,never()).run(any());
+    }
+
     @Test void pureModeIsAlwaysOnAndIgnoresASavedFalse() throws Exception {
         ConfigManager manager=mock(ConfigManager.class);
         when(manager.getConfiguration(DroFirecapeConfig.GROUP,"pureMode")).thenReturn("false");

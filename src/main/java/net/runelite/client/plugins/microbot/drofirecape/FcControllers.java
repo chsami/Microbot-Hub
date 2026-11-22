@@ -20,8 +20,10 @@ final class FcControllers {
         return config.pureMode() || config.nativeTickPrayers();
     }
     void run(DroFirecapeConfig config) {
-        optionalSelected=selectsOptional(config);
-        if(optionalSelected)optional.run(config);else regular.run(config);
+        // pureMode() has no @ConfigItem: the raw injected proxy returns null for it, so always resolve first.
+        DroFirecapeConfig resolved=FcRuntimeConfig.resolve(config);
+        optionalSelected=selectsOptional(resolved);
+        if(optionalSelected)optional.run(resolved);else regular.run(resolved);
     }
     void shutdown(){if(optionalSelected)optional.shutdown();else regular.shutdown();}
     void onGameTick(){if(optionalSelected)optional.onGameTick();else regular.onGameTick();}

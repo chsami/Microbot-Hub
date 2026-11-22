@@ -22,9 +22,19 @@ class FcWeaponRangeTest {
         ranges.forEach((name,range)->assertEquals(range.intValue(),FcFrame.inferRange(name),name));
     }
     @Test void rangedWeaponsKeepTheirRangeAndMeleeStaysUnrecognized() {
-        assertEquals(5,FcFrame.inferRange("Toxic blowpipe"));
-        assertEquals(10,FcFrame.inferRange("Twisted bow"));
-        assertEquals(7,FcFrame.inferRange("Rune crossbow"));
+        // OSRS Wiki "Attack range", non-longrange column; the same table as development.
+        Map<String,Integer> ranges=Map.ofEntries(
+            Map.entry("Toxic blowpipe",5),Map.entry("Blazing blowpipe",5),Map.entry("Comp ogre bow",5),Map.entry("Phoenix crossbow",5),
+            Map.entry("Twisted bow",10),Map.entry("Bow of faerdhinen (c)",10),Map.entry("Crystal bow",10),Map.entry("Dark bow",10),
+            Map.entry("Scorching bow",10),Map.entry("Magic longbow",10),Map.entry("Magic comp bow",10),Map.entry("Ogre bow",10),
+            Map.entry("3rd age bow",9),Map.entry("Craw's bow",9),Map.entry("Webweaver bow",9),Map.entry("Heavy ballista",9),Map.entry("Black chinchompa",9),
+            Map.entry("Armadyl crossbow",8),Map.entry("Zaryte crossbow",8),Map.entry("Karil's crossbow",8),Map.entry("Seercull",8),
+            Map.entry("Hunters' crossbow",8),Map.entry("Hunters' sunlight crossbow",8),
+            Map.entry("Venator bow",6),Map.entry("Dorgeshuun crossbow",6),Map.entry("Eclipse atlatl",6),
+            Map.entry("Rune crossbow",7),Map.entry("Dragon hunter crossbow",7),Map.entry("Magic shortbow (i)",7),
+            Map.entry("Toktz-xil-ul",7),Map.entry("Tonalztics of ralos",7),
+            Map.entry("Dragon knife",4),Map.entry("Rune thrownaxe",4),Map.entry("Dragon dart",3));
+        ranges.forEach((name,range)->assertEquals(range.intValue(),FcFrame.inferRange(name),name));
         assertEquals(0,FcFrame.inferRange("Abyssal whip"));
     }
     @Test void poweredStavesCastTheirOwnSpellAndOthersAutocast() {

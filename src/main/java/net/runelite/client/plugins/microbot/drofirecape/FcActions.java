@@ -78,6 +78,7 @@ class FcActions {
     protected int lastAttackIndex=-1;
     protected long attackGap=115;
     protected volatile boolean observe;
+    private String minigamePromptSent="";
     protected volatile FcTickPrayers tickPrayers;
     void tickPrayerDriver(FcTickPrayers driver){tickPrayers=driver;}
     protected FcTickPrayers ownedPrayerDriver(){FcTickPrayers d=tickPrayers;return d!=null&&d.ownsInput()?d:null;}
@@ -89,7 +90,7 @@ class FcActions {
     String prayerUiStatus(){return prayerUi.problem();}
     protected final net.runelite.client.plugins.microbot.drofirecape.core.PrayerSwitchGuard combatPrayerGuard=new net.runelite.client.plugins.microbot.drofirecape.core.PrayerSwitchGuard(COMBAT_PRAYERS.length);
     void observeOnly(boolean value){observe=value;}
-    void reset(){combatPrayerGuard.reset();prayerUi.reset();uiAt=lastAttackAt=0;lastAttackIndex=-1;}
+    void reset(){combatPrayerGuard.reset();prayerUi.reset();uiAt=lastAttackAt=0;lastAttackIndex=-1;minigamePromptSent="";}
     static <T>T read(Callable<T> r,T fallback) {
         var thread=Microbot.getClientThread();
         return thread==null?fallback:thread.runOnClientThreadOptional(r).orElse(fallback);
@@ -635,9 +636,42 @@ class FcActions {
         }
         if(!read(FcActions::teleportStationary,false))return "Waiting to stop moving before minigame teleport";
         synchronized(inputLock) {
-            if(prayerUi.button(()->read(FcActions::teleportBounds,null))){uiSent();return "TELEPORT_SENT";}
+            if(prayerUi.button(()->read(FcActions::teleportBounds,null))){minigamePromptSent="";uiSent();return "TELEPORT_SENT";}
         }
         return "Waiting for verified visible minigame teleport button";
+    }
+    /** The Fight Pit grouping teleport can show a suggested-world notice and then a Yes / No / "No, and don't ask
+     * again" prompt on accounts that never chose the last option. Each is answered once; null when neither shows. */
+    String minigameDialogueStep() {
+        String option=read(()->{
+            if(!Rs2Dialogue.hasSelectAnOption())return null;
+            for(Widget widget:Rs2Dialogue.getDialogueOptions()) {
+                if(widget==null||widget.isHidden())continue;
+                String text=net.runelite.client.util.Text.removeTags(Objects.toString(widget.getText(),"")).trim();
+                String normalized=text.toLowerCase(Locale.ROOT).replaceAll("[^a-z]","");
+                if(normalized.equals("noanddontaskagain")||normalized.equals("nodontaskagain"))return text;
+            }
+            return null;
+        },null);
+        if(option!=null) {
+            if(!"choice".equals(minigamePromptSent)&&uiReady(900)) {
+                synchronized(inputLock) {
+                    if(Rs2Dialogue.clickOption(option,true)){minigamePromptSent="choice";uiSent();}
+                }
+            }
+            return "Confirming No, and don't ask again for Fight Pit teleport";
+        }
+        boolean notice=read(()->{
+            if(!Rs2Dialogue.hasContinue())return false;
+            String text=minigameName(Rs2Dialogue.getDialogueText()).toLowerCase(Locale.ROOT);
+            return text.contains("more players")&&text.contains("fight pits")&&text.contains("world");
+        },false);
+        if(!notice)return null;
+        if(!"notice".equals(minigamePromptSent)&&uiReady(900)) {
+            synchronized(inputLock){Rs2Dialogue.clickContinue();}
+            minigamePromptSent="notice";uiSent();
+        }
+        return "Continuing Fight Pit suggested-world notice";
     }
     protected static String minigameName(String text) {
         return text==null?"":text.replaceAll("<[^>]*>","").replace("&nbsp;"," ").replace('\u00a0',' ').trim();

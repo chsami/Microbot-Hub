@@ -223,14 +223,18 @@ public final class FcFrame {
     }
     static int inferRange(String name) {
         if(name==null)return 0;String w=name.toLowerCase(Locale.ROOT);
-        if(w.contains("blowpipe"))return 5;
-        if(w.contains("bow of faerdhinen")||w.contains("crystal bow")||w.contains("twisted bow")||w.contains("longbow"))return 10;
-        if(w.contains("karil"))return 6;
-        if(w.contains("crossbow"))return 7;
-        if(w.contains("shortbow")||w.contains("webweaver")||w.contains("craw's")||w.contains("venator"))return 7;
-        if(w.contains("knife"))return 4;
+        if(w.contains("blowpipe")||w.contains("comp ogre bow")||w.contains("phoenix crossbow")||w.contains("hunter's spear"))return 5;
+        if(w.contains("bow of faerdhinen")||w.contains("crystal bow")||w.contains("twisted bow")||w.contains("dark bow")
+            ||w.contains("scorching bow")||w.contains("longbow")||w.contains("composite bow")||w.contains("comp bow")||w.equals("ogre bow"))return 10;
+        if(w.contains("3rd age bow")||w.contains("craw's bow")||w.contains("webweaver bow")
+            ||w.contains("ballista")||w.contains("chinchompa"))return 9;
+        if(w.contains("armadyl crossbow")||w.contains("zaryte crossbow")||w.contains("karil's crossbow")
+            ||w.contains("hunters' crossbow")||w.contains("hunters' sunlight crossbow")||w.contains("seercull"))return 8;
+        if(w.contains("venator bow")||w.contains("dorgeshuun crossbow")||w.contains("cursed goblin bow")
+            ||w.contains("eclipse atlatl")||w.contains("tonalztics of ralos (uncharged)"))return 6;
+        if(w.contains("crossbow")||w.contains("shortbow")||w.contains("toktz-xil-ul")||w.contains("tonalztics of ralos"))return 7;
+        if(w.contains("knife")||w.contains("thrownaxe"))return 4;
         if(w.contains("dart"))return 3;
-        // Staves, wands, sceptres and powered staves (FcMagic): 10 for autocast spells, the powered staff's own reach.
         return FcMagic.range(name);
     }
     /**
