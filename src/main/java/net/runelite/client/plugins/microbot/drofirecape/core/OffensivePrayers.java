@@ -8,7 +8,7 @@ package net.runelite.client.plugins.microbot.drofirecape.core;
 
 import java.util.*;
 
-/** Pure selection policy. Names correspond to Dro's Rs2PrayerEnum.
+/** Pure selection policy. Names correspond to Microbot's Rs2PrayerEnum.
  * Unlock requirements are checked separately from active prayer points.
  */
 public final class OffensivePrayers {
