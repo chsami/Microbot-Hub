@@ -474,6 +474,7 @@ final class InfernoThreats
             + history.getOrDefault(f.tick, Guard.NONE).ordinal();
         costs[historyKey] = 0;
         Guard[] transitions = enemies.isEmpty() ? Guard.values() : ACTIVE_GUARDS;
+        boolean quiet = !readNext;
         for (int offset = 1; offset <= 6; offset++)
         {
             int[] next = new int[states], nextFirst = new int[states], nextGuard = new int[states];
@@ -486,6 +487,7 @@ final class InfernoThreats
             for (Guard scanned : Guard.values()) for (Guard selected : Guard.values())
                 rawCosts[scanned.ordinal()][selected.ordinal()] = cost(f, enemies, grid, tile,
                     f.tick + offset, selected, scanned, wave);
+            for (int[] row : rawCosts) quiet &= row[Guard.NONE.ordinal()] == 0;
             for (int state = 0; state < states; state++) if (costs[state] < infinity)
                 for (Guard guard : transitions)
                 {
@@ -506,7 +508,7 @@ final class InfernoThreats
         }
         int best = 0;
         for (int i = 1; i < states; i++) if (costs[i] < costs[best]) best = i;
-        Guard guard = Guard.values()[firstGuard[best]];
+        Guard guard = quiet ? Guard.active(f) : Guard.values()[firstGuard[best]];
         boolean unknownJad = enemies.stream().anyMatch(n -> n.role == Role.JAD
             && (track(n) == null || track(n).lastAttack < 0));
         if (guard == Guard.NONE && unknownJad) guard = Guard.active(f);
