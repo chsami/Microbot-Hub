@@ -57,6 +57,7 @@ public class AutoFarmerScript extends Script {
     private TreeStop currentTree;
     private long treeActionStarted;
     private int treeWalkFailures;
+    private static final WorldPoint STRONGHOLD_INNER_PATH = new WorldPoint(2452, 3398, 0);
     private static final WorldPoint VARROCK_TREE = new WorldPoint(3229, 3457, 0);
     private static final WorldPoint VARROCK_SQUARE = new WorldPoint(3212, 3428, 0);
     private static final WorldPoint VARROCK_EAST_ROAD = new WorldPoint(3274, 3429, 0);
@@ -1156,7 +1157,14 @@ public class AutoFarmerScript extends Script {
         if (player == null) return true;
         if (player.distanceTo(location) > 4) {
             AutoFarmerPlugin.status = "Walking to " + tree.key();
-            if (Rs2Walker.walkWithState(location, 4) == WalkerState.UNREACHABLE && ++treeWalkFailures >= patchRetryLimit()) {
+            boolean strongholdTree = "Gnome Stronghold".equals(tree.patch().getRegion().getName());
+            if (strongholdTree && player.getPlane() == 0 && player.getX() >= 2457 && player.getX() <= 2465
+                    && player.getY() >= 3385 && player.getY() <= 3393) {
+                continueInsideStronghold(player);
+                return true;
+            }
+            WalkerState walk = strongholdTree ? Rs2Walker.walkStep(location, 4) : Rs2Walker.walkWithState(location, 4);
+            if (walk == WalkerState.UNREACHABLE && ++treeWalkFailures >= patchRetryLimit()) {
                 finishTree("TREE_ROUTE_UNREACHABLE", 15);
             }
             return true;
@@ -1226,6 +1234,22 @@ public class AutoFarmerScript extends Script {
             finishTree("TREE_RETRY_DELAY", 15);
         }
         return true;
+    }
+
+    private void continueInsideStronghold(WorldPoint player) {
+        if (Rs2Player.isMoving()) return;
+        Rs2Walker.setTarget(null);
+        int distance = player.distanceTo(STRONGHOLD_INNER_PATH);
+        boolean advanced = Rs2Walker.walkMiniMap(STRONGHOLD_INNER_PATH)
+                && sleepUntil(() -> {
+                    WorldPoint position = Rs2Player.getWorldLocation();
+                    return position != null && position.distanceTo(STRONGHOLD_INNER_PATH) < distance;
+                }, 5_000);
+        if (advanced) {
+            treeWalkFailures = 0;
+        } else if (++treeWalkFailures >= patchRetryLimit()) {
+            finishTree("STRONGHOLD_INNER_PATH_UNREACHABLE", 15);
+        }
     }
 
     private boolean isPickedPineapplePlant(TreeStop tree, Rs2TileObjectModel object) {
