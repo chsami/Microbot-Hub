@@ -176,6 +176,37 @@ class SalvagingScriptTest {
         assertTrue(SalvagingScript.noStationNothingToDropMessage(false).contains("exact salvage names"));
     }
 
+    @Test
+    void inventoryHasCleanupWorkIgnoresPartialDropListMatches() throws Exception {
+        var config = configWithDropItems("plank, oak plank");
+        var script = new SalvagingScript(null, null, null);
+
+        try (MockedStatic<Rs2Inventory> inventory = mockStatic(Rs2Inventory.class)) {
+            inventory.when(() -> Rs2Inventory.hasItem("plank")).thenReturn(true);
+            inventory.when(() -> Rs2Inventory.hasItem(new String[]{"plank", "oak plank"}, false)).thenReturn(true);
+
+            assertFalse(inventoryHasCleanupWork(script, config));
+        }
+    }
+
+    @Test
+    void inventoryHasCleanupWorkFindsExactDropListMatches() throws Exception {
+        var config = configWithDropItems("plank, oak plank");
+        var script = new SalvagingScript(null, null, null);
+
+        try (MockedStatic<Rs2Inventory> inventory = mockStatic(Rs2Inventory.class)) {
+            inventory.when(() -> Rs2Inventory.hasItem(new String[]{"plank", "oak plank"}, true)).thenReturn(true);
+
+            assertTrue(inventoryHasCleanupWork(script, config));
+        }
+    }
+
+    private static boolean inventoryHasCleanupWork(SalvagingScript script, SailingConfig config) throws Exception {
+        Method method = SalvagingScript.class.getDeclaredMethod("inventoryHasCleanupWork", SailingConfig.class);
+        method.setAccessible(true);
+        return (boolean) method.invoke(script, config);
+    }
+
     private static SailingConfig configWithDropItems(String dropItems) {
         var config = mock(SailingConfig.class);
         when(config.dropItems()).thenReturn(dropItems);
