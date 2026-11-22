@@ -57,6 +57,9 @@ public class AutoFarmerScript extends Script {
     private TreeStop currentTree;
     private long treeActionStarted;
     private int treeWalkFailures;
+    private volatile long strongholdTravelDeadline;
+    private static final long STRONGHOLD_TRAVEL_LIMIT = TimeUnit.MINUTES.toMillis(5);
+    private static final WorldPoint STRONGHOLD_INNER_PATH = new WorldPoint(2452, 3398, 0);
     private static final WorldPoint VARROCK_TREE = new WorldPoint(3229, 3457, 0);
     private static final WorldPoint VARROCK_SQUARE = new WorldPoint(3212, 3428, 0);
     private static final WorldPoint VARROCK_EAST_ROAD = new WorldPoint(3274, 3429, 0);
@@ -213,7 +216,7 @@ public class AutoFarmerScript extends Script {
             String current=signature.toString();
             if(!current.equals(progressSignature)){progressSignature=current;lastProgressAt=now;}
             if(runStartedAt>0 && now-runStartedAt>1800000L) {failRun("Farming run exceeded 30 minutes without completing");return;}
-            if(now-lastProgressAt>180000L && !(patchWorkStarted && currentPatch != null))failRun("No movement or inventory progress for three minutes; last status: " + AutoFarmerPlugin.status);
+            if(now-lastProgressAt>180000L && strongholdTravelDeadline == 0 && !(patchWorkStarted && currentPatch != null))failRun("No movement or inventory progress for three minutes; last status: " + AutoFarmerPlugin.status);
         } catch(Exception | LinkageError e) { failRun("Safety monitor error: "+e.getClass().getSimpleName()+": "+e.getMessage()); }
     }
 
@@ -229,6 +232,7 @@ public class AutoFarmerScript extends Script {
             if (runStartedAt > 0) runStartedAt += elapsed;
             if (patchWorkStarted) patchStartedAt += elapsed;
             if (treeActionStarted > 0) treeActionStarted += elapsed;
+            if (strongholdTravelDeadline > 0) strongholdTravelDeadline += elapsed;
             if (preparingCropBreak) prepositionStartedAt += elapsed;
             lastProgressAt = now;
             manualPauseSince = 0;
@@ -1133,6 +1137,7 @@ public class AutoFarmerScript extends Script {
             if (next == null || !ledger.due(next.key(), now)) return false;
             currentTree = next;
             treeWalkFailures = 0;
+            strongholdTravelDeadline = 0;
             resetPatchFailures();
             if (isBrimhavenTree(next) && !prepareBrimhavenTrip()) {
                 if (eventYielded) currentTree = null;
@@ -1156,12 +1161,18 @@ public class AutoFarmerScript extends Script {
         if (player == null) return true;
         if (player.distanceTo(location) > 4) {
             AutoFarmerPlugin.status = "Walking to " + tree.key();
-            if (Rs2Walker.walkWithState(location, 4) == WalkerState.UNREACHABLE && ++treeWalkFailures >= patchRetryLimit()) {
+            if ("Gnome Stronghold".equals(tree.patch().getRegion().getName())) {
+                walkToStrongholdTree(location, player);
+                return true;
+            }
+            if (Rs2Walker.walkWithState(location, 4) == WalkerState.UNREACHABLE
+                    && ++treeWalkFailures >= patchRetryLimit()) {
                 finishTree("TREE_ROUTE_UNREACHABLE", 15);
             }
             return true;
         }
 
+        strongholdTravelDeadline = 0;
         if (treeActionStarted == 0) treeActionStarted = now;
         if (now - treeActionStarted >= 150_000L) {
             finishTree("TREE_INTERACTION_TIMEOUT", 15);
@@ -1226,6 +1237,48 @@ public class AutoFarmerScript extends Script {
             finishTree("TREE_RETRY_DELAY", 15);
         }
         return true;
+    }
+
+    private void walkToStrongholdTree(WorldPoint location, WorldPoint player) {
+        long now = System.currentTimeMillis();
+        if (strongholdTravelDeadline == 0) strongholdTravelDeadline = now + STRONGHOLD_TRAVEL_LIMIT;
+
+        boolean failed = false;
+        if (now < strongholdTravelDeadline) {
+            if (isInsideStrongholdGate(player)) {
+                if (!Rs2Player.isMoving()) {
+                    Rs2Walker.setTarget(null);
+                    int distance = player.distanceTo(STRONGHOLD_INNER_PATH);
+                    failed = !Rs2Walker.walkMiniMap(STRONGHOLD_INNER_PATH) || !sleepUntil(() -> {
+                        WorldPoint position = Rs2Player.getWorldLocation();
+                        return position != null && position.distanceTo(STRONGHOLD_INNER_PATH) < distance;
+                    }, 5_000);
+                }
+            } else {
+                // Preserve the transport pipeline until the gate crossing has landed.
+                WalkerState walk = Rs2Walker.walkWithStateUntil(location, 4, () ->
+                        stopping || System.currentTimeMillis() >= strongholdTravelDeadline
+                                || isInsideStrongholdGate(Rs2Player.getWorldLocation()));
+                failed = walk == WalkerState.UNREACHABLE;
+            }
+        }
+
+        if (stopping || pauseSafetyForManualInput(System.currentTimeMillis())) return;
+        WorldPoint position = Rs2Player.getWorldLocation();
+        if (position != null && position.distanceTo(location) <= 4) {
+            strongholdTravelDeadline = 0;
+            return;
+        }
+        if (System.currentTimeMillis() >= strongholdTravelDeadline
+                || (failed && ++treeWalkFailures >= patchRetryLimit())) {
+            Rs2Walker.setTarget(null);
+            finishTree("TREE_ROUTE_UNREACHABLE", 15);
+        }
+    }
+
+    private static boolean isInsideStrongholdGate(WorldPoint point) {
+        return point != null && point.getPlane() == 0 && point.getX() >= 2457 && point.getX() <= 2465
+                && point.getY() >= 3385 && point.getY() <= 3393;
     }
 
     private boolean isPickedPineapplePlant(TreeStop tree, Rs2TileObjectModel object) {
@@ -1483,6 +1536,7 @@ public class AutoFarmerScript extends Script {
         log("Tree route deferred: need a rake, spade, " + clearSupply + ", and " + tree.sapling() + " saplings.");
         currentTree = null;
         treeActionStarted = 0;
+        strongholdTravelDeadline = 0;
     }
 
     private void finishTree(String outcome, int minutes) {
@@ -1493,6 +1547,7 @@ public class AutoFarmerScript extends Script {
         log(tree.key() + ": " + outcome + "; check at " + java.time.Instant.ofEpochMilli(checkAt));
         currentTree = null;
         treeActionStarted = 0;
+        strongholdTravelDeadline = 0;
     }
 
     private void getNextPatch() {
@@ -2550,6 +2605,7 @@ public class AutoFarmerScript extends Script {
         nextRunAt = 0;
         currentTree = null;
         treeActionStarted = 0;
+        strongholdTravelDeadline = 0;
         treeStops.clear();
         fortisDetourWaypoint = null;
         nextFortisTeleportAttempt = 0;
