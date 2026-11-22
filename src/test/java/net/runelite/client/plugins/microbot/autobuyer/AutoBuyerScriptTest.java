@@ -1,5 +1,6 @@
 package net.runelite.client.plugins.microbot.autobuyer;
 
+import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginManager;
@@ -59,6 +60,7 @@ class AutoBuyerScriptTest {
         microbot.when(Microbot::getClientThread).thenReturn(clientThread);
         rs2Player = mockStatic(Rs2Player.class);
         rs2Player.when(Rs2Player::hasCompletedTutorialIsland).thenReturn(false);
+        rs2Player.when(Rs2Player::getWorldLocation).thenReturn(new WorldPoint(3164, 3487, 0));
         grandExchange = mockStatic(Rs2GrandExchange.class);
         grandExchange.when(Rs2GrandExchange::isOpen).thenReturn(true);
 
