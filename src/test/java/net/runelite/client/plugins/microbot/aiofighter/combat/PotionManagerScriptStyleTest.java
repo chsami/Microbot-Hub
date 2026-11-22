@@ -1,9 +1,14 @@
 package net.runelite.client.plugins.microbot.aiofighter.combat;
 
+import net.runelite.api.Skill;
 import net.runelite.client.plugins.microbot.aiofighter.enums.AttackStyle;
 import org.junit.jupiter.api.Test;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 public final class PotionManagerScriptStyleTest {
 
@@ -31,7 +36,6 @@ public final class PotionManagerScriptStyleTest {
     @Test
     void castingUsesMagicPotions() {
         assertEquals(AttackStyle.MAGE, PotionManagerScript.currentStyle(false, STAFF, "Casting"));
-        assertEquals(AttackStyle.MAGE, PotionManagerScript.currentStyle(false, STAFF, "Defensive Casting"));
     }
 
     @Test
@@ -59,7 +63,42 @@ public final class PotionManagerScriptStyleTest {
     }
 
     @Test
-    void unresolvedStyleFallsBackToMelee() {
-        assertEquals(AttackStyle.MELEE, PotionManagerScript.currentStyle(false, SLASH_SWORD, null));
+    void unresolvedStyleIsUnknown() {
+        assertNull(PotionManagerScript.currentStyle(false, SLASH_SWORD, null));
+        assertNull(PotionManagerScript.currentStyle(false, BOW, null));
+        assertEquals(AttackStyle.MAGE, PotionManagerScript.currentStyle(true, BOW, null));
+        assertEquals(AttackStyle.MAGE, PotionManagerScript.currentStyle(false, POWERED_STAFF, null));
+    }
+
+    @Test
+    void meleeDrinksStrengthAttackAndSuperCombatDefence() {
+        Map<Skill, Boolean> expected = new LinkedHashMap<>();
+        expected.put(Skill.STRENGTH, true);
+        expected.put(Skill.ATTACK, true);
+        expected.put(Skill.DEFENCE, true);
+        assertEquals(expected, PotionManagerScript.combatPotionsFor(AttackStyle.MELEE));
+    }
+
+    @Test
+    void rangedDrinksRangingAndDefenceWithoutSuperCombat() {
+        Map<Skill, Boolean> expected = new LinkedHashMap<>();
+        expected.put(Skill.RANGED, false);
+        expected.put(Skill.DEFENCE, false);
+        assertEquals(expected, PotionManagerScript.combatPotionsFor(AttackStyle.RANGED));
+    }
+
+    @Test
+    void magicDrinksMagicAndDefenceWithoutSuperCombat() {
+        Map<Skill, Boolean> expected = new LinkedHashMap<>();
+        expected.put(Skill.MAGIC, false);
+        expected.put(Skill.DEFENCE, false);
+        assertEquals(expected, PotionManagerScript.combatPotionsFor(AttackStyle.MAGE));
+    }
+
+    @Test
+    void unknownStyleDrinksOnlyDefenceWithoutSuperCombat() {
+        Map<Skill, Boolean> expected = new LinkedHashMap<>();
+        expected.put(Skill.DEFENCE, false);
+        assertEquals(expected, PotionManagerScript.combatPotionsFor(null));
     }
 }

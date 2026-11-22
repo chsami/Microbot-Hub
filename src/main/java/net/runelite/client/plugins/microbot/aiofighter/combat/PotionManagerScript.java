@@ -13,6 +13,8 @@ import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
@@ -47,25 +49,10 @@ public class PotionManagerScript extends Script {
                             Microbot.getVarbitValue(VarbitID.COMBAT_WEAPON_CATEGORY),
                             Rs2Combat.getWeaponAttackStyle());
 
-                    // Attempt to drink ranging potion
-                    if (style == AttackStyle.RANGED && Rs2Player.drinkCombatPotionAt(Skill.RANGED, false)) {
-                        Rs2Player.waitForAnimation();
-                    }
-
-                    // Attempt to drink magic potion
-                    if (style == AttackStyle.MAGE && Rs2Player.drinkCombatPotionAt(Skill.MAGIC, false)) {
-                        Rs2Player.waitForAnimation();
-                    }
-
-                    // Attempt to drink combat potions for STR, ATT, DEF
-                    if (style == AttackStyle.MELEE && Rs2Player.drinkCombatPotionAt(Skill.STRENGTH)) {
-                        Rs2Player.waitForAnimation();
-                    }
-                    if (style == AttackStyle.MELEE && Rs2Player.drinkCombatPotionAt(Skill.ATTACK)) {
-                        Rs2Player.waitForAnimation();
-                    }
-                    if (Rs2Player.drinkCombatPotionAt(Skill.DEFENCE)) {
-                        Rs2Player.waitForAnimation();
+                    for (Map.Entry<Skill, Boolean> potion : combatPotionsFor(style).entrySet()) {
+                        if (Rs2Player.drinkCombatPotionAt(potion.getKey(), potion.getValue())) {
+                            Rs2Player.waitForAnimation();
+                        }
                     }
                 }
 
@@ -87,14 +74,32 @@ public class PotionManagerScript extends Script {
     }
 
     static AttackStyle currentStyle(boolean useMagic, int weaponCategory, String attackStyleName) {
-        if (useMagic || POWERED_STAFF_CATEGORIES.contains(weaponCategory)
-                || "Casting".equals(attackStyleName) || "Defensive Casting".equals(attackStyleName)) {
+        if (useMagic || POWERED_STAFF_CATEGORIES.contains(weaponCategory) || "Casting".equals(attackStyleName)) {
             return AttackStyle.MAGE;
+        }
+        if (attackStyleName == null) {
+            return null;
         }
         if ("Ranging".equals(attackStyleName) || "Longrange".equals(attackStyleName)) {
             return AttackStyle.RANGED;
         }
         return AttackStyle.MELEE;
+    }
+
+    static Map<Skill, Boolean> combatPotionsFor(AttackStyle style) {
+        Map<Skill, Boolean> potions = new LinkedHashMap<>();
+        if (style == AttackStyle.RANGED) {
+            potions.put(Skill.RANGED, false);
+        }
+        if (style == AttackStyle.MAGE) {
+            potions.put(Skill.MAGIC, false);
+        }
+        if (style == AttackStyle.MELEE) {
+            potions.put(Skill.STRENGTH, true);
+            potions.put(Skill.ATTACK, true);
+        }
+        potions.put(Skill.DEFENCE, style == AttackStyle.MELEE);
+        return potions;
     }
 
 
