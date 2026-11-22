@@ -43,7 +43,7 @@ Each session draws its own habits, so two sessions do not behave the same: how q
 - **Location**: Varrock west or Prifddinas south.
 - **Bar**: the bar to smith with. For keel parts this also picks the keel's metal.
 - **Item**: what to make.
-- **Alch what was made**: when the bars run out, takes the items of that kind out of the bank as notes and casts High Alchemy on them (Low Alchemy below 55 Magic). It takes every one of that item in the bank. Needs nature runes, and fire runes or a fire staff: in the bank, a rune pouch or worn. The game warns before alching anything worth 1,000 coins or more: raise "Minimum item value needed for Alchemy spells warning" (All Settings, Warnings) above your item, or the alching stops at the warning. Keel parts are never alched.
+- **Alch what was made**: when the bars run out, takes the items of that kind out of the bank as notes and casts High Alchemy on them (Low Alchemy below 55 Magic). It takes every one of that item in the bank. Needs nature runes, and fire runes or a fire staff: in the bank, a rune pouch or worn. The game warns before alching anything worth 1,000 coins or more: raise "Minimum item value needed for Alchemy spells warning" (All Settings, Warnings) above your item, or the alching stops at the warning. Keel parts and stackable items (nails, dart tips, arrowtips, knives, bolts) are never alched.
 - **Log out when finished**: log out when it stops because the bars or the hammer ran out.
 - **Detailed log**: write every decision to the log. Turn it on for a bug report.
 - **Info panel**: the session panel, Full, Compact (one line) or Off. Right-click the panel to switch size.

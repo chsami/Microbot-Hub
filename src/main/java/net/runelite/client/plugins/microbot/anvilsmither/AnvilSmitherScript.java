@@ -1236,7 +1236,8 @@ public class AnvilSmitherScript extends Script {
      * Something carried before the load is never learned, so stray items are not alched.
      */
     private void learnProduct() {
-        if (activeItem.isKeelItem()) return;   // boat parts are for building, not for alching
+        // boat parts are for building; stackables (nails, tips, knives, bolts) cost a nature rune each for a few gp
+        if (activeItem.isKeelItem() || activeItem.getOutputPerAction() > 1) return;
         Rs2Inventory.items().filter(i -> !idsBeforeLoad.contains(i.getId()))
                 .map(Rs2ItemModel::getName).findFirst().ifPresent(madeNames::add);
     }
@@ -1258,7 +1259,7 @@ public class AnvilSmitherScript extends Script {
      * nails", "Runite limbs"). Only a whole-name match counts; a miss just means not alched.
      */
     public static boolean isProductName(Bars bar, AnvilItem item, String gameName) {
-        if (bar == null || item == null || item.isKeelItem()) return false;
+        if (bar == null || item == null || item.isKeelItem() || item.getOutputPerAction() > 1) return false;
         String key = nameKey(gameName);
         if (item.getOnlyBar() != null) return key.equals(nameKey(item.getName()));
         String word = nameKey(GAME_WORDS.getOrDefault(item, item.getName()));

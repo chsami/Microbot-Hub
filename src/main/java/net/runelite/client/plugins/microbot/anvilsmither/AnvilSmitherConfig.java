@@ -88,7 +88,7 @@ public interface AnvilSmitherConfig extends Config {
     @ConfigItem(keyName = "alch", name = "Alch what was made",
             description = "When the bars run out, take the items of that kind out of the bank as notes and cast High Alchemy on them"
                     + " (Low Alchemy below 55 Magic). It takes every one in the bank, including any from earlier runs."
-                    + " Runes can be in the bank or a rune pouch; a fire staff can be worn or in the bank. Keel parts are never alched.",
+                    + " Runes can be in the bank or a rune pouch; a fire staff can be worn or in the bank. Keel parts and stackable items (nails, dart tips, arrowtips, knives, bolts) are never alched.",
             section = SETUP_SECTION, position = 3)
     default boolean sAlch() {
         return false;

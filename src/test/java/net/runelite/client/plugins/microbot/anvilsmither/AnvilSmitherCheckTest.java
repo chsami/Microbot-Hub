@@ -224,16 +224,19 @@ class AnvilSmitherCheckTest {
     @Test
     void productsAreKnownByTheGameName() {
         assertTrue(AnvilSmitherScript.isProductName(Bars.ADAMANTITE, AnvilItem.PLATE_BODY, "Adamant platebody"));
-        assertTrue(AnvilSmitherScript.isProductName(Bars.ADAMANTITE, AnvilItem.NAILS, "Adamantite nails"));
-        assertTrue(AnvilSmitherScript.isProductName(Bars.ADAMANTITE, AnvilItem.BOLTS, "Adamant bolts(unf)"));
         assertTrue(AnvilSmitherScript.isProductName(Bars.RUNITE, AnvilItem.TWO_HAND_SWORD, "Rune 2h sword"));
         assertTrue(AnvilSmitherScript.isProductName(Bars.RUNITE, AnvilItem.LIMBS, "Runite limbs"));
-        assertTrue(AnvilSmitherScript.isProductName(Bars.RUNITE, AnvilItem.KNIVES, "Rune knife"));
         assertTrue(AnvilSmitherScript.isProductName(Bars.IRON, AnvilItem.IRON_SPIT, "Iron spit"));
         assertFalse(AnvilSmitherScript.isProductName(Bars.ADAMANTITE, AnvilItem.SWORD, "Adamant longsword"));
         assertFalse(AnvilSmitherScript.isProductName(Bars.ADAMANTITE, AnvilItem.PLATE_BODY, "Adamant platebody (g)"));
         assertFalse(AnvilSmitherScript.isProductName(Bars.ADAMANTITE, AnvilItem.PLATE_BODY, "Rune platebody"));
         assertFalse(AnvilSmitherScript.isProductName(Bars.ADAMANTITE, AnvilItem.KEEL_PARTS, "Adamant keel parts"));
+        // stackables: one nature rune per nail or tip would cost far more than the alch pays
+        assertFalse(AnvilSmitherScript.isProductName(Bars.ADAMANTITE, AnvilItem.NAILS, "Adamantite nails"));
+        assertFalse(AnvilSmitherScript.isProductName(Bars.ADAMANTITE, AnvilItem.BOLTS, "Adamant bolts(unf)"));
+        assertFalse(AnvilSmitherScript.isProductName(Bars.RUNITE, AnvilItem.KNIVES, "Rune knife"));
+        assertFalse(AnvilSmitherScript.isProductName(Bars.RUNITE, AnvilItem.ARROWTIPS, "Rune arrowtips"));
+        assertFalse(AnvilSmitherScript.isProductName(Bars.RUNITE, AnvilItem.DART_TIPS, "Rune dart tip"));
     }
 
     /** A break never cuts a load short, and is taken at once otherwise. */
