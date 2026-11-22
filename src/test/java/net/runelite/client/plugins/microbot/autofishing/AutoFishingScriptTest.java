@@ -482,9 +482,36 @@ class AutoFishingScriptTest {
         });
 
         assertEquals(Set.of(BankLocation.LUMBRIDGE_TOP.getWorldPoint(), BankLocation.DRAYNOR_VILLAGE.getWorldPoint(),
-                DepositBoxLocation.PORT_SARIM.getWorldPoint()), planned);
+                DepositBoxLocation.PORT_SARIM.getWorldPoint(), PORT_SARIM_BOX_APPROACH), planned);
         assertEquals(Set.of(ItemID.LOBSTER_POT, ItemID.COINS), kept);
     }
+
+    @Test
+    void reachingTheWalkableTileBesideTheDepositBoxPicksTheDepositBox() {
+        Set<Integer> kept = new HashSet<>();
+        runDepositTick(false, PORT_SARIM_BOX_APPROACH, new HashSet<>(), kept, (bank, depositBox) -> {
+            depositBox.verify(() -> Rs2DepositBox.walkToAndUseDepositBox(DepositBoxLocation.PORT_SARIM));
+            bank.verify(Rs2Bank::walkToBankAndUseBank, never());
+            bank.verify(() -> Rs2Bank.walkToBankAndUseBank(any(BankLocation.class)), never());
+        });
+
+        assertEquals(Set.of(ItemID.LOBSTER_POT, ItemID.COINS), kept);
+    }
+
+    @Test
+    void depositBoxTargetsAddOnlyWalkableTilesBesideTheBox() {
+        WorldPoint box = DepositBoxLocation.PORT_SARIM.getWorldPoint();
+        AutoFishingScript script = new AutoFishingScript() {
+            @Override
+            boolean isWalkable(WorldPoint tile) {
+                return tile.equals(box.dx(1)) || tile.equals(box.dy(-1));
+            }
+        };
+
+        assertEquals(Set.of(box, box.dx(1), box.dy(-1)), script.depositBoxTargets(box));
+    }
+
+    private static final WorldPoint PORT_SARIM_BOX_APPROACH = DepositBoxLocation.PORT_SARIM.getWorldPoint().dy(-1);
 
     @Test
     void fishBarrelTripOnlyConsidersBanksSoTheBarrelCanBeEmptied() {
@@ -551,6 +578,11 @@ class AutoFishingScriptTest {
             @Override
             Set<DepositBoxLocation> accessibleDepositBoxes() {
                 return Set.of(DepositBoxLocation.PORT_SARIM);
+            }
+
+            @Override
+            boolean isWalkable(WorldPoint tile) {
+                return tile.equals(PORT_SARIM_BOX_APPROACH);
             }
 
             @Override

@@ -35,7 +35,9 @@ import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectM
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.HashSet;
 import java.util.concurrent.TimeUnit;
@@ -508,21 +510,22 @@ public class AutoFishingScript extends Script {
         boolean hasFishBarrel = Rs2Inventory.hasItem(ItemID.FISH_BARREL_CLOSED) || Rs2Inventory.hasItem(ItemID.FISH_BARREL_OPEN);
         Set<BankLocation> banks = accessibleBanks();
         Set<DepositBoxLocation> depositBoxes = hasFishBarrel ? Set.of() : accessibleDepositBoxes();
-        Set<WorldPoint> targets = new HashSet<>();
-        banks.forEach(bank -> targets.add(bank.getWorldPoint()));
-        depositBoxes.forEach(box -> targets.add(box.getWorldPoint()));
+        Map<WorldPoint, Enum<?>> targets = new HashMap<>();
+        depositBoxes.forEach(box -> depositBoxTargets(box.getWorldPoint()).forEach(tile -> targets.putIfAbsent(tile, box)));
+        banks.forEach(bank -> targets.put(bank.getWorldPoint(), bank));
         if (targets.isEmpty()) return;
 
-        WorldPoint reached = nearestOnFoot(playerLocation, targets);
+        WorldPoint reached = nearestOnFoot(playerLocation, new HashSet<>(targets.keySet()));
         if (reached == null) {
             log.info(NO_DEPOSIT_POINT_ON_FOOT);
             return;
         }
-        depositBank = banks.stream().filter(bank -> bank.getWorldPoint().equals(reached)).findFirst().orElse(null);
-        if (depositBank == null) {
-            depositBox = depositBoxes.stream().filter(box -> box.getWorldPoint().equals(reached)).findFirst().orElse(null);
+        Enum<?> chosen = targets.get(reached);
+        if (chosen instanceof BankLocation) {
+            depositBank = (BankLocation) chosen;
+        } else if (chosen instanceof DepositBoxLocation) {
+            depositBox = (DepositBoxLocation) chosen;
         }
-        Enum<?> chosen = depositBank != null ? depositBank : depositBox;
         if (chosen != null) {
             log.info(depositPointMessage(chosen.name(), depositBox != null, hasFishBarrel));
         }
@@ -550,6 +553,21 @@ public class AutoFishingScript extends Script {
 
     Set<DepositBoxLocation> accessibleDepositBoxes() {
         return Arrays.stream(DepositBoxLocation.values()).filter(DepositBoxLocation::hasRequirements).collect(Collectors.toSet());
+    }
+
+    Set<WorldPoint> depositBoxTargets(WorldPoint box) {
+        Set<WorldPoint> tiles = new HashSet<>();
+        tiles.add(box);
+        for (WorldPoint tile : List.of(box.dx(1), box.dx(-1), box.dy(1), box.dy(-1))) {
+            if (isWalkable(tile)) {
+                tiles.add(tile);
+            }
+        }
+        return tiles;
+    }
+
+    boolean isWalkable(WorldPoint tile) {
+        return Rs2PathApi.hasWalkableTileWithin(tile, 0);
     }
 
     WorldPoint nearestOnFoot(WorldPoint from, Set<WorldPoint> targets) {
