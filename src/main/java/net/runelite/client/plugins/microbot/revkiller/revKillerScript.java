@@ -798,7 +798,7 @@ public class revKillerScript extends Script {
     }
 
     public void fightrev(revKillerConfig config){
-        Rs2NpcModel Rev = Microbot.getRs2NpcCache().query().withName(config.selectedRev().getName()).nearest();
+        Rs2NpcModel Rev = Microbot.getRs2NpcCache().query().withName(selectedRev).nearest();
 
         if(Rev!=null){
 
@@ -1089,6 +1089,8 @@ public class revKillerScript extends Script {
 
                 if(Rs2GroundItem.lootItemBasedOnValue(500,12)){
                     Rs2Inventory.waitForInventoryChanges(Rs2Random.between(4000,6000));
+                } else {
+                    break;
                 }
             }
         }
@@ -1179,8 +1181,7 @@ public class revKillerScript extends Script {
                                     }
                                 }
                             } else {
-                                Microbot.log("We're out of ether. Stopping.");
-                                super.shutdown();
+                                stopOutOfSupplies("your Bracelet of ethereum is uncharged and you have 100 or fewer Revenant ether in your bank", "Put more than 100 Revenant ether in your bank");
                                 return;
                             }
                             if(Rs2Inventory.contains("Revenant ether")){
@@ -1223,8 +1224,7 @@ public class revKillerScript extends Script {
                                 min = 600;
                                 max = 700;
                                 if(Rs2Equipment.get(EquipmentInventorySlot.WEAPON).getId() == ItemID.KARILS_CROSSBOW_25){
-                                    Microbot.log("Please get a fresh karil's crossbow. Shutting down.");
-                                    super.shutdown();
+                                    stopOutOfSupplies("your Karil's crossbow has 25 charges left", "Wield a fresh Karil's crossbow");
                                     return;
                                 }
                             }
@@ -1234,8 +1234,7 @@ public class revKillerScript extends Script {
                             }
                         }
                     } else {
-                        Microbot.log("Out of arrows");
-                        super.shutdown();
+                        stopOutOfSupplies("100 or fewer of your selected ammo in your bank", "Put more than 100 of your selected ammo in your bank");
                         return;
                     }
                     if(Rs2Inventory.contains(selectedArrow)){
@@ -1257,8 +1256,7 @@ public class revKillerScript extends Script {
                                 sleepUntil(() -> Rs2Inventory.contains("Revenant cave teleport"), generateRandomNumber(5000, 15000));
                             }
                         } else {
-                            Microbot.log("Rev cave teleports, need at least 5");
-                            super.shutdown();
+                            stopOutOfSupplies("5 or fewer Revenant cave teleports in your bank", "Put more than 5 Revenant cave teleports in your bank");
                             return;
                         }
                     }
@@ -1277,8 +1275,7 @@ public class revKillerScript extends Script {
                             }
                         }
                     } else {
-                        Microbot.log("Out of stamina potions");
-                        super.shutdown();
+                        stopOutOfSupplies("no Stamina potion(4), (3) or (2) in your bank", "Put Stamina potions in your bank");
                         return;
                     }
                 }
@@ -1295,8 +1292,7 @@ public class revKillerScript extends Script {
                             }
                         }
                     } else {
-                        Microbot.log("Out of ranging potions");
-                        super.shutdown();
+                        stopOutOfSupplies("no Ranging potion(4) or (3) in your bank", "Put Ranging potions in your bank");
                         return;
                     }
                 }
@@ -1313,8 +1309,7 @@ public class revKillerScript extends Script {
                             }
                         }
                     } else {
-                        Microbot.log("Out of sharks");
-                        super.shutdown();
+                        stopOutOfSupplies("fewer than 10 Sharks in your bank", "Put at least 10 Sharks in your bank");
                         return;
                     }
                 }
@@ -1365,6 +1360,11 @@ public class revKillerScript extends Script {
         Microbot.log(message);
         Microbot.stopPlugin(revKillerPlugin.class);
         Microbot.showMessage(popup);
+    }
+
+    private void stopOutOfSupplies(String reason, String fix){
+        stopWithReason("Revenant Killer stopped: " + reason + ". " + fix + " and start the plugin again.",
+                "<html>Revenant Killer stopped: " + reason + ".<br>" + fix + " and start the plugin again.</html>");
     }
 
     public int generateRandomNumber(int min, int max) {
