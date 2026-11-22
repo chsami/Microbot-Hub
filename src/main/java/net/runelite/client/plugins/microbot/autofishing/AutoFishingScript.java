@@ -63,6 +63,10 @@ public class AutoFishingScript extends Script {
     private BankLocation depositBank;
     private DepositBoxLocation depositBox;
     private long lastAnimTime;
+    static final int FIRE_REACH_DISTANCE = 4;
+    static final int MAX_FIRE_LOOKUP_MISSES = 5;
+    private int fireLookupMisses = 0;
+    private boolean noFireThisTrip = false;
 
     public boolean run(AutoFishingConfig config) {
         this.config = config;
@@ -73,6 +77,8 @@ public class AutoFishingScript extends Script {
         this.tackleBoxCastsWithoutXp = 0;
         clearDepositPoint();
         this.lastAnimTime = 0L;
+        this.fireLookupMisses = 0;
+        this.noFireThisTrip = false;
         this.currentState = AutoFishingState.IDLE; //reset for startup banking check
 
         Rs2Antiban.resetAntibanSettings();
@@ -148,10 +154,11 @@ public class AutoFishingScript extends Script {
 
         if (Rs2Inventory.isFull()) {
             if (isSpecialFish(selectedFish)) return AutoFishingState.PROCESSING_FISH;
-            if (config.cookFish() && !getRawFishInInventory().isEmpty() && canCookAtLeastOneRaw()) return AutoFishingState.COOKING;
+            if (config.cookFish() && !noFireThisTrip && !getRawFishInInventory().isEmpty() && canCookAtLeastOneRaw()) return AutoFishingState.COOKING;
             if (config.useBank()) return AutoFishingState.DEPOSITING;
             return AutoFishingState.DROPPING;
         }
+        noFireThisTrip = false;
 
         if (Rs2Bank.isOpen() || (!hasRequiredGear() && findNearestFishingSpot() == null)) {
             return AutoFishingState.GETTING_GEAR;
@@ -259,18 +266,21 @@ public class AutoFishingScript extends Script {
         }
     }
 
-    //change this to automatically ignore teh flag if theres no fire around
-    //either send to bank or drop instead
     private void handleCooking() {
         if (Thread.currentThread().isInterrupted() || !Microbot.isLoggedIn()) {
             return;
         }
         Rs2TileObjectModel fireOrRange = getNearbyFireOrRange();
         if (fireOrRange == null) {
-            log.error("There is no fire nearby, shutdown");
-            shutdown();
+            if (++fireLookupMisses < MAX_FIRE_LOOKUP_MISSES) {
+                return;
+            }
+            fireLookupMisses = 0;
+            noFireThisTrip = true;
+            log.info("No fire within 15 tiles, {} the raw fish instead of cooking this trip", config.useBank() ? "banking" : "dropping");
             return;
         }
+        fireLookupMisses = 0;
 
         while (true) {
             if (Thread.currentThread().isInterrupted() || !Microbot.isLoggedIn()) {
@@ -303,8 +313,8 @@ public class AutoFishingScript extends Script {
                 return;
             }
 
-            if (playerLocation.distanceTo(firePoint) > 4) {
-                Rs2Walker.walkTo(firePoint);
+            if (playerLocation.distanceTo(firePoint) > FIRE_REACH_DISTANCE) {
+                Rs2Walker.walkTo(firePoint, FIRE_REACH_DISTANCE);
                 return;
             }
 
@@ -641,7 +651,7 @@ public class AutoFishingScript extends Script {
         return lower.contains("bait") || lower.contains("feather") || lower.contains("sandworm") || lower.contains("karambwanji");
     }
 
-    private Rs2TileObjectModel getNearbyFireOrRange() { //this doesnt do ranges or stoves
+    Rs2TileObjectModel getNearbyFireOrRange() { //this doesnt do ranges or stoves
         if (Thread.currentThread().isInterrupted()) {
             return null;
         }
