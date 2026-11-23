@@ -38,6 +38,7 @@ public class GabulhasKarambwansScript extends Script {
     public static final int FAIRY_RING_ID = 29560;
     private static final String FISHING_RING_CODE = "DKP";
     private static final int MAX_WALK_TO_FISH_ATTEMPTS = 5;
+    private static final int MAX_WALK_TO_BANK_ATTEMPTS = 3;
     private static final int FISHING_AREA_RADIUS = 15;
     private static final int HOUSE_TELEPORT_MIN_DISTANCE = 20;
     private static final int[] DIAL_SLOTS = {InterfaceID.Fairyrings.ROOT_MODEL3, InterfaceID.Fairyrings.ROOT_MODEL4, InterfaceID.Fairyrings.ROOT_MODEL5};
@@ -147,7 +148,7 @@ public class GabulhasKarambwansScript extends Script {
         }
     }
 
-    private void doBank() {
+    void doBank() {
         if (config.bankLocation() == KarambwanBankLocation.SEERS &&
                 Microbot.getVarbitValue(VarbitID.KANDARIN_DIARY_HARD_COMPLETE) == 1
                 && Rs2Magic.hasRequiredRunes(Rs2Spells.CAMELOT_TELEPORT))
@@ -155,9 +156,13 @@ public class GabulhasKarambwansScript extends Script {
             Rs2Magic.cast(Rs2Spells.CAMELOT_TELEPORT, "Seers'", 2);
             sleepUntil(() -> Rs2Bank.isNearBank(net.runelite.client.plugins.microbot.util.bank.enums.BankLocation.CAMELOT, 15), 5000);
         } else {
-            Rs2Walker.walkTo(bankPoint, 3);
-            while (!Rs2Player.isInArea(bankPoint, 4) && super.isRunning()) {
-                Rs2Player.waitForWalking();
+            for (int i = 0; i < MAX_WALK_TO_BANK_ATTEMPTS && super.isRunning() && !Rs2Player.isInArea(bankPoint, 4); i++) {
+                if (Rs2Walker.walkTo(bankPoint, 3)) {
+                    break;
+                }
+            }
+            if (super.isRunning() && !Rs2Player.isInArea(bankPoint, 4)) {
+                log.warn("Did not arrive at the Zanaris bank after {} walk attempts, using the nearest bank instead", MAX_WALK_TO_BANK_ATTEMPTS);
             }
         }
         if (!Rs2Bank.walkToBankAndUseBank()) {
