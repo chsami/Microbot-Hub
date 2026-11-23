@@ -92,7 +92,9 @@ class DroAutomaticRecordingTest
             {
                 locations.when(() -> DroAutomaticRecording.location(client)).thenAnswer(call -> location.get());
                 plugin.startUp(); work.remove(0).run(); location.set(arena); bus.post(new net.runelite.api.events.ClientTick());
-                var session = sessions.constructed().get(0);
+                // 1.3.5: the plugin records while it is on; the plain recording outside is saved on arena entry.
+                verify(sessions.constructed().get(0), times(1)).stop();
+                var session = sessions.constructed().get(1);
                 bus.post(new ActorDeath(mock(NPC.class))); assertTrue(plugin.hasSession(), "Ordinary NPC death is not completion");
                 if (reason.equals("ZERO_HP"))
                 {
@@ -111,7 +113,7 @@ class DroAutomaticRecordingTest
                 }
                 assertFalse(plugin.hasSession(), arena + " " + reason);
                 for (int i = 0; i < 5; i++) { bus.post(new net.runelite.api.events.ClientTick()); bus.post(new net.runelite.api.events.GameTick()); }
-                assertEquals(1, sessions.constructed().size(), "A finished arena visit must not restart capture");
+                assertEquals(2, sessions.constructed().size(), "A finished arena visit must not restart capture");
                 verify(session, times(1)).stop();
             }
             finally { plugin.shutDown(); bus.unregister(plugin); }
@@ -181,20 +183,22 @@ class DroAutomaticRecordingTest
             location.set(INFERNO);
             plugin.onClientTick(null);
             assertTrue(plugin.isRecording());
+            // 1.3.5: session 0 is the plain recording from startup outside, saved on arena entry.
+            verify(sessions.constructed().get(0), times(1)).stop();
 
             plugin.requestStopRecording(); work.remove(0).run();
             assertFalse(plugin.isRecording());
-            verify(sessions.constructed().get(0), times(1)).stop();
+            verify(sessions.constructed().get(1), times(1)).stop();
             for (int i = 0; i < 4; i++) { plugin.onClientTick(null); plugin.onGameTick(null); }
-            assertEquals(1, sessions.constructed().size(), "The stopped automatic session must not reopen in Inferno");
+            assertEquals(2, sessions.constructed().size(), "The stopped automatic session must not reopen in Inferno");
 
             location.set(COLOSSEUM);
             plugin.onClientTick(null);
             assertTrue(plugin.isRecording(), "A different arena starts a new automatic recording");
-            assertEquals(2, sessions.constructed().size());
+            assertEquals(3, sessions.constructed().size());
             assertTrue(config.autoArenaRecording());
             plugin.shutDown();
-            verify(sessions.constructed().get(1), times(1)).stop();
+            verify(sessions.constructed().get(2), times(1)).stop();
         }
         finally { plugin.shutDown(); }
     }
@@ -253,16 +257,20 @@ class DroAutomaticRecordingTest
              var captures = mockConstruction(DroRecorderCapture.class))
         {
             locations.when(() -> DroAutomaticRecording.location(client)).thenReturn(OUTSIDE);
-            plugin.startUp(); work.remove(0).run(); assertFalse(plugin.hasSession());
+            // 1.3.5: an enabled plugin records outside the arenas too (it used to wait for an arena).
+            plugin.startUp(); work.remove(0).run(); assertTrue(plugin.hasSession());
             locations.when(() -> DroAutomaticRecording.location(client)).thenReturn(INFERNO);
             plugin.onClientTick(null); assertTrue(plugin.hasSession());
+            verify(sessions.constructed().get(0), times(1)).stop();
             boolean oldPause = Microbot.pauseAllScripts.getAndSet(true);
             try { for (int i = 0; i < 10; i++) { plugin.onClientTick(null); plugin.onGameTick(null); } }
             finally { Microbot.pauseAllScripts.set(oldPause); }
-            assertEquals(1, sessions.constructed().size()); verify(sessions.constructed().get(0), never()).stop();
+            assertEquals(2, sessions.constructed().size()); verify(sessions.constructed().get(1), never()).stop();
             locations.when(() -> DroAutomaticRecording.location(client)).thenReturn(OUTSIDE);
-            plugin.onGameTick(null); assertTrue(plugin.hasSession()); plugin.onGameTick(null); assertFalse(plugin.hasSession());
-            plugin.shutDown(); verify(sessions.constructed().get(0), times(1)).stop(); verify(captures.constructed().get(0), times(1)).close();
+            plugin.onGameTick(null); verify(sessions.constructed().get(1), never()).stop();
+            plugin.onGameTick(null); verify(sessions.constructed().get(1), times(1)).stop();
+            assertTrue(plugin.hasSession(), "Back outside, the plain recording resumes"); assertEquals(3, sessions.constructed().size());
+            plugin.shutDown(); verify(sessions.constructed().get(2), times(1)).stop(); verify(captures.constructed().get(1), times(1)).close();
         }
         finally { plugin.shutDown(); }
     }
@@ -285,9 +293,37 @@ class DroAutomaticRecordingTest
             assertTrue(plugin.hasSession()); verify(sessions.constructed().get(0), never()).stop();
             plugin.shutDown(); verify(sessions.constructed().get(0)).stop();
             plugin.startUp(); work.remove(0).run();
-            assertFalse(plugin.hasSession(), "Restored startup must not repeat a manual recording");
-            assertEquals(1, sessions.constructed().size());
+            // 1.3.5: an enabled plugin records; the restored startup opens a new recording, not the old one.
+            assertTrue(plugin.hasSession(), "An enabled plugin records outside arenas with the arena option on");
+            assertEquals(2, sessions.constructed().size());
             assertTrue(config.autoArenaRecording());
+        }
+        finally { plugin.shutDown(); }
+    }
+
+    /** 1.3.5: with the arena option on, turning the plugin on outside an arena records, and a death there does not end it. */
+    @Test void enabledPluginRecordsOutsideArenasWithTheArenaOptionOn() throws Exception
+    {
+        var plugin = new DroRecorderPlugin(); var client = mock(Client.class); var thread = mock(ClientThread.class);
+        var config = mock(DroRecorderConfig.class); var work = new ArrayList<Runnable>(); var player = mock(Player.class);
+        when(config.autoArenaRecording()).thenReturn(true); when(client.getLocalPlayer()).thenReturn(player);
+        when(client.getGameState()).thenReturn(GameState.LOGGED_IN);
+        doAnswer(call -> { work.add(call.getArgument(0)); return null; }).when(thread).invokeLater(any(Runnable.class));
+        set(plugin, "client", client); set(plugin, "clientThread", thread); set(plugin, "config", config);
+        set(plugin, "keyManager", mock(KeyManager.class));
+        try (var locations = mockStatic(DroAutomaticRecording.class, CALLS_REAL_METHODS);
+             var sessions = mockConstruction(DroRecorderSession.class); var captures = mockConstruction(DroRecorderCapture.class))
+        {
+            locations.when(() -> DroAutomaticRecording.location(client)).thenReturn(OUTSIDE);
+            plugin.startUp(); work.remove(0).run();
+            assertTrue(plugin.hasSession(), "Turning the plugin on outside an arena starts recording");
+            plugin.onActorDeath(new ActorDeath(player));
+            for (int i = 0; i < 4; i++) { plugin.onClientTick(null); plugin.onGameTick(null); }
+            assertTrue(plugin.hasSession()); assertEquals(1, sessions.constructed().size());
+            verify(sessions.constructed().get(0), never()).stop();
+            plugin.requestStopRecording(); work.remove(0).run();
+            for (int i = 0; i < 4; i++) { plugin.onClientTick(null); plugin.onGameTick(null); }
+            assertFalse(plugin.hasSession(), "An explicit stop is not undone by the next tick");
         }
         finally { plugin.shutDown(); }
     }

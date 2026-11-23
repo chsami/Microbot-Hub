@@ -23,7 +23,7 @@ public interface DroRecorderConfig extends Config
     @ConfigItem(
         keyName = "autoArenaRecording",
         name = "Automatic arena recording",
-        description = "With Automatic arena recording off, this plugin records everywhere for as long as it is enabled, including when the client turns it back on at startup. With Automatic arena recording on, it only records inside Inferno, Colosseum and Fight Caves. Disable the plugin to finish and save the current recording.",
+        description = "The plugin records for as long as it is enabled. With Automatic arena recording on, entering Inferno, Colosseum or Fight Caves also turns the plugin on, and each arena run is saved as its own recording (ended by death, completion or leaving); outside the arenas the plain recording continues. Disable the plugin to finish and save the current recording.",
         position = -1
     )
     default boolean autoArenaRecording()
