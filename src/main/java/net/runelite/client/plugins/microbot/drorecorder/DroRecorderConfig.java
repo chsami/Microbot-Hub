@@ -7,8 +7,9 @@ import java.awt.event.KeyEvent;
 
 @ConfigGroup(DroRecorderConfig.GROUP)
 @ConfigInformation("<b>DRO's Recorder</b> passively records gameplay for later AI/script analysis: player/NPC state, LOS/pathing, inventory/equipment/prayers, combat, graphics, ground items, dialogue, activity changes, mouse/camera activity, and tactical markers.<br><br>" +
-        "With Automatic arena recording off, this plugin records everywhere for as long as it is enabled, including when the client turns it back on at startup. With Automatic arena recording on, it only records inside Inferno, Colosseum and Fight Caves. Disable the plugin to finish and save the current recording.<br><br>Use <b>Open Output Folder</b> below to view recordings.<br><br>" +
-        "<b>Automatic arenas:</b> Enable this Recorder plugin and Automatic arena recording on your own client. It records Inferno/Colosseum/Firecape independently of other scripts, including while a script is paused or stopped. Off by default.<br><br>" +
+        "<b>When it records:</b> plugin enabled = recording, everywhere, including when the client turns it back on at startup. Plugin disabled = nothing is recorded. Disable the plugin to finish and save the current recording; enabling it again starts a new one.<br><br>" +
+        "<b>Disk use:</b> compressed recordings take about 100 MB per hour of play (measured 80-115 MB/h). There is no size cap or automatic cleanup, so delete old recordings yourself.<br><br>" +
+        "Use <b>Open Output Folder</b> below to view recordings.<br><br>" +
         "<b>Marker timing:</b><br>" +
         "<b>Ctrl+F7 Safe</b> - press AFTER you have reached the safespot/anchor and the situation is stable.<br>" +
         "<b>Ctrl+F8 Mistake</b> - press immediately after a mistake/bad position so it is marked as something not to learn.<br>" +
@@ -19,17 +20,6 @@ import java.awt.event.KeyEvent;
 public interface DroRecorderConfig extends Config
 {
     String GROUP = "drorecorder";
-
-    @ConfigItem(
-        keyName = "autoArenaRecording",
-        name = "Automatic arena recording",
-        description = "The plugin records for as long as it is enabled. With Automatic arena recording on, entering Inferno, Colosseum or Fight Caves also turns the plugin on, and each arena run is saved as its own recording (ended by death, completion or leaving); outside the arenas the plain recording continues. Disable the plugin to finish and save the current recording.",
-        position = -1
-    )
-    default boolean autoArenaRecording()
-    {
-        return false;
-    }
 
     @ConfigItem(
         keyName = "recordTickSnapshots",

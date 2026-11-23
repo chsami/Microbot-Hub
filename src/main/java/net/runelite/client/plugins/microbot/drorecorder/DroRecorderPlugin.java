@@ -15,8 +15,6 @@ import net.runelite.client.input.KeyManager;
 import net.runelite.client.input.MouseManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
-import net.runelite.client.plugins.PluginManager;
-import net.runelite.client.plugins.PluginInstantiationException;
 import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.client.util.HotkeyListener;
 
@@ -40,7 +38,7 @@ import java.util.concurrent.TimeUnit;
     name = PluginConstants.DRO + "Recorder",
     description = "Passive gameplay and arena recording for AI analysis",
     authors = {"droplugins"},
-    version = "1.3.5",
+    version = "1.3.6",
     minClientVersion = "2.1.32",
     tags = {"dro", "recorder", "telemetry", "analytics", "arena", "microbot"},
     iconUrl = "https://chsami.github.io/Microbot-Hub/DroRecorderPlugin/assets/icon.png",
@@ -82,12 +80,6 @@ public class DroRecorderPlugin extends Plugin
     private volatile DroRecorderSession session;
     private volatile boolean running;
     private volatile long generation;
-    private DroAutomaticRecording automatic;
-    private volatile boolean manualRecording;
-    /** The running session is the plain everywhere-recording, not an arena run's. */
-    private boolean generalSession;
-    /** An explicit stop holds the plain recording off until the plugin is turned on again. */
-    private boolean generalStopped;
     @Inject private net.runelite.client.eventbus.EventBus eventBus;
     @Inject private net.runelite.client.game.WorldService worldService;
     private static final long WORLD_PING_SECONDS = 5;
@@ -236,76 +228,24 @@ public class DroRecorderPlugin extends Plugin
         return configManager.getConfig(DroRecorderConfig.class);
     }
 
-    /** Client-thread arena-entry check. Client startup alone never enables recording. */
-    public static void startAutomaticIfConfigured(ConfigManager configManager, PluginManager pluginManager, Client client)
-    {
-        if (configManager == null || pluginManager == null) return;
-        if (!Boolean.parseBoolean(configManager.getConfiguration(DroRecorderConfig.GROUP, "autoArenaRecording"))) return;
-        if (!DroAutomaticRecording.isArena(DroAutomaticRecording.location(client))) return;
-        if (pluginManager.getPlugins().stream().anyMatch(plugin -> plugin instanceof DroRecorderPlugin && pluginManager.isActive(plugin))) return;
-        SwingUtilities.invokeLater(() ->
-        {
-            if (!Boolean.parseBoolean(configManager.getConfiguration(DroRecorderConfig.GROUP, "autoArenaRecording"))) return;
-            for (Plugin plugin : pluginManager.getPlugins())
-            {
-                if (!(plugin instanceof DroRecorderPlugin) || pluginManager.isActive(plugin)) continue;
-                try
-                {
-                    pluginManager.setPluginEnabled(plugin, true);
-                    pluginManager.startPlugin(plugin);
-                }
-                catch (PluginInstantiationException failed)
-                {
-                    log.warn("DroRecorder automatic startup failed: {}", failed.getClass().getSimpleName());
-                }
-                return;
-            }
-        });
-    }
-
-    /** Called only by the user's Start/toggle action, not restored plugin startup. */
     public boolean isRecording() { return session != null; }
-    public boolean automaticArenaRecordingEnabled() { return config.autoArenaRecording(); }
 
-    /** Called only by an explicit recording stop action; preserves automatic arena capture preference. */
+    /** Explicit stop: saves the current recording; the next recording starts when the plugin is turned on again. */
     public void requestStopRecording()
     {
         if (!running) return;
         long expected = generation;
         clientThread.invokeLater(() -> {
             if (!running || generation != expected) return;
-            DroAutomaticRecording.Location location = DroAutomaticRecording.location(client);
-            if (automatic != null)
-            {
-                if (config.autoArenaRecording() && DroAutomaticRecording.isArena(location))
-                    automatic.suppressUntilExit(location);
-                else
-                    automatic.close();
-            }
-            manualRecording = false;
-            generalStopped = true;
             stopSession();
         });
     }
 
-    public void requestManualRecording()
-    {
-        manualRecording = true;
-        generalStopped = false;
-        if (!running) return;
-        long expected = generation;
-        clientThread.invokeLater(() -> {
-            if (!running || generation != expected) return;
-            if (automatic != null) automatic.close();
-            if (session == null) startSession(null);
-        });
-    }
-
+    /** The plugin records for as long as it is enabled. */
     @Override
     protected void startUp()
     {
         running = true;
-        generalStopped = false;
         long expected = ++generation;
         keyManager.registerKeyListener(importantHotkey);
         keyManager.registerKeyListener(safespotHotkey);
@@ -314,41 +254,23 @@ public class DroRecorderPlugin extends Plugin
         clientThread.invokeLater(() -> {
             if (!running || generation != expected) return;
             stopSession();
-            automatic = new DroAutomaticRecording(this::startArenaSession, this::stopSession);
-            if (manualRecording || !config.autoArenaRecording()) startSession(null);
-            else updateAutomatic(false);
+            startSession();
         });
         pinger = java.util.concurrent.Executors.newSingleThreadScheduledExecutor(r -> { Thread t = new Thread(r, "dro-recorder-ping"); t.setDaemon(true); return t; });
         pinger.scheduleWithFixedDelay(this::pingWorld, WORLD_PING_SECONDS, WORLD_PING_SECONDS, java.util.concurrent.TimeUnit.SECONDS);
     }
 
-    /** Arena entry: the plain recording outside is saved and the run gets its own named recording. */
-    private synchronized void startArenaSession(String activity)
-    {
-        if (generalSession) stopSession();
-        startSession(activity);
-    }
-
     /** Client thread only. External scripts never own this session. */
-    private synchronized void startSession(String activity)
+    private synchronized void startSession()
     {
         if (!running || session != null) return;
         try
         {
-            if (activity == null) session = new DroRecorderSession(client, gson, config);
-            else
-            {
-                String stamp = java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss-SSS")
-                    .withZone(java.time.ZoneId.systemDefault()).format(java.time.Instant.now());
-                Path directory = DroAutomaticRecording.directory(OUTPUT_ROOT, activity, stamp, java.util.UUID.randomUUID().toString().substring(0, 8));
-                session = new DroRecorderSession(client, gson, new DroRecorderConfig(){}, directory);
-            }
+            session = new DroRecorderSession(client, gson, config);
             session.start();
-            generalSession = activity == null;
             attachFocusListeners(client.getCanvas(), session);
             capture = new DroRecorderCapture(session, eventBus, mouseManager, () -> attachFocusListeners(client.getCanvas(), session));
             capture.start();
-            if (activity != null) session.recordDiagnostic(java.util.Map.of("record", "arena_recording", "stage", "START", "product", activity, "owner", "DRO_RECORDER"));
             if (config.showOverlay() && overlayManager != null && overlay != null)
             {
                 overlayManager.add(overlay);
@@ -371,7 +293,6 @@ public class DroRecorderPlugin extends Plugin
         if (capture != null) { capture.close(); capture = null; }
         DroRecorderSession stopping = session;
         session = null;
-        generalSession = false;
         pingWorldId = 0;
         if (stopping != null) { log.info("DroRecorder stopping: {}", stopping.getOutputDirectory()); stopping.stop(); }
         detachFocusListeners();
@@ -379,67 +300,18 @@ public class DroRecorderPlugin extends Plugin
 
     @Subscribe public void onClientTick(ClientTick event)
     {
-        updateAutomatic(false);
         pingWorldId = session != null && client.getGameState() == net.runelite.api.GameState.LOGGED_IN ? client.getWorld() : 0;
-    }
-    @Subscribe(priority = -1) public void onGameTick(GameTick event)
-    {
-        updateAutomatic(true);
-        // Fallback for enabling Recorder during the local player's death sequence.
-        if (automaticSession() && client.getGameState() == net.runelite.api.GameState.LOGGED_IN
-            && client.getLocalPlayer() != null && client.getRealSkillLevel(net.runelite.api.Skill.HITPOINTS) > 0
-            && client.getBoostedSkillLevel(net.runelite.api.Skill.HITPOINTS) <= 0)
-            finishAutomatic("DEATH");
-    }
-    @Subscribe(priority = -1) public void onActorDeath(ActorDeath event)
-    {
-        // Capture's default-priority subscriber retains the death before finalization.
-        if (!automaticSession()) return;
-        if (event.getActor() == client.getLocalPlayer()) { finishAutomatic("DEATH"); return; }
-        if (!(event.getActor() instanceof net.runelite.api.NPC)) return;
-        int id = ((net.runelite.api.NPC) event.getActor()).getId();
-        if ((automatic.recording(DroAutomaticRecording.Location.INFERNO)
-                && id == net.runelite.api.gameval.NpcID.INFERNO_TZKALZUK_PLACEHOLDER)
-            || (automatic.recording(DroAutomaticRecording.Location.COLOSSEUM)
-                && id == net.runelite.api.gameval.NpcID.COLOSSEUM_SOL_P1)
-            || (automatic.recording(DroAutomaticRecording.Location.FIRECAPE)
-                && id == net.runelite.api.gameval.NpcID.TZHAAR_FIGHTCAVE_SWARM_BOSS))
-            finishAutomatic("COMPLETION");
-    }
-    private boolean automaticSession() { return running && !manualRecording && config.autoArenaRecording() && automatic != null && session != null && !generalSession; }
-    private void finishAutomatic(String reason)
-    {
-        session.recordDiagnostic(java.util.Map.of("record", "arena_recording", "stage", "END", "reason", reason, "owner", "DRO_RECORDER"));
-        automatic.finish();
-    }
-    @Subscribe public void onGameStateChanged(GameStateChanged event)
-    {
-        // Finish after the capture subscriber has recorded the logout/scene event.
-        long expected = generation;
-        clientThread.invokeLater(() -> { if (generation == expected) updateAutomatic(false); });
-    }
-    private void updateAutomatic(boolean gameTick)
-    {
-        if (!running || manualRecording || !config.autoArenaRecording() || automatic == null) return;
-        DroAutomaticRecording.Location location = DroAutomaticRecording.location(client);
-        automatic.observe(location, gameTick);
-        // The plugin being on means recording: outside the arenas (and after a run's recording ends there) the plain
-        // recording runs. Inside an arena only the run's own recording does, and none after the run has ended.
-        if (session == null && !generalStopped
-            && (location == DroAutomaticRecording.Location.OUTSIDE || location == DroAutomaticRecording.Location.LOGGED_OUT))
-            startSession(null);
     }
 
     @Override
     protected void shutDown()
     {
-        running = false; manualRecording = false; generation++;
+        running = false; generation++;
         keyManager.unregisterKeyListener(importantHotkey);
         keyManager.unregisterKeyListener(safespotHotkey);
         keyManager.unregisterKeyListener(mistakeHotkey);
         keyManager.unregisterKeyListener(pauseHotkey);
         if (pinger != null) { pinger.shutdownNow(); pinger = null; }
-        if (automatic != null) { automatic.close(); automatic = null; }
         stopSession();
     }
 
@@ -469,18 +341,7 @@ public class DroRecorderPlugin extends Plugin
             return;
         }
 
-        if ("autoArenaRecording".equals(event.getKey()))
-        {
-            long expected = generation;
-            clientThread.invokeLater(() -> {
-                if (!running || generation != expected || manualRecording) return;
-                if (automatic != null) automatic.close();
-                stopSession();
-                if (config.autoArenaRecording()) updateAutomatic(false);
-                else startSession(null);
-            });
-        }
-        else if ("showOverlay".equals(event.getKey()))
+        if ("showOverlay".equals(event.getKey()))
         {
             if (config.showOverlay() && isRecording() && overlayManager != null && overlay != null)
             {
