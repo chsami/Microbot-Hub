@@ -5,6 +5,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.2.65]
+
+### Fixed
+- **Salvaging stuck on inventory cleanup**: The script now only cleans up your inventory before salvaging when an item's full name is on your Drop items list, the same way it drops items. Before, a list entry like plank also matched items such as Sawmill coupon (wood plank), which it never drops, so it repeated the cleanup every tick and never salvaged.
+
+---
+
 ## [2.2.64]
 
 ### Fixed

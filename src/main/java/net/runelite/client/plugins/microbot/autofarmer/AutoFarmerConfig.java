@@ -124,9 +124,16 @@ public interface AutoFarmerConfig extends Config {
 
     @ConfigItem(keyName = "logoutBetweenRuns", name = "Logout while crops grow", description = "Logout after the run and login when the next patch check is due. Keep the client open.", position = 11, section = settingsSection)
     default boolean logoutBetweenRuns() { return true; }
+
+    @Range(min = 0, max = 1440)
+    @ConfigItem(keyName = "cropLogoutThresholdMinutes", name = "Minimum crop wait to log out (minutes)",
+            description = "Log out when the time until the next crop check exceeds this many minutes. 0 allows any positive wait.",
+            position = 22, section = settingsSection)
+    default int cropLogoutThresholdMinutes() { return 1; }
+
     @Range(min = 5, max = 180)
     @ConfigItem(keyName = "growthMinutes", name = "Crop check interval (minutes)", description = "Approximate delay after planting; live patch state is checked on return", position = 12, section = settingsSection)
-    default int growthMinutes() { return 80; }
+    default int growthMinutes() { return 90; }
 
     @ConfigItem(keyName = "repeatRuns", name = "Repeat runs", description = "Check for ready patches every five minutes after each run", position = 10, section = settingsSection)
     default boolean repeatRuns() { return true; }
@@ -323,6 +330,20 @@ public interface AutoFarmerConfig extends Config {
         return FlowerSeedType.LIMPWURT;
     }
 
+
+    @ConfigSection(name = "Session limits", description = "Daily break and patch recovery", position = 31)
+    String sessionSection = "sessionLimits";
+
+    @ConfigItem(keyName = "dailyBreak", name = "Daily break",
+            description = "Log out for 3 to 6 hours at a random time, at most once per local calendar day",
+            section = sessionSection, position = 0)
+    default boolean dailyBreak() { return false; }
+
+    @Range(min = 1, max = 10)
+    @ConfigItem(keyName = "patchRetryLimit", name = "Patch retry limit",
+            description = "Failed attempts at the same action before deferring the patch for 15 minutes",
+            section = sessionSection, position = 1)
+    default int patchRetryLimit() { return 3; }
 
     @ConfigSection(name = "Trees", description = "Regular and fruit tree runs", position = 30)
     String treeSection = "trees";

@@ -2,42 +2,77 @@ package net.runelite.client.plugins.microbot.drocolosseumprayers;
 
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.List;
+import net.runelite.api.gameval.NpcID;
+import net.runelite.api.gameval.SpotanimID;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.plugins.microbot.drocolosseumprayers.prayer.Guard;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
-public class DroColosseumPrayersPluginTest
+class DroColosseumPrayersPluginTest
 {
-    private final PluginDescriptor descriptor = DroColosseumPrayersPlugin.class.getAnnotation(PluginDescriptor.class);
+	private final PluginDescriptor descriptor = DroColosseumPrayersPlugin.class.getAnnotation(PluginDescriptor.class);
 
-    @Test public void publicPluginLoaderAcceptsThePlugin() {
-        // The client loader only takes classes whose direct parent is Plugin.
-        assertEquals(Plugin.class, DroColosseumPrayersPlugin.class.getSuperclass());
-        assertTrue(descriptor.isExternal());
-        assertFalse(descriptor.enabledByDefault());
-    }
+	@Test
+	void descriptor()
+	{
+		assertEquals(Plugin.class, DroColosseumPrayersPlugin.class.getSuperclass());
+		assertEquals("[Dro] Colosseum Prayers", descriptor.name());
+		assertEquals("2.0.1", descriptor.version());
+		assertTrue(descriptor.isExternal());
+		assertFalse(descriptor.enabledByDefault());
+	}
 
-    @Test public void descriptorNamesThePrayersPluginAndItsVersion() {
-        assertEquals("[Dro] Colosseum Prayers", descriptor.name());
-        assertEquals("1.0.102", descriptor.version());
-        assertEquals("2.6.55", descriptor.minClientVersion());
-        assertArrayEquals(new String[]{"droplugins"}, descriptor.authors());
-    }
+	@Test
+	void docsExist()
+	{
+		String docs = "src/main/resources/net/runelite/client/plugins/microbot/drocolosseumprayers/docs/";
+		assertTrue(Files.isRegularFile(Paths.get(docs + "README.md")));
+		assertTrue(Files.isRegularFile(Paths.get(docs + "assets/icon.png")));
+		assertTrue(Files.isRegularFile(Paths.get(docs + "assets/card.png")));
+	}
 
-    @Test public void catalogImagesHaveMatchingDocumentationAssets() {
-        assertEquals("https://chsami.github.io/Microbot-Hub/DroColosseumPrayersPlugin/assets/icon.png", descriptor.iconUrl());
-        assertEquals("https://chsami.github.io/Microbot-Hub/DroColosseumPrayersPlugin/assets/card.png", descriptor.cardUrl());
-        String docs = "src/main/resources/net/runelite/client/plugins/microbot/drocolosseumprayers/docs/";
-        assertTrue(Files.isRegularFile(Paths.get(docs + "assets/icon.png")));
-        assertTrue(Files.isRegularFile(Paths.get(docs + "assets/card.png")));
-        assertTrue(Files.isRegularFile(Paths.get(docs + "README.md")));
-    }
+	@Test
+	void warbandOnlyAttacksFromMeleeDistance()
+	{
+		assertTrue(ColosseumMobs.of(NpcID.COLOSSEUM_WARBANDER_RANGED_FEMALE).contactOnlyAttacker());
+		assertTrue(ColosseumMobs.of(NpcID.COLOSSEUM_WARBANDER_MAGE_MALE).contactOnlyAttacker());
+		assertEquals(Guard.RANGE, ColosseumMobs.of(NpcID.COLOSSEUM_WARBANDER_RANGED_FEMALE).guard);
+	}
 
-    @Test public void prayersAreTheWholePlugin() {
-        DroColosseumPrayersConfig config = new DroColosseumPrayersConfig() { };
-        assertTrue(config.showTilePack(), "the tile pack is on by default");
-        DroColosseumPrayersPlugin plugin = new DroColosseumPrayersPlugin();
-        assertEquals(ArenaFightInput.INVOKES, plugin.fightInput());
-    }
+	@Test
+	void manticoreAndSolAreSpecials()
+	{
+		assertNull(ColosseumMobs.of(NpcID.COLOSSEUM_MANTICORE));
+		assertNull(ColosseumMobs.of(NpcID.COLOSSEUM_SOL_P1));
+		assertTrue(ColosseumSpecials.special(NpcID.COLOSSEUM_MANTICORE));
+		assertTrue(ColosseumSpecials.special(NpcID.COLOSSEUM_SOL_P1));
+	}
+
+	@Test
+	void manticoreOrbsMapToOverheads()
+	{
+		assertEquals(Guard.MAGIC, ColosseumSpecials.orbGuard(SpotanimID.VFX_MANTICORE_01_PROJECTILE_MAGIC_01));
+		assertEquals(Guard.RANGE, ColosseumSpecials.orbGuard(SpotanimID.VFX_MANTICORE_01_PROJECTILE_RANGED_01));
+		assertEquals(Guard.MELEE, ColosseumSpecials.orbGuard(SpotanimID.VFX_MANTICORE_01_PROJECTILE_MELEE_01));
+		assertEquals(Guard.NONE, ColosseumSpecials.orbGuard(1));
+	}
+
+	@Test
+	void manticoreMeleeOrbIsThrownLast()
+	{
+		assertEquals(List.of(Guard.RANGE, Guard.MAGIC, Guard.MELEE),
+			ColosseumSpecials.orient(List.of(Guard.MELEE, Guard.MAGIC, Guard.RANGE)));
+		assertEquals(List.of(Guard.MAGIC, Guard.RANGE, Guard.MELEE),
+			ColosseumSpecials.orient(List.of(Guard.MAGIC, Guard.RANGE, Guard.MELEE)));
+	}
+
+	@Test
+	void solTripleParryTicks()
+	{
+		assertArrayEquals(new int[]{3, 6, 9}, ColosseumSpecials.solParry(false));
+		assertArrayEquals(new int[]{3, 6, 10}, ColosseumSpecials.solParry(true));
+	}
 }

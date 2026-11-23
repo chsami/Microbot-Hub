@@ -1288,19 +1288,9 @@ public class SalvagingScript {
                 return true;
             }
         }
-        String dropItems = config.dropItems();
-        if (dropItems != null) {
-            if (!dropItems.isBlank()) {
-                for (String raw : dropItems.split(",")) {
-                    String name = raw.trim();
-                    if (name.isEmpty()) {
-                        continue;
-                    }
-                    if (Rs2Inventory.hasItem(name)) {
-                        return true;
-                    }
-                }
-            }
+        String[] dropItems = dropItemNames(config);
+        if (dropItems.length > 0 && Rs2Inventory.hasItem(dropItems, true)) {
+            return true;
         }
         if (config.enableAlching()) {
             String alchItems = config.alchItems();

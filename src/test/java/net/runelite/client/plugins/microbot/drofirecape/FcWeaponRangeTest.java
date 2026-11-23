@@ -1,23 +1,18 @@
 /* Copyright (c) 2026, DRO (droplugins). SPDX-License-Identifier: BSD-2-Clause */
 package net.runelite.client.plugins.microbot.drofirecape;
 
+import java.util.List;
 import java.util.Map;
+import net.runelite.client.plugins.microbot.drofirecape.core.BowPrayerClock;
+import net.runelite.client.plugins.microbot.drofirecape.core.OffensivePrayers;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
+/** Magic weapons from the Inventory Setup: their ranges, autocast/powered kind, prayers and cast animations. */
 class FcWeaponRangeTest {
-    @Test void everySupportedWeaponHasAnExplicitRange() {
+    @Test void magicWeaponsHaveTheirAttackRange() {
         // OSRS Wiki "Attack range", non-longrange column.
         Map<String,Integer> ranges=Map.ofEntries(
-            Map.entry("Toxic blowpipe",5),Map.entry("Blazing blowpipe",5),Map.entry("Comp ogre bow",5),Map.entry("Phoenix crossbow",5),
-            Map.entry("Twisted bow",10),Map.entry("Bow of faerdhinen (c)",10),Map.entry("Crystal bow",10),Map.entry("Dark bow",10),
-            Map.entry("Scorching bow",10),Map.entry("Magic longbow",10),Map.entry("Magic comp bow",10),Map.entry("Ogre bow",10),
-            Map.entry("3rd age bow",9),Map.entry("Craw's bow",9),Map.entry("Webweaver bow",9),Map.entry("Heavy ballista",9),Map.entry("Black chinchompa",9),
-            Map.entry("Armadyl crossbow",8),Map.entry("Zaryte crossbow",8),Map.entry("Karil's crossbow",8),Map.entry("Seercull",8),
-            Map.entry("Venator bow",6),Map.entry("Dorgeshuun crossbow",6),Map.entry("Eclipse atlatl",6),
-            Map.entry("Rune crossbow",7),Map.entry("Dragon hunter crossbow",7),Map.entry("Magic shortbow (i)",7),
-            Map.entry("Toktz-xil-ul",7),Map.entry("Tonalztics of ralos",7),
-            Map.entry("Dragon knife",4),Map.entry("Rune thrownaxe",4),Map.entry("Dragon dart",3),
             Map.entry("Trident of the swamp",7),Map.entry("Sanguinesti staff",7),Map.entry("Tumeken's shadow",8),Map.entry("Bone staff",8),
             Map.entry("Accursed sceptre",7),Map.entry("Thammaron's sceptre",7),Map.entry("Warped sceptre",7),Map.entry("Dawnbringer",7),
             Map.entry("Eye of ayak",6),Map.entry("Crystal staff (perfected)",7),
@@ -25,11 +20,39 @@ class FcWeaponRangeTest {
             Map.entry("Toxic staff of the dead",10),Map.entry("Ancient sceptre",10),Map.entry("Ahrim's staff",10),
             Map.entry("Mystic water staff",10),Map.entry("Void knight mace",10),Map.entry("Blue moon spear",10));
         ranges.forEach((name,range)->assertEquals(range.intValue(),FcFrame.inferRange(name),name));
+    }
+    @Test void rangedWeaponsKeepTheirRangeAndMeleeStaysUnrecognized() {
+        // OSRS Wiki "Attack range", non-longrange column; the same table as development.
+        Map<String,Integer> ranges=Map.ofEntries(
+            Map.entry("Toxic blowpipe",5),Map.entry("Blazing blowpipe",5),Map.entry("Comp ogre bow",5),Map.entry("Phoenix crossbow",5),
+            Map.entry("Twisted bow",10),Map.entry("Bow of faerdhinen (c)",10),Map.entry("Crystal bow",10),Map.entry("Dark bow",10),
+            Map.entry("Scorching bow",10),Map.entry("Magic longbow",10),Map.entry("Magic comp bow",10),Map.entry("Ogre bow",10),
+            Map.entry("3rd age bow",9),Map.entry("Craw's bow",9),Map.entry("Webweaver bow",9),Map.entry("Heavy ballista",9),Map.entry("Black chinchompa",9),
+            Map.entry("Armadyl crossbow",8),Map.entry("Zaryte crossbow",8),Map.entry("Karil's crossbow",8),Map.entry("Seercull",8),
+            Map.entry("Hunters' crossbow",8),Map.entry("Hunters' sunlight crossbow",8),
+            Map.entry("Venator bow",6),Map.entry("Dorgeshuun crossbow",6),Map.entry("Eclipse atlatl",6),
+            Map.entry("Rune crossbow",7),Map.entry("Dragon hunter crossbow",7),Map.entry("Magic shortbow (i)",7),
+            Map.entry("Toktz-xil-ul",7),Map.entry("Tonalztics of ralos",7),
+            Map.entry("Dragon knife",4),Map.entry("Rune thrownaxe",4),Map.entry("Dragon dart",3));
+        ranges.forEach((name,range)->assertEquals(range.intValue(),FcFrame.inferRange(name),name));
         assertEquals(0,FcFrame.inferRange("Abyssal whip"));
     }
     @Test void poweredStavesCastTheirOwnSpellAndOthersAutocast() {
         assertEquals(FcMagic.Weapon.POWERED,FcMagic.weapon("Tumeken's shadow"));
         assertEquals(FcMagic.Weapon.AUTOCAST,FcMagic.weapon("Kodai wand"));
         assertEquals(FcMagic.Weapon.NONE,FcMagic.weapon("Twisted bow"));
+    }
+    @Test void magicWeaponsTakeTheMagicOffensivePrayers() {
+        assertEquals(List.of("AUGURY"),OffensivePrayers.select(false,true,77,70,false,true,true,true));
+        assertEquals(List.of("MYSTIC_MIGHT"),OffensivePrayers.select(false,true,77,70,false,true,true,false));
+        assertEquals(List.of("MYSTIC_LORE"),OffensivePrayers.select(false,true,44,1,false,false,false,false));
+        assertEquals(List.of("MYSTIC_WILL"),OffensivePrayers.select(false,true,26,1,false,false,false,false));
+        assertEquals(List.of("RIGOUR"),OffensivePrayers.select(false,false,77,70,false,true,true,true),"A bow keeps Rigour");
+    }
+    @Test void autocastAndPoweredStaffCastsAreAttackAnimations() {
+        for(int animation:new int[]{711,1161,1162,1167,7855,1978,1979,9493})
+            assertTrue(BowPrayerClock.attackAnimation(animation,false),"cast "+animation);
+        assertFalse(BowPrayerClock.attackAnimation(711,true),"melee clock ignores casts");
+        assertTrue(BowPrayerClock.attackAnimation(5061,false),"blowpipe still recognized");
     }
 }

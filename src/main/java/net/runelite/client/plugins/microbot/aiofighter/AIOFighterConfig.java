@@ -14,7 +14,7 @@ import net.runelite.client.plugins.microbot.util.skills.slayer.enums.SlayerMaste
 @ConfigGroup(AIOFighterConfig.GROUP)
 @ConfigInformation("1. Make sure to place the cannon first before starting the plugin. <br />" +
         "2. Use food also supports Guthan's healing, the shield weapon is default set to Dragon Defender. <br />" +
-        "3. Prayer, Combat, Ranging & AntiPoison potions are supported. <br />" +
+        "3. Prayer, Combat, Ranging, Magic & AntiPoison potions are supported. Combat potions follow your current attack style: Ranging potions while ranging, Magic potions while casting, Attack/Strength/Combat potions while meleeing. <br />" +
         "4. Items to loot based your requirements. <br />" +
         "5. You can turn auto attack NPC off if you have a cannon. <br />" +
         "6. PrayFlick in different styles. <br />" +

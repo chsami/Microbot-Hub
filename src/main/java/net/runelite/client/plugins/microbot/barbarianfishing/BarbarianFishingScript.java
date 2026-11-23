@@ -141,16 +141,16 @@ public class BarbarianFishingScript extends Script
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try
             {
-                if (!super.run())
-                {
-                    return;
-                }
-
                 if (!Microbot.isLoggedIn())
                 {
                     missingRodTicks = 0;
                     missingBaitTicks = 0;
                     status = "Logged out";
+                    return;
+                }
+
+                if (!super.run())
+                {
                     return;
                 }
 

@@ -187,6 +187,11 @@ public class DroSulliuscepScript extends DroScript
     private int coursePlanReachedTree = -1;
     private long nextChoppingPlanAt;
 
+    protected boolean runsWhileLoggedOut()
+    {
+        return true;
+    }
+
     public boolean run(DroSulliuscepConfig config)
     {
         stopTreeCamera();

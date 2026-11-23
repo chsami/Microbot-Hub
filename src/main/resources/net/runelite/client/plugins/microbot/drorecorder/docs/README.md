@@ -1,29 +1,41 @@
 # DroRecorder
 
-The plugin is disabled by default. Manual recording starts when the plugin is enabled
-with **Automatic arena recording** off. Output remains in
-`~/.runelite/dro-recorder/<recording>/session.jsonl.gz` with discrete events mirrored
-to `events.jsonl.gz`. Gzip compression is enabled by default and is lossless;
-stream readers can decompress it without loading a whole recording into memory.
-Disable compression in settings to use plain `.jsonl` on the next recording.
+Records gameplay for later analysis: player and NPC state, line of sight and pathing,
+inventory, equipment and prayers, combat, projectiles, chat, mouse and camera input,
+and the tactical markers you press.
 
-## Independent arena capture
+## When it records
 
-Enable **Automatic arena recording** in the local Recorder settings to opt in.
-Keep the Recorder plugin enabled: it then waits for Inferno, Colosseum or Fight Caves entry and starts recording on its own. A disabled Recorder never records.
+| Plugin | Recording |
+| --- | --- |
+| Enabled | Records everywhere, for as long as it stays enabled, including when the client turns it back on at startup. |
+| Disabled | Records nothing. |
 
-Recorder detects the instance's template tiles independently of any arena scripts.
-A session starts on entry, survives loading, human takeover, and script pause/stop,
-and closes on local-player death, final-boss death (Zuk/Sol/Jad), two confirmed
-outside game ticks, or logout. Zero HP on a reliable game tick is a death fallback.
-Death/completion is captured before finalization; the same arena visit cannot
-immediately create another recording. Recorder rearms after confirmed exit/logout,
-ready for the next attempt.
-Explicitly disabling Recorder also closes it. The Recorder pause hotkey (Ctrl+F10) remains
-available for an intentional recording pause.
-Automatic sessions always use full capture defaults and gzip, under
-`inferno-YYYYMMDD-HHMMSS-SSS-<unique>/` or `colosseum-.../` or `firecape-.../`.
-There is no size cap or automatic retention cleanup.
+The plugin is disabled by default. Enabling it starts a new recording; disabling it
+finishes and saves that recording. The pause hotkey (Ctrl+F10) pauses and resumes
+recording without disabling the plugin.
+
+## Where recordings go and how big they are
+
+Each recording is a folder in `~/.runelite/dro-recorder/` holding `session.jsonl.gz`,
+with discrete events mirrored to `events.jsonl.gz`. Use **Open Output Folder** in the
+settings to open it.
+
+Compression (gzip, lossless) is on by default. Compressed recordings take about
+**100 MB per hour** of play (80-115 MB per hour measured). Stream readers can decompress them without loading a whole
+recording into memory. Turning compression off writes plain `.jsonl` from the next
+recording on, which uses more disk.
+
+There is no size cap or automatic cleanup. Delete recordings you no longer need.
+
+## Markers
+
+| Hotkey | Marker | When to press |
+| --- | --- | --- |
+| Ctrl+F7 | Safe | After you reach the safespot or anchor and the situation is stable. |
+| Ctrl+F8 | Mistake | Right after a mistake or bad position, so it is not learned as correct. |
+| Ctrl+F9 | Important | Right after an important tactical decision or action. |
+| Ctrl+F10 | Pause/Resume | Pauses or resumes recording without disabling the plugin. |
 
 ## Colosseum modifiers
 

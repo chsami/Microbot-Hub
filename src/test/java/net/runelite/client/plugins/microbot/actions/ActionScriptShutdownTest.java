@@ -1,5 +1,6 @@
 package net.runelite.client.plugins.microbot.actions;
 
+import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.actions.fixtures.FixtureState;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
@@ -36,6 +37,7 @@ class ActionScriptShutdownTest {
         microbot.when(Microbot::isLoggedIn).thenReturn(true);
         rs2Player = mockStatic(Rs2Player.class);
         rs2Player.when(Rs2Player::hasCompletedTutorialIsland).thenReturn(false);
+        rs2Player.when(Rs2Player::getWorldLocation).thenReturn(new WorldPoint(3222, 3218, 0));
         executor = new DeferredExecutor();
         interactions = new ArrayList<>();
     }

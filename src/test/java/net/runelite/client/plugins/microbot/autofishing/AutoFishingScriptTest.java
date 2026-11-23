@@ -10,6 +10,7 @@ import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.autofishing.enums.AutoFishingState;
 import net.runelite.client.plugins.microbot.autofishing.enums.Fish;
 import net.runelite.client.plugins.microbot.autofishing.enums.HarpoonType;
@@ -29,8 +30,10 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
@@ -45,6 +48,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -109,6 +113,7 @@ class AutoFishingScriptTest {
              MockedStatic<Rs2Widget> widget = mockStatic(Rs2Widget.class);
              MockedStatic<Rs2Antiban> antiban = mockStatic(Rs2Antiban.class)) {
             microbot.when(Microbot::isLoggedIn).thenReturn(true);
+            rs2Player.when(Rs2Player::getWorldLocation).thenReturn(new WorldPoint(3105, 3430, 0));
             widget.when(() -> Rs2Widget.isWidgetVisible(InterfaceID.LevelupDisplay.CONTINUE)).thenReturn(true);
 
             script.run(mock(AutoFishingConfig.class));
@@ -117,7 +122,6 @@ class AutoFishingScriptTest {
             tick.getValue().run();
 
             widget.verify(() -> Rs2Widget.clickWidget(InterfaceID.LevelupDisplay.CONTINUE));
-            rs2Player.verify(Rs2Player::getWorldLocation, never());
             assertEquals(AutoFishingState.IDLE, script.getCurrentState());
         }
     }
@@ -482,9 +486,36 @@ class AutoFishingScriptTest {
         });
 
         assertEquals(Set.of(BankLocation.LUMBRIDGE_TOP.getWorldPoint(), BankLocation.DRAYNOR_VILLAGE.getWorldPoint(),
-                DepositBoxLocation.PORT_SARIM.getWorldPoint()), planned);
+                DepositBoxLocation.PORT_SARIM.getWorldPoint(), PORT_SARIM_BOX_APPROACH), planned);
         assertEquals(Set.of(ItemID.LOBSTER_POT, ItemID.COINS), kept);
     }
+
+    @Test
+    void reachingTheWalkableTileBesideTheDepositBoxPicksTheDepositBox() {
+        Set<Integer> kept = new HashSet<>();
+        runDepositTick(false, PORT_SARIM_BOX_APPROACH, new HashSet<>(), kept, (bank, depositBox) -> {
+            depositBox.verify(() -> Rs2DepositBox.walkToAndUseDepositBox(DepositBoxLocation.PORT_SARIM));
+            bank.verify(Rs2Bank::walkToBankAndUseBank, never());
+            bank.verify(() -> Rs2Bank.walkToBankAndUseBank(any(BankLocation.class)), never());
+        });
+
+        assertEquals(Set.of(ItemID.LOBSTER_POT, ItemID.COINS), kept);
+    }
+
+    @Test
+    void depositBoxTargetsAddOnlyWalkableTilesBesideTheBox() {
+        WorldPoint box = DepositBoxLocation.PORT_SARIM.getWorldPoint();
+        AutoFishingScript script = new AutoFishingScript() {
+            @Override
+            boolean isWalkable(WorldPoint tile) {
+                return tile.equals(box.dx(1)) || tile.equals(box.dy(-1));
+            }
+        };
+
+        assertEquals(Set.of(box, box.dx(1), box.dy(-1)), script.depositBoxTargets(box));
+    }
+
+    private static final WorldPoint PORT_SARIM_BOX_APPROACH = DepositBoxLocation.PORT_SARIM.getWorldPoint().dy(-1);
 
     @Test
     void fishBarrelTripOnlyConsidersBanksSoTheBarrelCanBeEmptied() {
@@ -551,6 +582,11 @@ class AutoFishingScriptTest {
             @Override
             Set<DepositBoxLocation> accessibleDepositBoxes() {
                 return Set.of(DepositBoxLocation.PORT_SARIM);
+            }
+
+            @Override
+            boolean isWalkable(WorldPoint tile) {
+                return tile.equals(PORT_SARIM_BOX_APPROACH);
             }
 
             @Override
@@ -677,6 +713,121 @@ class AutoFishingScriptTest {
                 rs2Player.verify(Rs2Player::logout, times(1));
                 microbot.verify(() -> Microbot.showMessage(expectedStopReason));
             }
+        }
+    }
+
+    private static final WorldPoint BARBARIAN_VILLAGE_SOUTH_SPOT = new WorldPoint(3109, 3433, 0);
+    private static final WorldPoint BARBARIAN_VILLAGE_FIRE = new WorldPoint(3100, 3433, 0);
+
+    @Test
+    void cookingWalksRightUpToAFireNineTilesAway() {
+        Rs2TileObjectModel fire = barbarianVillageFire();
+        List<AutoFishingState> states = runCookingTicks(true, List.of(fire), 1, walker -> {
+            walker.verify(() -> Rs2Walker.walkTo(BARBARIAN_VILLAGE_FIRE, AutoFishingScript.FIRE_REACH_DISTANCE));
+            walker.verify(() -> Rs2Walker.walkTo(BARBARIAN_VILLAGE_FIRE), never());
+        });
+
+        assertEquals(List.of(AutoFishingState.COOKING), states);
+    }
+
+    @Test
+    void emptyFireLookupsRightAfterReconnectAreRetriedInsteadOfStopping() {
+        Rs2TileObjectModel fire = barbarianVillageFire();
+        List<AutoFishingState> states = runCookingTicks(true, Arrays.asList(null, null, fire), 3,
+                walker -> walker.verify(() -> Rs2Walker.walkTo(BARBARIAN_VILLAGE_FIRE, AutoFishingScript.FIRE_REACH_DISTANCE)));
+
+        assertEquals(List.of(AutoFishingState.COOKING, AutoFishingState.COOKING, AutoFishingState.COOKING), states);
+    }
+
+    @Test
+    void noFireAfterRetriesBanksOrDropsTheRawFishInsteadOfStopping() {
+        for (boolean useBank : List.of(true, false)) {
+            List<AutoFishingState> states = runCookingTicks(useBank, List.of(), AutoFishingScript.MAX_FIRE_LOOKUP_MISSES + 1,
+                    walker -> walker.verify(() -> Rs2Walker.walkTo(any(WorldPoint.class), anyInt()), never()));
+
+            for (int tick = 0; tick < AutoFishingScript.MAX_FIRE_LOOKUP_MISSES; tick++) {
+                assertEquals(AutoFishingState.COOKING, states.get(tick), "useBank=" + useBank + " tick " + tick);
+            }
+            assertEquals(useBank ? AutoFishingState.DEPOSITING : AutoFishingState.DROPPING,
+                    states.get(AutoFishingScript.MAX_FIRE_LOOKUP_MISSES), "useBank=" + useBank);
+        }
+    }
+
+    private static Rs2TileObjectModel barbarianVillageFire() {
+        Rs2TileObjectModel fire = mock(Rs2TileObjectModel.class);
+        when(fire.getWorldLocation()).thenReturn(BARBARIAN_VILLAGE_FIRE);
+        return fire;
+    }
+
+    private List<AutoFishingState> runCookingTicks(boolean useBank, List<Rs2TileObjectModel> fireLookups, int ticks,
+                                                   Consumer<MockedStatic<Rs2Walker>> verification) {
+        ScheduledExecutorService executor = mock(ScheduledExecutorService.class);
+        Iterator<Rs2TileObjectModel> lookups = fireLookups.iterator();
+        AtomicBoolean stopped = new AtomicBoolean(false);
+        AutoFishingScript script = new AutoFishingScript() {
+            {
+                scheduledExecutorService = executor;
+            }
+
+            @Override
+            Rs2TileObjectModel getNearbyFireOrRange() {
+                return lookups.hasNext() ? lookups.next() : null;
+            }
+
+            @Override
+            Set<BankLocation> accessibleBanks() {
+                return Set.of();
+            }
+
+            @Override
+            Set<DepositBoxLocation> accessibleDepositBoxes() {
+                return Set.of();
+            }
+
+            @Override
+            public void shutdown() {
+                stopped.set(true);
+            }
+        };
+        AutoFishingConfig config = mock(AutoFishingConfig.class);
+        when(config.fishToCatch()).thenReturn(Fish.TROUT_AND_SALMON);
+        when(config.harpoonSpec()).thenReturn(HarpoonType.NONE);
+        when(config.useBank()).thenReturn(useBank);
+        when(config.cookFish()).thenReturn(true);
+        Rs2ItemModel rawTrout = mock(Rs2ItemModel.class);
+        when(rawTrout.getName()).thenReturn("Raw trout");
+
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<Rs2Player> rs2Player = mockStatic(Rs2Player.class);
+             MockedStatic<Rs2Inventory> inventory = mockStatic(Rs2Inventory.class);
+             MockedStatic<Rs2Bank> bank = mockStatic(Rs2Bank.class);
+             MockedStatic<Rs2DepositBox> depositBox = mockStatic(Rs2DepositBox.class);
+             MockedStatic<Rs2Walker> walker = mockStatic(Rs2Walker.class);
+             MockedStatic<Global> global = mockStatic(Global.class);
+             MockedStatic<Rs2Widget> widget = mockStatic(Rs2Widget.class);
+             MockedStatic<Rs2Antiban> antiban = mockStatic(Rs2Antiban.class)) {
+            microbot.when(Microbot::isLoggedIn).thenReturn(true);
+            rs2Player.when(Rs2Player::getWorldLocation).thenReturn(BARBARIAN_VILLAGE_SOUTH_SPOT);
+            rs2Player.when(() -> Rs2Player.getSkillRequirement(Skill.COOKING, 15)).thenReturn(true);
+            inventory.when(Rs2Inventory::isFull).thenReturn(true);
+            inventory.when(Rs2Inventory::all).thenReturn(List.of(rawTrout));
+            inventory.when(() -> Rs2Inventory.hasItem(anyString())).thenReturn(true);
+
+            script.run(config);
+            ArgumentCaptor<Runnable> tick = ArgumentCaptor.forClass(Runnable.class);
+            verify(executor).scheduleWithFixedDelay(tick.capture(), anyLong(), anyLong(), any(TimeUnit.class));
+
+            List<AutoFishingState> states = new ArrayList<>();
+            for (int i = 0; i < ticks; i++) {
+                tick.getValue().run();
+                states.add(script.getCurrentState());
+            }
+
+            assertFalse(stopped.get());
+            rs2Player.verify(Rs2Player::logout, never());
+            microbot.verify(() -> Microbot.showMessage(anyString()), never());
+            verification.accept(walker);
+            return states;
         }
     }
 

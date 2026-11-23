@@ -35,7 +35,9 @@ import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectM
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.HashSet;
 import java.util.concurrent.TimeUnit;
@@ -61,6 +63,10 @@ public class AutoFishingScript extends Script {
     private BankLocation depositBank;
     private DepositBoxLocation depositBox;
     private long lastAnimTime;
+    static final int FIRE_REACH_DISTANCE = 4;
+    static final int MAX_FIRE_LOOKUP_MISSES = 5;
+    private int fireLookupMisses = 0;
+    private boolean noFireThisTrip = false;
 
     public boolean run(AutoFishingConfig config) {
         this.config = config;
@@ -71,6 +77,8 @@ public class AutoFishingScript extends Script {
         this.tackleBoxCastsWithoutXp = 0;
         clearDepositPoint();
         this.lastAnimTime = 0L;
+        this.fireLookupMisses = 0;
+        this.noFireThisTrip = false;
         this.currentState = AutoFishingState.IDLE; //reset for startup banking check
 
         Rs2Antiban.resetAntibanSettings();
@@ -146,10 +154,11 @@ public class AutoFishingScript extends Script {
 
         if (Rs2Inventory.isFull()) {
             if (isSpecialFish(selectedFish)) return AutoFishingState.PROCESSING_FISH;
-            if (config.cookFish() && !getRawFishInInventory().isEmpty() && canCookAtLeastOneRaw()) return AutoFishingState.COOKING;
+            if (config.cookFish() && !noFireThisTrip && !getRawFishInInventory().isEmpty() && canCookAtLeastOneRaw()) return AutoFishingState.COOKING;
             if (config.useBank()) return AutoFishingState.DEPOSITING;
             return AutoFishingState.DROPPING;
         }
+        noFireThisTrip = false;
 
         if (Rs2Bank.isOpen() || (!hasRequiredGear() && findNearestFishingSpot() == null)) {
             return AutoFishingState.GETTING_GEAR;
@@ -257,18 +266,21 @@ public class AutoFishingScript extends Script {
         }
     }
 
-    //change this to automatically ignore teh flag if theres no fire around
-    //either send to bank or drop instead
     private void handleCooking() {
         if (Thread.currentThread().isInterrupted() || !Microbot.isLoggedIn()) {
             return;
         }
         Rs2TileObjectModel fireOrRange = getNearbyFireOrRange();
         if (fireOrRange == null) {
-            log.error("There is no fire nearby, shutdown");
-            shutdown();
+            if (++fireLookupMisses < MAX_FIRE_LOOKUP_MISSES) {
+                return;
+            }
+            fireLookupMisses = 0;
+            noFireThisTrip = true;
+            log.info("No fire within 15 tiles, {} the raw fish instead of cooking this trip", config.useBank() ? "banking" : "dropping");
             return;
         }
+        fireLookupMisses = 0;
 
         while (true) {
             if (Thread.currentThread().isInterrupted() || !Microbot.isLoggedIn()) {
@@ -301,8 +313,8 @@ public class AutoFishingScript extends Script {
                 return;
             }
 
-            if (playerLocation.distanceTo(firePoint) > 4) {
-                Rs2Walker.walkTo(firePoint);
+            if (playerLocation.distanceTo(firePoint) > FIRE_REACH_DISTANCE) {
+                Rs2Walker.walkTo(firePoint, FIRE_REACH_DISTANCE);
                 return;
             }
 
@@ -508,21 +520,22 @@ public class AutoFishingScript extends Script {
         boolean hasFishBarrel = Rs2Inventory.hasItem(ItemID.FISH_BARREL_CLOSED) || Rs2Inventory.hasItem(ItemID.FISH_BARREL_OPEN);
         Set<BankLocation> banks = accessibleBanks();
         Set<DepositBoxLocation> depositBoxes = hasFishBarrel ? Set.of() : accessibleDepositBoxes();
-        Set<WorldPoint> targets = new HashSet<>();
-        banks.forEach(bank -> targets.add(bank.getWorldPoint()));
-        depositBoxes.forEach(box -> targets.add(box.getWorldPoint()));
+        Map<WorldPoint, Enum<?>> targets = new HashMap<>();
+        depositBoxes.forEach(box -> depositBoxTargets(box.getWorldPoint()).forEach(tile -> targets.putIfAbsent(tile, box)));
+        banks.forEach(bank -> targets.put(bank.getWorldPoint(), bank));
         if (targets.isEmpty()) return;
 
-        WorldPoint reached = nearestOnFoot(playerLocation, targets);
+        WorldPoint reached = nearestOnFoot(playerLocation, new HashSet<>(targets.keySet()));
         if (reached == null) {
             log.info(NO_DEPOSIT_POINT_ON_FOOT);
             return;
         }
-        depositBank = banks.stream().filter(bank -> bank.getWorldPoint().equals(reached)).findFirst().orElse(null);
-        if (depositBank == null) {
-            depositBox = depositBoxes.stream().filter(box -> box.getWorldPoint().equals(reached)).findFirst().orElse(null);
+        Enum<?> chosen = targets.get(reached);
+        if (chosen instanceof BankLocation) {
+            depositBank = (BankLocation) chosen;
+        } else if (chosen instanceof DepositBoxLocation) {
+            depositBox = (DepositBoxLocation) chosen;
         }
-        Enum<?> chosen = depositBank != null ? depositBank : depositBox;
         if (chosen != null) {
             log.info(depositPointMessage(chosen.name(), depositBox != null, hasFishBarrel));
         }
@@ -550,6 +563,21 @@ public class AutoFishingScript extends Script {
 
     Set<DepositBoxLocation> accessibleDepositBoxes() {
         return Arrays.stream(DepositBoxLocation.values()).filter(DepositBoxLocation::hasRequirements).collect(Collectors.toSet());
+    }
+
+    Set<WorldPoint> depositBoxTargets(WorldPoint box) {
+        Set<WorldPoint> tiles = new HashSet<>();
+        tiles.add(box);
+        for (WorldPoint tile : List.of(box.dx(1), box.dx(-1), box.dy(1), box.dy(-1))) {
+            if (isWalkable(tile)) {
+                tiles.add(tile);
+            }
+        }
+        return tiles;
+    }
+
+    boolean isWalkable(WorldPoint tile) {
+        return Rs2PathApi.hasWalkableTileWithin(tile, 0);
     }
 
     WorldPoint nearestOnFoot(WorldPoint from, Set<WorldPoint> targets) {
@@ -623,7 +651,7 @@ public class AutoFishingScript extends Script {
         return lower.contains("bait") || lower.contains("feather") || lower.contains("sandworm") || lower.contains("karambwanji");
     }
 
-    private Rs2TileObjectModel getNearbyFireOrRange() { //this doesnt do ranges or stoves
+    Rs2TileObjectModel getNearbyFireOrRange() { //this doesnt do ranges or stoves
         if (Thread.currentThread().isInterrupted()) {
             return null;
         }

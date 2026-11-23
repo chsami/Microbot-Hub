@@ -25,7 +25,7 @@ import java.awt.*;
 )
 @Slf4j
 public class GabulhasGlassMakePlugin extends Plugin {
-    public static final String version = "1.0.2";
+    public static final String version = "1.0.3";
     @Inject
     private GabulhasGlassMakeConfig config;
 
@@ -47,11 +47,11 @@ public class GabulhasGlassMakePlugin extends Plugin {
 
     @Override
     protected void startUp() throws AWTException {
+        GabulhasGlassMakeInfo.botStatus = GabulhasGlassMakeInfo.states.Starting;
         if (overlayManager != null) {
             overlayManager.add(gabulhasGlassMakeOverlay);
         }
         gabulhasGlassMakeScript.run(config);
-        GabulhasGlassMakeInfo.botStatus = GabulhasGlassMakeInfo.states.Starting;
     }
 
     protected void shutDown() {

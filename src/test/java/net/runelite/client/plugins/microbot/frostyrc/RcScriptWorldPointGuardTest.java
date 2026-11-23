@@ -60,6 +60,7 @@ class RcScriptWorldPointGuardTest {
         antiban = mockStatic(Rs2Antiban.class);
         camera = mockStatic(Rs2Camera.class);
         player = mockStatic(Rs2Player.class);
+        player.when(Rs2Player::getWorldLocation).thenReturn(new WorldPoint(3129, 3636, 0));
         fatigue = mockStatic(SessionFatigue.class);
         inventory = mockStatic(Rs2Inventory.class);
         bank = mockStatic(Rs2Bank.class);
