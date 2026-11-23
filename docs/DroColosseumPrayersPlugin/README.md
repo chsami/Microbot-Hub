@@ -1,26 +1,33 @@
 # Colosseum Prayers
 
-Switches your protection and offensive prayers in the Fortis Colosseum. You play everything else: movement, attacks, gear,
-potions and inventory. Prayers are sent directly, without opening the prayer book or moving the mouse.
+1-tick protection prayers in the Fortis Colosseum. You play everything else: movement, attacks, offensive prayers,
+gear, potions, inventory and Sol Heredit's grapple.
 
-## Starting
+## How it prays
 
-Enable the plugin and enter the Fortis Colosseum. It starts praying once you are inside, whether you enabled it before
-logging in, before entering, or in the middle of a wave.
+- Each monster's attack rhythm is learned from its attack animations. An overhead is switched on the tick before an
+  attack is checked and released early in a tick once nothing is due, so between attacks and between waves no
+  overhead is left on.
+- A monster that has not attacked yet, or is overdue, is treated as able to attack on any tick, so its overhead stays
+  up until its rhythm is known.
+- When the same overhead is needed on back-to-back ticks it is held with an off/on pair early in each tick, so it does
+  not drain. Pairs are skipped while you are moving and on ticks where two styles land together.
+- The Fremennik warband is only prayed against from melee distance, where it attacks.
+- Manticore: the first orb's overhead is held while it is charged and can see you, then the second and third orbs are
+  answered on the two ticks after it throws. The order is read from its charged orbs.
+- Sol Heredit: only Triple Parry is prayable. Protect from Melee is switched on for each spear's tick and nowhere
+  else, because praying early makes Sol shut the prayer off. His other attacks are typeless.
+- Two styles checked on the same tick: a known attack beats a guessed one (a monster that has not attacked yet, is
+  overdue, or is pre-armed out of sight), so a guess never leaves a real hit unprotected. Between two of the same kind
+  the harder-hitting one is protected.
 
-It stays ready between runs. After a death, a completed run, leaving, or a lost connection it starts again by itself
-the next time you are inside. A connection loss of a few seconds does not stop it. If it ever cannot continue, it says
-so in game chat: pray manually, then turn the plugin off and on.
-
-## Input yielding
-
-While the plugin is enabled it keeps Microbot's "Disable input yielding" behaviour on, so prayer switches are not held
-back while you click. This is applied in memory only. Your saved setting is not changed and is back in effect when you
-turn the plugin off.
+Releases and pairs are only sent while ticks arrive on a steady cadence. After a lag spike the overhead is kept
+rather than released late.
 
 ## Settings
 
-- Show Colosseum tile pack (on by default)
+- **Hold with same-tick pairs** (on): keep a held overhead from draining. Off: the overhead is just left on.
+- **Show overlay** (on): the overhead being prayed, the attack it answers and the next one.
 
 ## Requirements
 
