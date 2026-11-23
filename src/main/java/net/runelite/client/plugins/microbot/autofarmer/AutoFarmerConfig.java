@@ -124,6 +124,13 @@ public interface AutoFarmerConfig extends Config {
 
     @ConfigItem(keyName = "logoutBetweenRuns", name = "Logout while crops grow", description = "Logout after the run and login when the next patch check is due. Keep the client open.", position = 11, section = settingsSection)
     default boolean logoutBetweenRuns() { return true; }
+
+    @Range(min = 0, max = 1440)
+    @ConfigItem(keyName = "cropLogoutThresholdMinutes", name = "Minimum crop wait to log out (minutes)",
+            description = "Log out when the time until the next crop check exceeds this many minutes. 0 allows any positive wait.",
+            position = 22, section = settingsSection)
+    default int cropLogoutThresholdMinutes() { return 1; }
+
     @Range(min = 5, max = 180)
     @ConfigItem(keyName = "growthMinutes", name = "Crop check interval (minutes)", description = "Approximate delay after planting; live patch state is checked on return", position = 12, section = settingsSection)
     default int growthMinutes() { return 90; }

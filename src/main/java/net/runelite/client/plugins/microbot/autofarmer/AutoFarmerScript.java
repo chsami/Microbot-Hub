@@ -470,7 +470,7 @@ public class AutoFarmerScript extends Script {
         cropBreak=config.repeatRuns() && config.logoutBetweenRuns();
         waitReason="Waiting at "+preferredNextRegion;
         if(cropBreak)holdAutoLogin();
-        if(CropBreakPlan.shouldLogout(now,nextRunAt,cropBreak)) {
+        if(CropBreakPlan.shouldLogout(now, nextRunAt, cropBreak, config.cropLogoutThresholdMinutes())) {
             AutoFarmerPlugin.status="Waiting at "+preferredNextRegion+"; logging out until crop check";
             Rs2Bank.closeBank();Rs2Player.logout();loginAttemptAt=now+15000;
         }else AutoFarmerPlugin.status=waitReason+"; "+(remaining/1000)+"s until check";
@@ -489,7 +489,7 @@ public class AutoFarmerScript extends Script {
         long now = System.currentTimeMillis();
         if (now < nextRunAt) {
             AutoFarmerPlugin.status = "Crop timer ("+(preferredNextRegion==null?"next patch":preferredNextRegion)+"): " + ((nextRunAt-now)/60000) + "m " + (((nextRunAt-now)/1000)%60) + "s";
-            if (Microbot.isLoggedIn() && now >= loginAttemptAt && CropBreakPlan.shouldLogout(now,nextRunAt,config.logoutBetweenRuns())) { loginAttemptAt = now + 15000; Rs2Bank.closeBank(); Rs2Player.logout(); }
+            if (Microbot.isLoggedIn() && now >= loginAttemptAt && CropBreakPlan.shouldLogout(now, nextRunAt, config.logoutBetweenRuns(), config.cropLogoutThresholdMinutes())) { loginAttemptAt = now + 15000; Rs2Bank.closeBank(); Rs2Player.logout(); }
             return true;
         }
         if (!Microbot.isLoggedIn()) {
@@ -1185,12 +1185,27 @@ public class AutoFarmerScript extends Script {
         Rs2TileObjectModel object = findTreeObject(tree);
         if (object == null) {
             recordPatchFailure("finding tree object");
-            if (exhaustedPatchAction != null) finishTree("TREE_OBJECT_MISSING", 15);
+            if (exhaustedPatchAction != null) {
+                log("No matching tree object at " + tree.patch().getLocation()
+                        + "; patch varbit value " + Microbot.getVarbitValue(tree.patch().getVarbit()));
+                finishTree("TREE_OBJECT_MISSING", 15);
+            }
             return true;
         }
         patchFailures.remove("finding tree object");
         String pickAction = tree.sapling() instanceof TreeSapling.Fruit ? object.findAction("Pick") : null;
-        if (object.hasAction("Check-health")) {
+        int patchVarbit = tree.patch().getVarbit();
+        CropState prediction = clientThread.runOnClientThreadOptional(
+                () -> farmingHandler.predictPatch(tree.patch())).orElse(null);
+        int objectId = object.getId();
+        boolean deadYew = objectId >= ObjectID.YEW_TREE_DEAD_1 && objectId <= ObjectID.YEW_TREE_DEAD_FULLYGROWN;
+        String objectName = object.getName();
+        boolean deadTree = deadYew || prediction == CropState.DEAD
+                || (objectName != null && objectName.toLowerCase(Locale.ROOT).startsWith("dead ")
+                && object.hasAction("Clear"));
+        if (!treeWasCleared(patchVarbit) && deadTree) {
+            clearDeadTree(tree, object, patchVarbit);
+        } else if (object.hasAction("Check-health")) {
             clickTreeAction(object, "Check-health");
         } else if (isFruitPickAction(pickAction)) {
             AutoFarmerPlugin.status = "Picking fruit at " + tree.patch().getRegion().getName();
@@ -1229,8 +1244,6 @@ public class AutoFarmerScript extends Script {
         } else if (object.getName() != null && object.getName().toLowerCase(Locale.ROOT).contains("stump")) {
             if (selectItemForPatch(ItemID.SPADE)) object.click();
         } else {
-            CropState prediction = clientThread.runOnClientThreadOptional(
-                    () -> farmingHandler.predictPatch(tree.patch())).orElse(null);
             if (prediction == CropState.GROWING) finishTree("TREE_GROWING", 15);
             else recordPatchFailure("confirming tree state");
         }
@@ -1405,7 +1418,15 @@ public class AutoFarmerScript extends Script {
         pauseBeforeAction();
         if (Rs2Inventory.isItemSelected()) Rs2Inventory.deselect();
         int coins = Rs2Inventory.itemQuantity(ItemID.COINS);
-        if (coins < GARDENER_CLEAR_COST || !gardener.click("Pay")) return false;
+        if (coins < GARDENER_CLEAR_COST) return false;
+        String payAction = "Pay";
+        if ("Farming Guild".equals(tree.patch().getRegion().getName())) {
+            payAction = tree.sapling() instanceof TreeSapling.Regular ? "Pay (tree patch)" : "Pay (Fruit tree)";
+        }
+        if (!gardener.click(payAction)) {
+            log(tree.key() + ": could not select " + payAction + " on gardener " + farmerId);
+            return false;
+        }
 
         AutoFarmerPlugin.status = "Paying gardener at " + tree.patch().getRegion().getName();
         int varbit = tree.patch().getVarbit();
@@ -1458,6 +1479,29 @@ public class AutoFarmerScript extends Script {
                 .replaceAll("\\s+", " ").trim().toLowerCase(Locale.ROOT);
     }
 
+    private void clearDeadTree(TreeStop tree, Rs2TileObjectModel object, int varbit) {
+        AutoFarmerPlugin.status = "Clearing dead tree at " + tree.patch().getRegion().getName();
+        pauseBeforeAction();
+        if (treeWasCleared(varbit)) return;
+        if (Rs2Inventory.isItemSelected()) Rs2Inventory.deselect();
+        boolean clicked;
+        if (object.hasAction("Clear")) {
+            clicked = object.click("Clear");
+        } else if (object.hasAction("Dig")) {
+            clicked = object.click("Dig");
+        } else {
+            clicked = selectItemForPatch(ItemID.SPADE) && object.click();
+        }
+        if (clicked && sleepUntil(() -> treeWasCleared(varbit), 8_000)) {
+            patchFailures.remove("clearing dead tree");
+            log("Cleared dead tree at " + tree.patch().getRegion().getName());
+            return;
+        }
+        log("Dead tree clearing unconfirmed at " + tree.patch().getRegion().getName()
+                + " (object " + object.getId() + ", varbit " + Microbot.getVarbitValue(varbit) + ")");
+        recordPatchFailure("clearing dead tree");
+    }
+
     private void clickTreeAction(Rs2TileObjectModel object, String action) {
         pauseBeforeAction();
         if (Rs2Inventory.isItemSelected()) Rs2Inventory.deselect();
@@ -1470,18 +1514,87 @@ public class AutoFarmerScript extends Script {
     }
 
     private Rs2TileObjectModel findTreeObject(TreeStop tree) {
+        if ("Farming Guild".equals(tree.patch().getRegion().getName())
+                && tree.sapling() instanceof TreeSapling.Regular) {
+            Rs2TileObjectModel sceneObject = clientThread.runOnClientThreadOptional(
+                    () -> findGuildTreeInScene(tree)).orElse(null);
+            if (sceneObject != null) return sceneObject;
+        }
         int[] ids = tree.sapling() instanceof TreeSapling.Regular
                 ? new int[]{ObjectID.FARMING_TREE_PATCH_1, ObjectID.FARMING_TREE_PATCH_2,
                     ObjectID.FARMING_TREE_PATCH_3, ObjectID.FARMING_TREE_PATCH_4, ObjectID.FARMING_TREE_PATCH_5}
                 : new int[]{ObjectID.FARMING_FRUIT_TREE_PATCH_1, ObjectID.FARMING_FRUIT_TREE_PATCH_2,
                     ObjectID.FARMING_FRUIT_TREE_PATCH_3, ObjectID.FARMING_FRUIT_TREE_PATCH_4, ObjectID.FARMING_FRUIT_TREE_PATCH_5};
-        return Microbot.getRs2TileObjectCache().query().withIds(ids).toList().stream()
+        var cache = Microbot.getRs2TileObjectCache();
+        Rs2TileObjectModel known = cache.query().withIds(ids).toList().stream()
+                .filter(object -> overlapsTreePatch(tree, object))
+                .findFirst().orElse(null);
+        if (known != null || !"Farming Guild".equals(tree.patch().getRegion().getName())) return known;
+
+        return cache.query().toList().stream()
+                .filter(object -> overlapsTreePatch(tree, object))
                 .filter(object -> {
-                    WorldPoint point = object.getWorldLocation();
-                    return point != null && point.getPlane() == tree.patch().getLocation().getPlane()
-                            && tree.patch().getPatchArea().contains(point.getX() + 0.5, point.getY() + 0.5);
+                    int id = object.getId();
+                    if (tree.sapling() instanceof TreeSapling.Regular
+                            && ((id >= ObjectID.YEW_TREE_SEEDLING && id <= ObjectID.YEW_TREE_DEAD_FULLYGROWN)
+                            || id == ObjectID.YEW_TREE_STUMP_NEW
+                            || (id >= ObjectID.TREE_PATCH_WEEDED && id <= ObjectID.TREE_PATCH_WEEDS_3))) {
+                        return true;
+                    }
+                    String name = object.getName();
+                    if (name == null) return false;
+                    String normalized = name.toLowerCase(Locale.ROOT);
+                    if (normalized.equals("tree patch") || normalized.equals("fruit tree patch")) {
+                        return object.hasAction("Rake") || object.hasAction("Inspect");
+                    }
+                    return normalized.endsWith(" stump") ? object.hasAction("Dig") || object.hasAction("Clear")
+                            : object.hasAction("Check-health") || (object.hasAction("Inspect")
+                            && (normalized.endsWith(" tree") || normalized.endsWith(" plant")));
                 })
                 .findFirst().orElse(null);
+    }
+
+    private Rs2TileObjectModel findGuildTreeInScene(TreeStop tree) {
+        var view = Microbot.getClient().getTopLevelWorldView();
+        if (view == null || view.getScene() == null) return null;
+        var tiles = view.getScene().getTiles();
+        int plane = tree.patch().getLocation().getPlane();
+        if (plane < 0 || plane >= tiles.length) return null;
+
+        var bounds = tree.patch().getPatchArea().getBounds();
+        for (int x = bounds.x; x < bounds.x + bounds.width; x++) {
+            for (int y = bounds.y; y < bounds.y + bounds.height; y++) {
+                var point = net.runelite.api.coords.LocalPoint.fromWorld(view, new WorldPoint(x, y, plane));
+                if (point == null) continue;
+                var tile = tiles[plane][point.getSceneX()][point.getSceneY()];
+                if (tile == null) continue;
+                for (var gameObject : tile.getGameObjects()) {
+                    if (gameObject == null) continue;
+                    var object = new Rs2TileObjectModel(gameObject);
+                    var definition = object.getObjectComposition();
+                    if (definition == null) continue;
+                    String name = definition.getName();
+                    if (name == null) continue;
+                    boolean patch = "Tree patch".equalsIgnoreCase(name);
+                    boolean farmingTree = object.hasAction("Inspect") && object.hasAction("Guide");
+                    if (patch || farmingTree || ("Dead Yew".equalsIgnoreCase(name) && object.hasAction("Clear"))) {
+                        return object;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    private static boolean overlapsTreePatch(TreeStop tree, Rs2TileObjectModel object) {
+        WorldPoint point = object.getWorldLocation();
+        if (point == null || point.getPlane() != tree.patch().getLocation().getPlane()) return false;
+        var area = tree.patch().getPatchArea();
+        if (area.contains(point.getX() + 0.5, point.getY() + 0.5)) return true;
+        if (!"Farming Guild".equals(tree.patch().getRegion().getName())) return false;
+        var footprint = object.getWorldArea();
+        return footprint != null && area.intersects(footprint.getX(), footprint.getY(),
+                footprint.getWidth(), footprint.getHeight());
     }
 
     private static boolean isTreeAxe(Rs2ItemModel item) {
