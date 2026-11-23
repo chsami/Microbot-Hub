@@ -93,7 +93,8 @@ public final class SceneObjects {
     public static boolean interact(TileObject object, String action) {
         if (object == null) return false;
         Rs2TileObjectModel model = new Rs2TileObjectModel(object);
-        return action == null || action.isEmpty() ? model.click() : model.clickOrFirstOption(action);
+        if (action == null || action.isEmpty()) return model.click();
+        return model.click(action) || (!hasAction(object, action, true) && model.click());
     }
 
     public static boolean interact(WorldPoint location, String action) {
