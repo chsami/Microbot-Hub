@@ -19,7 +19,7 @@ public enum SlayerLocation {
     CATACOMBS_NECHRYAEL("catacombs nechryael", "Catacombs - Nechryael", new WorldPoint(1697, 10077, 0)),
     CATACOMBS_ABYSSAL_DEMONS("catacombs abyssal demons", "Catacombs - Abyssal Demons", new WorldPoint(1678, 10086, 0)),
     CATACOMBS_HELLHOUNDS("catacombs hellhounds", "Catacombs - Hellhounds", new WorldPoint(1642, 10054, 0)),
-    CATACOMBS_BLACK_DEMONS("catacombs black demons", "Catacombs - Black Demons", new WorldPoint(1720, 10055, 0)),
+    CATACOMBS_BLACK_DEMONS("catacombs black demons", "Catacombs - Black Demons", new WorldPoint(1720, 10085, 0)),
     CATACOMBS_GREATER_DEMONS("catacombs greater demons", "Catacombs - Greater Demons", new WorldPoint(1685,10086,0)),
     CATACOMBS_FIRE_GIANTS("catacombs fire giants", "Catacombs - Fire Giants", new WorldPoint(1629,10051,0)),
     CATACOMBS_ANKOU("catacombs ankou", "Catacombs - Ankou", new WorldPoint(1650, 10084, 0)),
