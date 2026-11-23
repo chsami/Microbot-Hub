@@ -1,5 +1,6 @@
 package net.runelite.client.plugins.microbot.baggedplants;
 
+import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.widgets.Widget;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
@@ -13,6 +14,7 @@ import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.tabs.Rs2Tab;
+import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 
 import java.util.concurrent.TimeUnit;
@@ -35,6 +37,7 @@ public class BaggedPlantsScript extends Script {
     private static final int PLANT_SPACE = 15366;
     private static final int BUILT_PLANT = 5134;
     private static final int SINK = 9684;
+    private static final int PHIALS_INTERACT_DISTANCE = 3;
 
     public boolean run(BaggedPlantsConfig config) {
         int actionDelay = config.useCustomDelay() ? config.actionDelay() : DEFAULT_DELAY;
@@ -241,11 +244,21 @@ public class BaggedPlantsScript extends Script {
         // Always handle inventory refill with Phials if we need unnoted plants
         if (!Rs2Inventory.hasItem(UNNOTED_BAGGED_PLANT) && Rs2Inventory.hasItem(NOTED_BAGGED_PLANT)) {
             if (Rs2Widget.getWidget(14352385) == null) {
+                var phials = Microbot.getRs2NpcCache().query().withName("Phials").nearestOnClientThread();
+                if (phials == null) {
+                    return;
+                }
+                WorldPoint phialsLocation = phials.getWorldLocation();
+                WorldPoint playerLocation = Rs2Player.getWorldLocation();
+                if (phialsLocation != null && playerLocation != null
+                        && playerLocation.distanceTo(phialsLocation) > PHIALS_INTERACT_DISTANCE) {
+                    Rs2Walker.walkTo(phialsLocation, 2);
+                    return;
+                }
                 if (!Rs2Inventory.isItemSelected()) {
                     Rs2Inventory.use(NOTED_BAGGED_PLANT);
-                } else {
-                    Microbot.getClientThread().invoke(() -> Microbot.getRs2NpcCache().query().withName("Phials").interact("Use"));
-                    Rs2Player.waitForWalking();
+                } else if (phials.click("Use")) {
+                    sleepUntil(() -> Rs2Widget.getWidget(14352385) != null, 5000);
                 }
                 return; // Wait for dialogue to open
             } else if (Rs2Widget.getWidget(14352385) != null) {
@@ -285,6 +298,11 @@ public class BaggedPlantsScript extends Script {
             }
             
             if (wateringCanToRefill != -1) {
+                if (Rs2Inventory.isItemSelected()) {
+                    Rs2Inventory.deselect();
+                    sleepUntil(() -> !Rs2Inventory.isItemSelected(), 1200);
+                    return;
+                }
                 var well = Microbot.getRs2TileObjectCache().query().withId(SINK).nearest();
                 if (well != null) {
                     System.out.println("Refilling watering can ID: " + wateringCanToRefill + " (Full cans: " + fullWateringCans + "/3)");
