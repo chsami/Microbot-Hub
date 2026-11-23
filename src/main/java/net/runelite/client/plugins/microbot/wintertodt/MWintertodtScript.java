@@ -231,7 +231,6 @@ public class MWintertodtScript extends Script {
                             Microbot.getRs2TileObjectCache().query().interact(ObjectID.BRUMA_ROOTS, "Chop");
                             sleepUntil(Rs2Player::isAnimating, 2000);
                             resetActions = false;
-                            Rs2Antiban.actionCooldown();
                         }
                         break;
                     case FLETCH_LOGS:
@@ -248,7 +247,6 @@ public class MWintertodtScript extends Script {
                             resetActions = false;
                             sleep(GAME_TICK_LENGTH);
                             sleepUntil(() -> Rs2Player.getAnimation() != AnimationID.FLETCHING_BOW_CUTTING, 2000);
-                            Rs2Antiban.actionCooldown();
 
                         }
                         break;
@@ -281,7 +279,6 @@ public class MWintertodtScript extends Script {
                                 Microbot.log("Feeding brazier");
                                 resetActions = false;
                                 sleep(GAME_TICK_LENGTH * 3);
-                                Rs2Antiban.actionCooldown();
                             }
 
                         }
@@ -300,11 +297,11 @@ public class MWintertodtScript extends Script {
         return true;
     }
 
-    private void handleMainLoop() {
+    void handleMainLoop() {
         if (isWintertodtAlmostDead()) {
             setLockState(State.BURN_LOGS, false);
-            if (shouldBurnLogs()) {
-            }
+            if (shouldBurnLogs()) return;
+            shouldChopRoots();
         } else {
             if (shouldChopRoots()) return;
             if (shouldFletchRoots()) return;
