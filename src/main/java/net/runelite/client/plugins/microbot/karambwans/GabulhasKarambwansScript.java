@@ -148,7 +148,7 @@ public class GabulhasKarambwansScript extends Script {
         }
     }
 
-    private void doBank() {
+    void doBank() {
         if (config.bankLocation() == KarambwanBankLocation.SEERS &&
                 Microbot.getVarbitValue(VarbitID.KANDARIN_DIARY_HARD_COMPLETE) == 1
                 && Rs2Magic.hasRequiredRunes(Rs2Spells.CAMELOT_TELEPORT))
