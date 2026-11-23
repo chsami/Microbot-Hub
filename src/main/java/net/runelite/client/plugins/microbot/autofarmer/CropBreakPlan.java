@@ -6,5 +6,7 @@ final class CropBreakPlan {
         return patches.stream().filter(HerbPatch::isEnabled)
             .min(Comparator.comparingLong((HerbPatch p)->ledger.checkAt(p.getRegionName())).thenComparing(HerbPatch::getRegionName)).orElse(null);
     }
-    static boolean shouldLogout(long now,long deadline,boolean enabled) {return enabled && deadline-now>30000L;}
+    static boolean shouldLogout(long now, long deadline, boolean enabled, int thresholdMinutes) {
+        return enabled && deadline - now > Math.max(0, thresholdMinutes) * 60_000L;
+    }
 }

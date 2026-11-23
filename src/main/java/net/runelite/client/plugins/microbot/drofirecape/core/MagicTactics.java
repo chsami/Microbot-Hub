@@ -47,7 +47,7 @@ public final class MagicTactics {
     public static Cast decide(Snapshot s,boolean ice,boolean blood,boolean healing,Map<Integer,Integer> frozenUntil) {
         if(s==null||!ice&&!blood||s.mobs().isEmpty())return null;
         for(Mob m:s.mobs())if(m.kind()==Kind.JAD)return null;
-        Snapshot spell=new Snapshot(s.tick(),s.player(),s.grid(),s.mobs(),s.runEnergy(),s.running(),RANGE,s.jadStyle()).atWave(s.wave());
+        Snapshot spell=new Snapshot(s.tick(),s.player(),s.grid(),s.mobs(),s.runEnergy(),s.running(),RANGE,s.jadStyle(),false).atWave(s.wave());
         // Freezes only pay when a big monster is in the wave (user, live 2026-11-06 Firecape test: freezing the bats and blobs of the
         // early waves slowed them down and wasted runes); small monsters alone are simply shot.
         if(ice&&bigMonster(s)) {

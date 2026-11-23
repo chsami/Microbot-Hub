@@ -43,7 +43,7 @@ import java.awt.*;
 @Slf4j
 public class DroSlayerPlugin extends Plugin {
 
-    public static final String version = "1.3.97";
+    public static final String version = "1.3.99";
 
     @Inject
     private DroSlayerConfig config;

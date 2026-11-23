@@ -290,7 +290,7 @@ public class AnonymousScript extends Script {
      * @param config The configuration for anonymization.
      */
     public void onBeforeRender(Client client, AnonymousConfig config) {
-        if (!Microbot.isLoggedIn() || !super.run() || !isRunning() || client == null) return;
+        if (!Microbot.isLoggedIn() || !isRunning() || client == null) return;
 
         if (config.maskCharacterName()) AnonymizableElement.CHATBOX_INPUT.apply(client);
         if (config.maskSkillLevels()) AnonymizableElement.SKILL_LEVELS.apply(client);

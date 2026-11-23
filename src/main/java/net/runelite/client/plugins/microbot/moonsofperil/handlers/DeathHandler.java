@@ -79,7 +79,10 @@ public class DeathHandler implements BaseHandler {
         WorldPoint graveLocation = new WorldPoint(1440, 9626, 1);
         if (debugLogging) {Microbot.log("Attempting to walk back to grave site");}
         Rs2Walker.walkTo(graveLocation, 2);
-        sleepUntil(() -> (Rs2Player.getWorldLocation().distanceTo(graveLocation) <= 3), 60_000);
+        sleepUntil(() -> {
+            WorldPoint playerLocation = Rs2Player.getWorldLocation();
+            return playerLocation != null && playerLocation.distanceTo(graveLocation) <= 3;
+        }, 60_000);
         if (Microbot.getRs2NpcCache().query().withId(NpcID.GRAVESTONE_DEFAULT).interact("Loot")) {
             if (debugLogging) {Microbot.log("Successfully looted gravestone");}
             return true;

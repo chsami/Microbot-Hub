@@ -3,7 +3,7 @@ package net.runelite.client.plugins.microbot.drofirecape;
 import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BooleanSupplier;
 import net.runelite.api.*;
 import net.runelite.client.plugins.microbot.drofirecape.core.*;
 import net.runelite.client.plugins.microbot.drofirecape.core.FcModel.*;
@@ -12,172 +12,77 @@ import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
-public class PrayerDriverContractTest {
-    private static class Driver extends FcPrayers {
-        Driver(FirecapeTestClient c,AtomicLong clock,FcInput input,BowPrayerClock attacks){super(c.client,s->{},clock::get,input,attacks);}
+class PrayerDriverContractTest {
+    private static class Actions extends FcActions {
+        final List<OneTickPrayerCycle.Command> clicks=new ArrayList<>();
+        @Override FcPrayerUi.Result tickPrayer(OneTickPrayerCycle.Command c,Rs2PrayerEnum p,BooleanSupplier early,BooleanSupplier valid) {
+            if(!valid.getAsBoolean())return FcPrayerUi.Result.SKIPPED;
+            clicks.add(c);return FcPrayerUi.Result.SENT;
+        }
+        @Override boolean prepareTickPrayer(Rs2PrayerEnum p,BooleanSupplier valid){return valid.getAsBoolean();}
+    }
+    private static class Regular extends FcTickPrayers {
+        Regular(FirecapeTestClient c,AtomicLong clock){super(c.client,false,s->{},clock::get);}
+        @Override protected <T>T onClientThread(Callable<T> c,T fallback){try{return c.call();}catch(Exception e){throw new AssertionError(e);}}
+    }
+    private static class Pure extends OptionalTickPrayers {
+        Pure(FirecapeTestClient c,AtomicLong clock){super(c.client,false,s->{},clock::get);}
         @Override protected <T>T onClientThread(Callable<T> c,T fallback){try{return c.call();}catch(Exception e){throw new AssertionError(e);}}
         void select(){selectedMask=1<<3;}
-        boolean offence(FcFrame f,boolean motion){return offenceNeeded(f,motion);}
+        boolean offence(FcFrame f,boolean motion){return offenceNeeded(f,true,motion);}
     }
     private static class Fixture {
         final FirecapeTestClient state=new FirecapeTestClient();final AtomicLong clock=new AtomicLong(1_000_000_000L);
-        final AtomicReference<FcFightInput> mode=new AtomicReference<>(FcFightInput.INVOKES);
-        final BowPrayerClock attacks=new BowPrayerClock();
-        final Driver driver;
-        Fixture(){state.instance=true;driver=new Driver(state,clock,new FcInput(mode::get,null,()->true),attacks);}
+        final Actions actions=new Actions();final FcTickPrayers driver;
+        Fixture(boolean pure){state.instance=true;driver=pure?new Pure(state,clock):new Regular(state,clock);}
         FcFrame frame(int tick,List<Mob> mobs)throws Exception {return state.frame(tick,mobs,Protection.MAGIC);}
         void begin(int tick)throws Exception{driver.gameTick(frame(tick,List.of()),Protection.MAGIC,clock.get());clock.addAndGet(30_000_000L);}
-        void plan(){driver.clientTick(true,false);}
+        void plan(){driver.clientTick(true,false,false);}
     }
-    @Test public void invokeSendsOneGuardedProtectionOnAndReadinessNeedsTheNextTickObservation()throws Exception {
-        Fixture f=new Fixture();f.begin(100);f.plan();
-        assertEquals(1,f.state.menus.size());
-        List<Object> sent=f.state.menus.get(0);
-        assertEquals(Rs2PrayerEnum.PROTECT_MAGIC.getIndex(),sent.get(1));
-        assertEquals(MenuAction.CC_OP,sent.get(2));assertEquals("Activate",sent.get(5));
-        assertTrue(f.driver.protectionReady(), "An ON sent on this tick may be relied on");
-        f.plan();assertEquals(1,f.state.menus.size(), "One flick, not a repeated toggle");
-        f.clock.addAndGet(570_000_000L);f.begin(101);f.plan();
-        assertFalse(f.driver.protectionReady());
-        f.state.varbits.put(Rs2PrayerEnum.PROTECT_MAGIC.getVarbit(),1);f.plan();assertTrue(f.driver.protectionReady());
-    }
-    @Test public void naturalMouseQueuesForTheWorkerAndNeverPressesFromClientTick()throws Exception {
-        Fixture f=new Fixture();f.mode.set(FcFightInput.NATURAL_MOUSE);f.begin(100);f.plan();
-        assertTrue(f.state.menus.isEmpty());assertNotNull(f.driver.queued.get());
-        assertFalse(f.driver.protectionReady());
-    }
-    @Test public void aMousePressDeliveredAfterTheTickRolledOverIsNeverPressedAgain()throws Exception {
-        Fixture f=new Fixture();f.mode.set(FcFightInput.NATURAL_MOUSE);f.begin(100);f.plan();
-        FcPrayers.Dispatch late=f.driver.queued.get();
-        assertEquals(PrayerLedger.Type.ON,late.command.type);
-        f.clock.addAndGet(570_000_000L);f.begin(101);
-        f.driver.pressed(late,true,true,null);
-        assertEquals(1<<late.command.channel,f.driver.ledger.pendingMask());
-        f.plan();
-        assertNull(f.driver.queued.get(), "A second press would toggle the arriving prayer off again");
-        f.state.varbits.put(Rs2PrayerEnum.PROTECT_MAGIC.getVarbit(),1);
-        f.clock.addAndGet(570_000_000L);f.begin(102);f.plan();
-        assertEquals(0,f.driver.ledger.pendingMask());assertNull(f.driver.queued.get());
-        assertTrue(f.driver.protectionReady());
-    }
-    @Test public void aLateMousePressDroppedAtDeliveryIsPressedAgain()throws Exception {
-        Fixture f=new Fixture();f.mode.set(FcFightInput.NATURAL_MOUSE);f.begin(100);f.plan();
-        FcPrayers.Dispatch late=f.driver.queued.get();
-        f.clock.addAndGet(570_000_000L);f.begin(101);
-        f.driver.pressed(late,true,false,null);
-        assertEquals(0,f.driver.ledger.pendingMask());
-        f.plan();
-        assertNotNull(f.driver.queued.get());assertEquals(PrayerLedger.Type.ON,f.driver.queued.get().command.type);
-    }
-    @Test public void aResetWhoseOnHalfLandsInTheNextTickAwaitsThatOn()throws Exception {
-        Fixture f=new Fixture();f.mode.set(FcFightInput.NATURAL_MOUSE);f.begin(100);f.plan();
-        int magic=f.driver.queued.get().command.channel;
-        FcPrayers.Dispatch reset=new FcPrayers.Dispatch(f.driver.current,f.driver.decision,
-            new PrayerLedger.Command(magic,PrayerLedger.Type.RESET),f.clock.get());
-        f.driver.queued.set(reset);
-        f.clock.addAndGet(570_000_000L);f.begin(101);
-        f.driver.pressed(reset,true,true,null);
-        assertEquals(1<<magic,f.driver.ledger.pendingMask());
-        f.plan();
-        assertNull(f.driver.queued.get());
-    }
-    @Test public void aResetPressedInItsTickWhoseOnHalfMissedTheServerTickAwaitsThatOn()throws Exception {
-        Fixture f=new Fixture();f.mode.set(FcFightInput.NATURAL_MOUSE);
-        f.state.varbits.put(Rs2PrayerEnum.PROTECT_MAGIC.getVarbit(),1);f.begin(100);f.plan();
-        int magic=Integer.numberOfTrailingZeros(f.driver.observedMask);
-        FcPrayers.Dispatch reset=new FcPrayers.Dispatch(f.driver.current,f.driver.decision,
-            new PrayerLedger.Command(magic,PrayerLedger.Type.RESET),f.clock.get());
-        f.driver.queued.set(reset);
-        f.driver.pressed(reset,true,true,null);
-        f.plan();
-        assertEquals(0,f.driver.ledger.pendingMask());assertNull(f.driver.queued.get());
-        f.state.varbits.put(Rs2PrayerEnum.PROTECT_MAGIC.getVarbit(),0);
-        f.clock.addAndGet(540_000_000L);f.begin(101);f.plan();
-        assertEquals(1<<magic,f.driver.ledger.pendingMask());
-        assertNull(f.driver.queued.get(), "A second press would toggle the arriving prayer off again");
-        f.state.varbits.put(Rs2PrayerEnum.PROTECT_MAGIC.getVarbit(),1);
-        f.clock.addAndGet(570_000_000L);f.begin(102);f.plan();
-        assertEquals(0,f.driver.ledger.pendingMask());assertTrue(f.driver.protectionReady());
-    }
-    @Test public void naturalMouseHoldsAnActiveOverheadInsteadOfResettingIt()throws Exception {
-        for(Rs2PrayerEnum overhead:new Rs2PrayerEnum[]{Rs2PrayerEnum.PROTECT_MELEE,Rs2PrayerEnum.PROTECT_MAGIC}) {
-            Fixture f=new Fixture();f.mode.set(FcFightInput.NATURAL_MOUSE);
-            Protection guard=overhead==Rs2PrayerEnum.PROTECT_MELEE?Protection.MELEE:Protection.MAGIC;
-            f.state.varbits.put(overhead.getVarbit(),1);
-            for(int tick=100;tick<=103;tick++) {
-                f.driver.gameTick(f.state.frame(tick,List.of(),guard),guard,f.clock.get());
-                f.clock.addAndGet(30_000_000L);f.plan();
-                assertNull(f.driver.queued.get(),overhead+" must stay on: two mouse presses cannot share a tick");
-                f.clock.addAndGet(570_000_000L);
-            }
-            assertTrue(f.driver.ledger.synchronised());assertEquals(guard,f.driver.requested());
-            assertTrue(f.driver.protectionReady());assertTrue(f.state.menus.isEmpty());
+    @Test void visibleRequestNeedsObservedProtectionAndNeverDispatchesFromClientTick()throws Exception {
+        for(boolean pure:List.of(false,true)) {
+            Fixture f=new Fixture(pure);f.begin(10);f.plan();
+            assertFalse(f.driver.protectionReady());assertTrue(f.actions.clicks.isEmpty());assertTrue(f.state.menus.isEmpty());
+            f.driver.pulse(f.actions);assertEquals(1,f.actions.clicks.size());assertEquals(OneTickPrayerCycle.Type.ON,f.actions.clicks.get(0).type);
+            assertFalse(f.driver.protectionReady());
+            f.state.varbits.put(Rs2PrayerEnum.PROTECT_MAGIC.getVarbit(),1);f.plan();assertTrue(f.driver.protectionReady());
         }
     }
-    @Test public void invokesStillResetAHeldOverheadInOneClientTick()throws Exception {
-        Fixture f=new Fixture();f.state.varbits.put(Rs2PrayerEnum.PROTECT_MAGIC.getVarbit(),1);
-        for(int tick=100;tick<=102;tick++){f.begin(tick);f.plan();f.clock.addAndGet(570_000_000L);}
-        assertEquals(2,f.state.menus.size());
-        assertEquals("Deactivate",f.state.menus.get(0).get(5));assertEquals("Activate",f.state.menus.get(1).get(5));
+    @Test void detachedOwnerDropsQueuedAndFutureInput()throws Exception {
+        for(boolean pure:List.of(false,true)) {
+            Fixture f=new Fixture(pure);f.begin(10);f.plan();f.driver.detach();f.driver.pulse(f.actions);
+            f.driver.gameTick(f.frame(11,List.of()),Protection.MAGIC,f.clock.get());f.plan();f.driver.pulse(f.actions);
+            assertFalse(f.driver.ownsInput());assertFalse(f.driver.protectionReady());assertTrue(f.actions.clicks.isEmpty());
+        }
     }
-    @Test public void outsideTheCaveLeaseInvokesNeverReplaceTheMouse()throws Exception {
-        FirecapeTestClient state=new FirecapeTestClient();state.instance=true;AtomicLong clock=new AtomicLong(1_000_000_000L);
-        Driver d=new Driver(state,clock,new FcInput(()->FcFightInput.INVOKES,null,()->false),null);
-        d.gameTick(state.frame(100,List.of(),Protection.MAGIC),Protection.MAGIC,clock.get());clock.addAndGet(30_000_000L);
-        d.clientTick(true,false);assertTrue(state.menus.isEmpty());assertNotNull(d.queued.get());
+    @Test void pureNativeDispatchOccursOnceAndPermissionRequiresNextTickObservation()throws Exception {
+        Fixture f=new Fixture(true);Pure p=(Pure)f.driver;p.nativeWidgets(true);f.begin(100);f.plan();p.pulse(f.actions);
+        assertEquals(1,f.state.menus.size());assertEquals(MenuAction.CC_OP,f.state.menus.get(0).get(2));
+        assertEquals("Activate",f.state.menus.get(0).get(5));assertTrue(f.actions.clicks.isEmpty());assertTrue(p.protectionReady());
+        f.plan();assertEquals(1,f.state.menus.size());f.clock.addAndGet(570_000_000L);f.begin(101);f.plan();
+        assertFalse(p.protectionReady());f.state.varbits.put(Rs2PrayerEnum.PROTECT_MAGIC.getVarbit(),1);f.plan();assertTrue(p.protectionReady());
     }
-    @Test public void liveCheckDropsAnAlreadySatisfiedPrayerAtDelivery()throws Exception {
-        FirecapeTestClient state=new FirecapeTestClient();
-        assertFalse(FcInput.invokeNow(state.client,FcPrayers.entry(Rs2PrayerEnum.PROTECT_MAGIC,true,()->false)));
-        assertTrue(state.menus.isEmpty());
-        assertTrue(FcInput.invokeNow(state.client,FcPrayers.entry(Rs2PrayerEnum.PROTECT_MAGIC,true,()->true)));
-        assertEquals(1,state.menus.size());
+    @Test void zeroPrayerPermitsOnlyPureCombatAndRestorationRearmsProtection()throws Exception {
+        Fixture regular=new Fixture(false);regular.state.prayer=0;regular.begin(100);regular.plan();assertFalse(regular.driver.attackInputWindow(100,180));
+        Fixture f=new Fixture(true);Pure p=(Pure)f.driver;p.pureTinyPrayers(true);f.state.prayer=0;f.begin(100);f.plan();
+        assertFalse(p.protectionReady());assertTrue(p.exhaustedCombatReady());assertTrue(p.attackInputWindow(100,180));assertEquals(Protection.NONE,p.requested());
+        p.clientTick(false,false,false);assertFalse(p.exhaustedCombatReady());assertFalse(p.attackInputWindow(100,180));
+        f.state.prayer=1;f.clock.addAndGet(570_000_000L);f.begin(101);f.plan();assertFalse(p.exhaustedCombatReady());assertEquals(Protection.MAGIC,p.requested());
     }
-    @Test public void detachedOwnerDropsQueuedAndFutureInput()throws Exception {
-        Fixture f=new Fixture();f.begin(10);f.driver.detach();f.plan();
-        f.driver.gameTick(f.frame(11,List.of()),Protection.MAGIC,f.clock.get());f.plan();f.driver.pulse();
-        assertFalse(f.driver.ownsInput());assertFalse(f.driver.protectionReady());assertTrue(f.state.menus.isEmpty());
-    }
-    @Test public void zeroPrayerPermitsCombatAndRestorationRearmsProtection()throws Exception {
-        Fixture f=new Fixture();f.state.prayer=0;f.begin(100);f.plan();
-        assertFalse(f.driver.protectionReady());assertTrue(f.driver.exhaustedCombatReady());
-        assertTrue(f.driver.attackInputWindow(100,180));assertEquals(Protection.NONE,f.driver.requested());
-        f.driver.clientTick(false,false);assertFalse(f.driver.exhaustedCombatReady());
-        f.state.prayer=1;f.clock.addAndGet(570_000_000L);f.begin(101);f.plan();
-        assertFalse(f.driver.exhaustedCombatReady());assertEquals(Protection.MAGIC,f.driver.requested());
-    }
-    @Test public void offenceIsOnlyForLearnedShotsAtWorthwhileTargets()throws Exception {
-        Fixture f=new Fixture();f.driver.select();
-        Mob ranger=new Mob(1,Kind.RANGER,new Tile(22,28),3,10,10,-1,Protection.RANGE,true);
-        Mob bat=new Mob(2,Kind.BAT,new Tile(28,27),1,10,10,-1,Protection.MELEE,true);
-        FcFrame probe=f.frame(100,List.of(ranger,bat));int weapon=probe.weaponId,style=probe.attackStyle;
-        FcFrame first=f.frame(104,List.of(ranger,bat));FirecapeTestClient.set(first,"interactingIndex",1);
-        assertFalse(f.driver.offence(first,false), "No shot seen yet: the first shot is never boosted");
-        for(int tick:new int[]{100,105})f.attacks.swing(tick,weapon,style,426,false);
-        FcFrame frame=f.frame(109,List.of(ranger,bat));FirecapeTestClient.set(frame,"interactingIndex",1);
-        assertTrue(f.driver.offence(frame,false));assertFalse(f.driver.offence(frame,true));
-        FirecapeTestClient.set(frame,"interactingIndex",2);assertFalse(f.driver.offence(frame,false), "Bats never get offence");
-        FirecapeTestClient.set(frame,"interactingIndex",-1);assertFalse(f.driver.offence(frame,false));
-    }
-    @Test public void offenceFlicksOnBeforeEachLearnedShotAndOffBetweenThem()throws Exception {
-        Fixture f=new Fixture();f.driver.select();
+    @Test void conservationUsesActualOrPrimedTargetAndMovementDisarmsOffence()throws Exception {
+        Fixture f=new Fixture(true);Pure p=(Pure)f.driver;p.select();p.conservation(true);
         Mob ranger=new Mob(1,Kind.RANGER,new Tile(22,28),3,10,10,99,Protection.RANGE,true);
-        FcFrame probe=f.frame(100,List.of(ranger));
-        int weapon=probe.weaponId,style=probe.attackStyle;
-        for(int tick:new int[]{100,105,110})f.attacks.swing(tick,weapon,style,426,false);
-        Map<Integer,Boolean> on=new LinkedHashMap<>();
-        for(int tick=110;tick<=115;tick++) {
-            FcFrame frame=f.frame(tick,List.of(ranger));FirecapeTestClient.set(frame,"interactingIndex",1);
-            on.put(tick,f.driver.offence(frame,false));
-        }
-        // Off on the observed shot tick, on the tick before the next (115), held while it is late.
-        assertEquals(Map.of(110,false,111,false,112,false,113,false,114,true,115,true),on);
+        Mob bat=new Mob(2,Kind.BAT,new Tile(28,27),1,10,10,99,Protection.MELEE,true);
+        FcFrame frame=f.frame(100,List.of(ranger,bat));FirecapeTestClient.set(frame,"interactingIndex",1);
+        assertTrue(p.offence(frame,false));assertFalse(p.offence(frame,true));
+        FirecapeTestClient.set(frame,"interactingIndex",2);assertFalse(p.offence(frame,false));
+        FirecapeTestClient.set(frame,"interactingIndex",-1);p.primeAttack(100,1);assertTrue(p.offence(frame,false));
+        p.primeAttack(100,2);assertFalse(p.offence(frame,false));
+        p.conservation(false);assertTrue(p.offence(frame,false));
     }
-    @Test public void movementPrimeRetainsMagicWhenAMagerIsPresent()throws Exception {
-        Fixture f=new Fixture();
-        Mob mager=new Mob(1,Kind.MAGER,new Tile(22,28),4,10,10,99,Protection.MAGIC,true);
-        f.driver.gameTick(f.frame(100,List.of(mager)),Protection.NONE,f.clock.get());f.clock.addAndGet(30_000_000L);f.plan();
-        f.driver.primeMovement(100,Protection.RANGE);
-        assertTrue(f.driver.movementPrearm);
+    @Test void regularAndPurePrayerOwnersHaveIndependentState()throws Exception {
+        Fixture r=new Fixture(false),p=new Fixture(true);r.begin(100);p.begin(100);r.plan();p.plan();
+        r.driver.detach();assertFalse(r.driver.ownsInput());assertTrue(p.driver.ownsInput());
+        p.driver.pulse(p.actions);assertEquals(1,p.actions.clicks.size());assertTrue(r.actions.clicks.isEmpty());
     }
 }

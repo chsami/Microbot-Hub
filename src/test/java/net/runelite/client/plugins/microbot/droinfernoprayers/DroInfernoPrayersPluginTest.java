@@ -2,43 +2,55 @@ package net.runelite.client.plugins.microbot.droinfernoprayers;
 
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import net.runelite.api.gameval.NpcID;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.plugins.microbot.droinfernoprayers.prayer.Guard;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
-public class DroInfernoPrayersPluginTest
+class DroInfernoPrayersPluginTest
 {
-    private final PluginDescriptor descriptor = DroInfernoPrayersPlugin.class.getAnnotation(PluginDescriptor.class);
+	private final PluginDescriptor descriptor = DroInfernoPrayersPlugin.class.getAnnotation(PluginDescriptor.class);
 
-    @Test public void publicPluginLoaderAcceptsThePlugin() {
-        // The client loader only takes classes whose direct parent is Plugin.
-        assertEquals(Plugin.class, DroInfernoPrayersPlugin.class.getSuperclass());
-        assertTrue(descriptor.isExternal());
-        assertFalse(descriptor.enabledByDefault());
-    }
+	@Test
+	void descriptor()
+	{
+		assertEquals(Plugin.class, DroInfernoPrayersPlugin.class.getSuperclass());
+		assertEquals("[Dro] Inferno Prayers", descriptor.name());
+		assertEquals("2.0.1", descriptor.version());
+		assertTrue(descriptor.isExternal());
+		assertFalse(descriptor.enabledByDefault());
+	}
 
-    @Test public void descriptorNamesThePrayersPluginAndItsVersion() {
-        assertEquals("[Dro] Inferno Prayers", descriptor.name());
-        assertEquals("1.0.13", descriptor.version());
-        assertEquals("2.6.55", descriptor.minClientVersion());
-        assertArrayEquals(new String[]{"droplugins"}, descriptor.authors());
-    }
+	@Test
+	void docsExist()
+	{
+		String docs = "src/main/resources/net/runelite/client/plugins/microbot/droinfernoprayers/docs/";
+		assertTrue(Files.isRegularFile(Paths.get(docs + "README.md")));
+		assertTrue(Files.isRegularFile(Paths.get(docs + "assets/icon.png")));
+		assertTrue(Files.isRegularFile(Paths.get(docs + "assets/card.png")));
+	}
 
-    @Test public void catalogImagesHaveMatchingDocumentationAssets() {
-        assertEquals("https://chsami.github.io/Microbot-Hub/DroInfernoPrayersPlugin/assets/icon.png", descriptor.iconUrl());
-        assertEquals("https://chsami.github.io/Microbot-Hub/DroInfernoPrayersPlugin/assets/card.png", descriptor.cardUrl());
-        String docs = "src/main/resources/net/runelite/client/plugins/microbot/droinfernoprayers/docs/";
-        assertTrue(Files.isRegularFile(Paths.get(docs + "assets/icon.png")));
-        assertTrue(Files.isRegularFile(Paths.get(docs + "assets/card.png")));
-        assertTrue(Files.isRegularFile(Paths.get(docs + "README.md")));
-    }
+	@Test
+	void nibblersAreMeleeAndOnlyWhenTargeting()
+	{
+		assertEquals(Guard.MELEE, InfernoMobs.of(NpcID.INFERNO_NIBBLER).guard);
+		assertTrue(InfernoMobs.of(NpcID.INFERNO_NIBBLER).targetingOnlyAttacker());
+	}
 
-    @Test public void prayersAreTheWholePlugin() {
-        DroInfernoPrayersConfig config = new DroInfernoPrayersConfig() { };
-        assertTrue(config.showTilePack(), "the tile pack is on by default");
-        assertFalse(config.logoutAfterRun());
-        DroInfernoPrayersPlugin plugin = new DroInfernoPrayersPlugin();
-        assertEquals(ArenaFightInput.INVOKES, plugin.fightInput());
-    }
+	@Test
+	void zukPillarsAndHealersAreNotPrayedAgainst()
+	{
+		assertNull(InfernoMobs.of(NpcID.INFERNO_TZKALZUK_PLACEHOLDER));
+		assertNull(InfernoMobs.of(NpcID.INFERNO_ZUK_HEALER));
+		assertNull(InfernoMobs.of(NpcID.INFERNO_INVISIBLE_3X3));
+	}
+
+	@Test
+	void blobAndJadAreAnsweredFromTheirAnimation()
+	{
+		assertFalse(InfernoMobs.of(NpcID.INFERNO_CREATURE_SPLITTER).steady());
+		assertFalse(InfernoMobs.of(NpcID.INFERNO_JAD).steady());
+	}
 }

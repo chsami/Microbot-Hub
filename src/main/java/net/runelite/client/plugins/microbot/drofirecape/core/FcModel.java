@@ -164,20 +164,25 @@ public final class FcModel {
         private final boolean running;
         private final int weaponRange;
         private final Protection jadStyle;
+        private final boolean meleeMode;
         private final int wave;
 
         public Snapshot(int tick, Tile player, CollisionGrid grid, List<Mob> mobs, int runEnergy, boolean running, int weaponRange, Protection jadStyle) {
-            this(tick,player,grid,mobs,runEnergy,running,weaponRange,jadStyle,0);
+            this(tick,player,grid,mobs,runEnergy,running,weaponRange,jadStyle,false);
         }
-        private Snapshot(int tick, Tile player, CollisionGrid grid, List<Mob> mobs, int runEnergy, boolean running, int weaponRange, Protection jadStyle, int wave) {
+        public Snapshot(int tick, Tile player, CollisionGrid grid, List<Mob> mobs, int runEnergy, boolean running, int weaponRange, Protection jadStyle, boolean meleeMode) {
+            this(tick,player,grid,mobs,runEnergy,running,weaponRange,jadStyle,meleeMode,0);
+        }
+        private Snapshot(int tick, Tile player, CollisionGrid grid, List<Mob> mobs, int runEnergy, boolean running, int weaponRange, Protection jadStyle, boolean meleeMode,int wave) {
             this.wave = wave;
+            this.meleeMode = meleeMode;
             this.tick = tick;
             this.player = player;
             this.grid = grid;
             this.mobs = List.copyOf(mobs);
             this.runEnergy = runEnergy;
             this.running = running;
-            this.weaponRange = weaponRange;
+            this.weaponRange = meleeMode ? 1 : weaponRange;
             this.jadStyle = jadStyle;
         }
 
@@ -189,8 +194,9 @@ public final class FcModel {
         public boolean running() { return running; }
         public int weaponRange() { return weaponRange; }
         public Protection jadStyle() { return jadStyle; }
+        public boolean meleeMode() { return meleeMode; }
         public int wave() { return wave; }
-        public Snapshot atWave(int value){return value==wave?this:new Snapshot(tick,player,grid,mobs,runEnergy,running,weaponRange,jadStyle,value);}
+        public Snapshot atWave(int value){return value==wave?this:new Snapshot(tick,player,grid,mobs,runEnergy,running,weaponRange,jadStyle,meleeMode,value);}
 
         @Override
         public boolean equals(Object other) {
@@ -203,6 +209,7 @@ public final class FcModel {
                 && java.util.Objects.equals(mobs, that.mobs)
                 && runEnergy == that.runEnergy
                 && running == that.running
+                && meleeMode == that.meleeMode
                 && wave == that.wave
                 && weaponRange == that.weaponRange
                 && java.util.Objects.equals(jadStyle, that.jadStyle);
@@ -217,6 +224,7 @@ public final class FcModel {
             result = 31 * result + java.util.Objects.hashCode(mobs);
             result = 31 * result + Integer.hashCode(runEnergy);
             result = 31 * result + Boolean.hashCode(running);
+            result = 31 * result + Boolean.hashCode(meleeMode);
             result = 31 * result + Integer.hashCode(wave);
             result = 31 * result + Integer.hashCode(weaponRange);
             result = 31 * result + java.util.Objects.hashCode(jadStyle);

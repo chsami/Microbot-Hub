@@ -1,8 +1,12 @@
 package net.runelite.client.plugins.microbot.glassmake;
 
 public class GabulhasGlassMakeInfo {
-    public static states botStatus;
+    public static states botStatus = states.Starting;
 
+    public static String statusText() {
+        states status = botStatus;
+        return (status == null ? states.Starting : status).toString().replace("_", " ");
+    }
 
     public enum states {
         Starting,

@@ -91,7 +91,7 @@ import static net.runelite.client.plugins.microbot.util.Global.awaitExecutionUnt
 )
 @Slf4j
 public class QoLPlugin extends Plugin implements KeyListener {
-    public static final String version = "1.8.20";
+    public static final String version = "1.8.21";
     public static final List<NewMenuEntry> bankMenuEntries = new CopyOnWriteArrayList<>();
     public static final List<NewMenuEntry> furnaceMenuEntries = new CopyOnWriteArrayList<>();
     public static final List<NewMenuEntry> anvilMenuEntries = new CopyOnWriteArrayList<>();

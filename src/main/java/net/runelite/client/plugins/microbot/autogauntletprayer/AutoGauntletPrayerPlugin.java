@@ -37,7 +37,7 @@ import static net.runelite.client.plugins.microbot.Microbot.log;
 )
 
 public class AutoGauntletPrayerPlugin extends Plugin {
-    public static final String version = "1.0.8";
+    public static final String version = "1.0.9";
     @Inject
     private AutoGauntletPrayerConfig config;
     @Provides
@@ -56,6 +56,7 @@ public class AutoGauntletPrayerPlugin extends Plugin {
     private final int MAGE_ANIMATION = 8754;
     private final int RANGE_ANIMATION = 8755;
     private Rs2PrayerEnum nextPrayer = Rs2PrayerEnum.PROTECT_RANGE;
+    private final PrayerClickThrottle prayerClickThrottle = new PrayerClickThrottle();
 
     private static final Set<Integer> HUNLLEF_IDS = Set.of(
             9035, 9036, 9037, 9038, // Corrupted Hunllef variants
@@ -70,6 +71,7 @@ public class AutoGauntletPrayerPlugin extends Plugin {
     @Override
     protected void startUp() throws Exception {
         log("Auto gauntlet prayer plugin started!");
+        prayerClickThrottle.reset();
     }
 
     @Override
@@ -82,8 +84,8 @@ public class AutoGauntletPrayerPlugin extends Plugin {
     public void onGameTick(GameTick event) {
         System.out.println("Next prayer: " + nextPrayer);
 
-        if (nextPrayer != null && !Rs2Prayer.isPrayerActive(nextPrayer)) {
-            Rs2Prayer.toggle(nextPrayer, true);
+        if (nextPrayer != null) {
+            requestPrayer(nextPrayer);
         }
 
         Rs2NpcModel hunllef = Microbot.getRs2NpcCache().query().where(npc -> HUNLLEF_IDS.contains(npc.getId())).toList().stream()
@@ -120,12 +122,12 @@ public class AutoGauntletPrayerPlugin extends Plugin {
             case MAGE_PROJECTILE:
             case CG_MAGE_PROJECTILE:
             case MAGE_PROJECTILE_MINIBOSS:
-                Rs2Prayer.toggle(Rs2PrayerEnum.PROTECT_MAGIC, true);
+                requestPrayer(Rs2PrayerEnum.PROTECT_MAGIC);
                 break;
             case RANGE_PROJECTILE:
             case CG_RANGE_PROJECTILE:
             case RANGE_PROJECTILE_MINIBOSS:
-                Rs2Prayer.toggle(Rs2PrayerEnum.PROTECT_RANGE, true);
+                requestPrayer(Rs2PrayerEnum.PROTECT_RANGE);
                 break;
             default:
                 break;
@@ -145,11 +147,11 @@ public class AutoGauntletPrayerPlugin extends Plugin {
         switch (animationID) {
             case MAGE_ANIMATION:
                 nextPrayer = Rs2PrayerEnum.PROTECT_MAGIC;
-                Rs2Prayer.toggle(nextPrayer, true);
+                requestPrayer(nextPrayer);
                 break;
             case RANGE_ANIMATION:
                 nextPrayer = Rs2PrayerEnum.PROTECT_RANGE;
-                Rs2Prayer.toggle(nextPrayer, true);
+                requestPrayer(nextPrayer);
                 break;
             default:
                 break;
@@ -285,35 +287,39 @@ public class AutoGauntletPrayerPlugin extends Plugin {
 
     private void toggleRigourPrayer() {
         if (!config.MysticMight()) {
-            Rs2Prayer.toggle(Rs2PrayerEnum.RIGOUR, true);
+            requestPrayer(Rs2PrayerEnum.RIGOUR);
         } else {
-            if (!Rs2Prayer.isPrayerActive(Rs2PrayerEnum.STEEL_SKIN)) {
-                Rs2Prayer.toggle(Rs2PrayerEnum.STEEL_SKIN, true);
-            }
-            Rs2Prayer.toggle(Rs2PrayerEnum.EAGLE_EYE, true);
+            requestPrayer(Rs2PrayerEnum.STEEL_SKIN);
+            requestPrayer(Rs2PrayerEnum.EAGLE_EYE);
         }
     }
 
     private void toggleAuguryPrayer() {
         if (!config.MysticMight()) {
-            Rs2Prayer.toggle(Rs2PrayerEnum.AUGURY, true);
+            requestPrayer(Rs2PrayerEnum.AUGURY);
         } else {
-            if (!Rs2Prayer.isPrayerActive(Rs2PrayerEnum.STEEL_SKIN)) {
-                Rs2Prayer.toggle(Rs2PrayerEnum.STEEL_SKIN, true);
-            }
-            Rs2Prayer.toggle(Rs2PrayerEnum.MYSTIC_MIGHT, true);
+            requestPrayer(Rs2PrayerEnum.STEEL_SKIN);
+            requestPrayer(Rs2PrayerEnum.MYSTIC_MIGHT);
         }
     }
 
     private void togglePietyPrayer() {
         if (!config.MysticMight()) {
-            Rs2Prayer.toggle(Rs2PrayerEnum.PIETY, true);
+            requestPrayer(Rs2PrayerEnum.PIETY);
         } else {
-            if (!Rs2Prayer.isPrayerActive(Rs2PrayerEnum.STEEL_SKIN)) {
-                Rs2Prayer.toggle(Rs2PrayerEnum.STEEL_SKIN, true);
-            }
-            Rs2Prayer.toggle(Rs2PrayerEnum.ULTIMATE_STRENGTH, true);
-            Rs2Prayer.toggle(Rs2PrayerEnum.INCREDIBLE_REFLEXES, true);
+            requestPrayer(Rs2PrayerEnum.STEEL_SKIN);
+            requestPrayer(Rs2PrayerEnum.ULTIMATE_STRENGTH);
+            requestPrayer(Rs2PrayerEnum.INCREDIBLE_REFLEXES);
         }
+    }
+
+    private void requestPrayer(Rs2PrayerEnum prayer) {
+        if (Rs2Prayer.isPrayerActive(prayer)) {
+            return;
+        }
+        if (!prayerClickThrottle.tryClick(prayer, Microbot.getClient().getTickCount())) {
+            return;
+        }
+        Rs2Prayer.toggle(prayer, true);
     }
 }

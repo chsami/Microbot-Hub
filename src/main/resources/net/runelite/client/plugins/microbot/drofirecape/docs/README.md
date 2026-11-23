@@ -5,9 +5,9 @@
 
 ![Dro Firecape](assets/card.png)
 
-Automated Fight Caves for Microbot: all **63 waves and 15 rotations**, TzHaar travel, banking, equipment, positioning, protection prayers, potions and supported thralls. Version **0.3.71**, requiring **Microbot 2.6.30**.
+Automated Fight Caves for Microbot: all **63 waves and 15 rotations**, TzHaar travel, banking, equipment, positioning, protection prayers, potions and supported thralls. Version **0.3.90**, requiring **Microbot 2.6.32 or newer**.
 
-**There is no guarantee of a Fire cape. Better gear and adequate supplies improve the chances. Test under supervision.** Normal ranged mode has completed capes; Pure has substantial live testing but no confirmed completed cape in the retained evidence.
+**There is no guarantee of a Fire cape. Better gear and adequate supplies improve the chances. Test under supervision.** Normal ranged mode has completed capes; Pure has substantial live testing but no confirmed completed cape in the retained evidence. Melee remains untested.
 
 ## Quick start
 
@@ -16,54 +16,49 @@ Automated Fight Caves for Microbot: all **63 waves and 15 rotations**, TzHaar tr
 3. Start the plugin. It prepares the interface, travels to TzHaar, banks and gears up, then enters the cave. Avoid other plugins that compete for controls.
 4. Keep **Record run** enabled. Review the status during rotation waits and recovery pauses.
 
-Fresh startup sets zoom to 150 and disables auto-retaliate; it no longer changes keybindings (tabs open through the client). Starting inside an active cave uses the resume path instead of repeating bank preparation, so restarting inside the cave continues the same Fire cape attempt. **Start at entrance** skips banking, the Inventory Setup and the ranging pre-dose: it checks the carried weapon and prayer potions, walks to the entrance, waits for the rotation and enters. Get another cape still banks for each later run. When the TzHaar grouping teleport is on cooldown or does not land, travel uses the Microbot walker to TzHaar, for up to 5 minutes. The built-in spawn predictor supports fresh entry; installing another FC Spawn Predictor is not required. Entry rotation `0` accepts any calibrated rotation; `1–15` waits for that rotation on the current world.
+Fresh startup never changes your game keybindings (tabs are opened with your F-keys or by clicking the visible tab). It may set zoom to 150 and disable auto-retaliate. Starting inside an active cave uses the resume path instead of repeating bank preparation. The built-in spawn predictor supports fresh entry; installing another FC Spawn Predictor is not required. Entry rotation `0` accepts any calibrated rotation; `1–15` waits for that rotation on the current world.
 
-## Controller, input and prayers
+## Controller and prayers
 
-The pure controller is the only controller: conservative positioning, cover preservation and trapped-monster handling, with Jad handled inside it. Restart after changing recovery settings.
+Version 0.3.89 returns to the 0.3.75 engine (visible prayer, inventory and spellbook clicks; no Fight input, Manual movement or Prayers only modes) and keeps the magic-weapon support added since. If you had one of the removed settings (Prayers only, Manual movement, Start at entrance, Logout No Supplies) on, the first start after updating stops once with an explanation and clears it; turn the plugin on again to run.
 
-| Fight input | Behavior |
+When the Fight Pit grouping teleport is on cooldown or does not land, the script walks to TzHaar with the Microbot walker instead. The first-time Fight Pit world notice and its "No, and don't ask again" prompt are answered automatically.
+
+| Selection | Controller |
 |---|---|
-| Natural mouse (default) | Every cave action is a menu action carried by a Natural mouse travel and press. |
-| Direct invokes | Every cave action (prayers, attacks, supplies, specials, spells, run, logout, exit) is sent to the client directly. |
+| Pure (always on) | Conservative positioning, cover preservation and trapped-monster handling. There is no Pure mode setting any more; a saved "off" from an older version is ignored. |
+| 1-tick prayers | **On by default.** Native protection switching; turn it off to use the visible prayer-button system. |
+| Melee cape (BETA) | Melee style within the controller. Default off; untested. |
 
-Walking always uses the Natural mouse in both modes. Each action re-checks its target at delivery (NPC still alive, item still in its slot, prayer still in the wrong state), so a stale action is dropped instead of sent.
+Restart after changing 1-tick prayers, melee style or recovery settings.
 
-A tab (inventory, spellbook, prayer, equipment) is not changed until the game has read the last mouse press, for at most 150 ms (Colosseum 1.0.80 failsafe), so a press can never land on the next panel.
+Native 1-tick prayers use observed attacks and predicted threats to switch protection. Synchronized OFF/ON reset pairs are used only when timing and safety allow. Protection can remain active during movement, conflicting styles or uncertain timing; reset pairs are disabled during Jad. This does not guarantee protection from simultaneous attacks or zero Prayer drain.
 
-| Play mode | You do | The script does |
-|---|---|---|
-| Normal | Nothing | Everything, including entry, banking and travel. |
-| Manual movement | Walking in the cave | Prayers, attacks, Ancient magic switches, potions, sweets and the blowpipe special, with direct invokes. No lures, rock cover, spacing, escape steps or camera turns. Attacks wait while you walk and go only to a monster in range and sight of your tile, so they never move you; with Jad, untagged healers in reach are tagged first. Banking, travel and entry stay automatic. |
-| Prayers only | Everything else | Protection and offensive prayers inside the cave only, with direct invokes. Takes precedence over Manual movement. |
-
-Prayers are lazy-flicked as in the Inferno and Colosseum plugins. Every hit is protected on its own tick; only attacks that truly land on the same tick force a choice, in this order: Magic, then a big melee, then Range, then small melees. As in the Colosseum, only the most certain hits are weighed: an attacker whose clock is known beats one that is due only because its clock is not calibrated yet, except a big melee or Ket-Zek in contact, which always counts. A Tok-Xil or Ket-Zek beside you only melees, so it is protected with Melee, also while running past it, unless another monster can attack with its ranged or magic style on the same tick. Protection is switched **on the tick before each predicted hit and off on the next tick**; it is not held through a verified gap. One matching attack interval calibrates a ranged or magic NPC; a melee monster in contact is calibrated by its first swing, and Protect from Melee is never pre-armed for movement or held for a melee monster that is not in contact. No prayer is used between waves. Movement pre-arms Range or Magic only when that attacker can reach its range during the move, and a melee-only demand never delays an attack. Bats are shot at once without waiting for a prayer input window. A guard that must stay up (an uncalibrated or late attack clock, a nearby blob split, Jad) is 1-tick flicked with Direct invokes: every active prayer is toggled off and back on early in each tick, so the hold does not drain Prayer. With Natural mouse the guard is held on instead and drains Prayer normally, because its two presses cannot be relied on to land in the same tick. The cave is entered with every combat prayer off. The best offensive prayer for the weapon is chosen automatically and switched on the tick before each of your shots and off on the shot tick, once two shots have shown the weapon's speed, and only at a big melee, ranger, mager (not while another monster is attacking you), Jad or healer, never at bats or blobs: Rigour/Deadeye/Eagle Eye and lower for ranged, Augury/Mystic Might (or Vigour)/Lore/Will for magic, Piety/Chivalry or Strength + Attack when a melee weapon is equipped. Direct invokes 1-tick every active prayer; Natural mouse 1-ticks only a single held offensive prayer while no protection prayer is on; a held protection prayer stays on and drains Prayer, as does an offensive prayer held alongside it, so bring an extra prayer potion or use Direct invokes. This does not guarantee protection from simultaneous attacks or zero Prayer drain.
-
-**Magic switches.** When you are on the Ancient spellbook with the current Magic level and runes for Ice or Blood Burst, Blitz or Barrage, the script casts from the tile the planner already chose (it never walks for a spell; with Manual movement, from wherever you stand), in this order:
-
-1. Magers (Magic level 240, the highest magic defence in the cave) and Jad are never spell targets, and no spell is cast during Jad. Rangers, blobs, melees and bats are.
-2. Ice stops a monster coming at you in the open (untrapped, unfrozen, not yet in contact): a bat always first (its hits drain prayer even through Protect from Melee), then a big melee, then a big blob, then a split blob with another split blob beside it. Only with Ice runes; Blood likewise needs its own runes.
-3. Blood only heals: it starts below 90% HP and stops at 95%. A clump (another monster touching the target, inside the 3x3 splash) is preferred for the bigger heal; otherwise a trapped monster (it cannot hit you, so the heal is free while the overhead flicks for the others), then a ranger, then the nearest blob, melee or bat in reach. No safespot is needed. While the switch is worn, spells own attacking: no regular attack (or wand autocast) goes out until the main set is back.
-
-While a brew has drained Magic below the spell's level the script attacks with the main weapon and casts again after the restore.
-
-The spell is selected and cast on the monster in one direct action in both input modes, because a prayer click clears a selected spell. Gear is labelled the Colosseum way (1.0.82): the best carried magic weapon by rank (Kodai, ancient sceptres, master wand, Blue Moon spear, ancient staff, then by stats), then the best carried piece per slot by magic attack plus three per magic damage percent, with prayer breaking ties. A void mage helm beats any helm, and with the Blue Moon spear the Blue Moon helm, chestplate and tassets win their slots. Pieces without game stats fall back to the Colosseum table (imbued god capes, occult, god books, mage's book, defenders, fury) and then to their name. Every piece goes on in one burst, weapon first; a two-handed weapon never takes an offhand, and a piece clicked in the last 1.2 seconds is never clicked again. A piece still not worn after four requests is set aside for 25 ticks, or for the rest of the run when the switch's weapon is on and only that piece stays off. Legs and other pieces stay on for Blood (the cave's magic defence is low). Gear only comes off into a free inventory slot: no two-handed swap over a worn offhand without one. The one exception: when your main two-handed weapon (a bow, for example) can't go back on because the switch's book or shield has no free slot, the Saradomin brew with the fewest doses is dropped to make room. It is never picked up again; dropped items despawn. The pieces you wore before go back once no spell is wanted, on a clear wave and before Jad or a wave-pause logout. Big melees and Ket-Zek have a 40% water weakness since 25 June 2025; whether Ancient Ice spells count for it is unconfirmed.
-
-**Specials.** Magic shortbow (i) 50% (55% unimbued), Armadyl crossbow 50%, Dragon crossbow 60% and Zaryte crossbow 75% are used on big targets (never bats, split blobs or healers); the Rosewood blowpipe (25%) on any target; the Toxic blowpipe (50%) when at least 8 HP is missing, since it heals. Costs are from the OSRS Wiki "Special attacks" table.
+**Prayer conservation** is optional. It avoids early empty-wave overheads and offensive prayers on waves 1–30 while retaining live-threat protection and the wave-31 mage pre-arm. It does not retune attack clocks or flick timing.
 
 ## Magic weapons
 
-Staves, wands, sceptres and powered staves are detected from the Inventory Setup; no setting is needed. Powered staves (trident, sanguinesti, Tumeken's shadow and similar) cast their built-in spell at 7 tiles. A staff or wand keeps a spell you already set to autocast; otherwise the best castable **Ice** spell (Ancient) or **Water** spell (standard) is selected through the Combat tab before entry, at 10 tiles. Bring the runes for it.
+Staves, wands, sceptres and powered staves are detected from the Inventory Setup; no setting is needed. Powered staves (trident, sanguinesti, Tumeken's shadow and similar) cast their built-in spell at their own range (6–8 tiles). A staff or wand keeps a spell you already set to autocast; otherwise the best castable **Ice** spell (Ancient) or **Water** spell (standard) is selected through the Combat tab before entry, at 10 tiles. Bring the runes for it. The best offensive prayer for a magic weapon is Augury, then Mystic Might (or Vigour), Lore and Will.
+
+**Magic switches.** When you are on the Ancient spellbook with the current Magic level and runes for Ice or Blood Burst, Blitz or Barrage, the script casts from the tile the planner already chose (it never walks for a spell), in this order:
+
+1. Magers and Jad are never spell targets, and no spell is cast during Jad. Rangers, blobs, melees and bats are.
+2. Ice stops a monster coming at you in the open (untrapped, unfrozen, not yet in contact), only while a big monster is in the wave: a bat always first, then a big melee, then a big blob, then a split blob with another split blob beside it.
+3. Blood only heals: it starts below 90% HP and stops at 95%, on a clump when possible, and only while at most one attack style can reach your tile. While the switch is worn, spells own attacking: no regular attack goes out until the main set is back.
+
+The spell is selected in the spellbook and then cast on the monster with two visible clicks. Gear is labelled the Colosseum way (1.0.82): the best carried magic weapon by rank, then the best carried piece per slot by magic attack plus three per magic damage percent, a void mage helm over any helm, and the Blue Moon set with the Blue Moon spear. Gear only comes off into a free inventory slot; when your main two-handed weapon cannot go back on because the switch's offhand has no free slot, the Saradomin brew with the fewest doses is dropped to make room. The pieces you wore before go back once no spell is wanted, on a clear wave and before Jad. Entering the cave already wearing the magic switch with a ranged weapon carried makes the ranged set the main set.
+
+While a brew has drained Magic below the spell's level the script attacks with the main weapon and drinks a super restore before another brew, unless health is critical; it casts again after the restore.
 
 ## Example normal ranged setup
 
-Use the pictured budget setup. Save the equipment and inventory together as an Inventory Setup. Better equipment can reduce fight duration and supply use.
+Use the pictured budget setup with **Melee cape off**. Save the equipment and inventory together as an Inventory Setup. Better equipment can reduce fight duration and supply use.
 
 ![Normal budget equipment and inventory](assets/normal-budget-setup.png)
 
 ## Example Pure setup
 
-For the recommended Pure example, bring **150+ purple sweets**, choose **rotation 5**, and enable **recovery**, in that order of importance. Enable Use purple sweets as well.
+For the recommended Pure example, bring **150+ purple sweets**, keep **1-tick prayers** on, choose **rotation 5**, enable **recovery**, and enable **prayer conservation**, in that order of importance. Enable Use purple sweets as well.
 
 The inventory below contains **200 sweets**. Save it together with the equipment in one Inventory Setup. These examples do not change defaults or guarantee completion.
 
@@ -71,7 +66,7 @@ The inventory below contains **200 sweets**. Save it together with the equipment
 
 ![Pure equipment example](assets/pure-gear-example.png)
 
-The configuration example uses 65% healing, recovery from wave 53, 90% Prayer before resuming, and overbrew off. Recording is enabled.
+The configuration example uses 65% healing, recovery from wave 53, 90% Prayer before resuming, and overbrew off. Offensive prayer and recording are enabled.
 
 ![Pure settings example](assets/pure-settings-example.png)
 
@@ -80,10 +75,11 @@ The configuration example uses 65% healing, recovery from wave 53, 90% Prayer be
 | Setting | Default and behavior |
 |---|---|
 | Heal at HP % | 60%; adjustable. The controller normally heals to a recovery buffer rather than repeatedly topping up to full. |
-| Restore prayer at | 25. Confirmed brew consumption may also require a super restore to repair combat stats. With Ancient spells carried, a super restore is also drunk as soon as a brew drops Magic below the lowest spell you carry runes for (Blood Burst 68, Ice Burst 70, Blood Blitz 80, Ice Blitz 82; with both Ice and Blood runes, the higher of the two), unless health is critical. Below 77 Magic with Blood Burst runes, or 79 with Ice Burst runes, that is one restore dose per brew dose, so bring extra super restores or leave the runes out. |
+| Restore prayer at | 25. Confirmed brew consumption may also require a super restore to repair combat stats. With Ancient spells carried, a super restore is also drunk as soon as a brew drops Magic below the lowest spell you carry runes for (Blood Burst 68, Ice Burst 70, Blood Blitz 80, Ice Blitz 82), unless health is critical. |
+| Auto best offensive prayer | On; strongest eligible prayer after protection is confirmed, subject to conservation. |
 | Use purple sweets | Off. When enabled and carried, heal to full during clear gaps or verified settled traps. Emergency healing takes priority. |
 | Late-wave recovery pauses | Off. Request the end-of-wave pause once, finish the wave, recover, then world-hop to resume automatically. No Jad pause request. |
-| Recovery starting wave | 56. Also requires HP at 70% or below and the safety gates. |
+| Recovery starting wave | 56. Also requires HP at 70% or below and its safety gates. |
 | Overbrew regardless of prayer | Off. Waves 53+: an eligible full boosted-HP batch once per wave; also applies during late paused recovery. Restores stats afterward. |
 | Prayer before resuming % | 90%; separate from the ordinary restoration threshold. |
 
@@ -97,15 +93,15 @@ Supported blowpipe healing specials and castable thralls are automatic. They req
 
 Jad protection takes priority over tags, attacks and supplies. The Pure-ranged repair confirms tags across the living healer group, checks a north collection route, observes following, then checks south-side terrain separation and firing access before resuming Jad attacks. Temporary body-blocking alone is not a verified trap. Lost tags, new healers, unsuitable geometry, interrupted ownership or renewed Jad healing can cancel the sequence.
 
-This conditional sequence is for exposed, untrapped Jad. An already terrain-trapped Jad retains existing handling. The normal controller does not use the new Pure-ranged sequence. The exact .66 healer changes still need supervised live acceptance testing.
+This conditional sequence is for exposed, untrapped Jad. An already terrain-trapped Jad retains existing handling. The normal controller and melee mode do not use the new Pure-ranged sequence. The exact .66 healer changes still need supervised live acceptance testing.
 
 ## Recordings and manual control
 
-The run is always recorded (there is no setting): `events.jsonl` plus matching `collision-*.csv` are saved under `~/.runelite/dro-firecape/YYYYMMDD-HHMMSS-SSS/`. These are telemetry and collision maps, not video. Each hit on the player is logged with its attacker (`player-hit`: NPC, style, attack tick, prayer on the attack and landing ticks, cause). Retain the whole folder when reporting an issue, along with version, settings, loadout, wave and any manual intervention.
+**Record run** defaults on and saves `events.jsonl` plus matching `collision-*.csv` under `~/.runelite/dro-firecape/YYYYMMDD-HHMMSS-SSS/`. These are telemetry and collision maps, not video. Retain the whole folder when reporting an issue, along with version, settings, loadout, wave and any manual intervention.
 
 Users are highly encouraged to share complete Fight Caves recordings with **DRO** to help improve the plugin.
 
-Hide overlay affects visibility only. Taking manual control or pausing can suspend automatic prayer input; maintain protection yourself while doing so.
+Hide overlay affects visibility only. Taking manual control or pausing can suspend automatic prayer input; maintain protection yourself while doing so. Restart the plugin when changing 1-tick prayers.
 
 ## Live test history
 
@@ -133,7 +129,7 @@ Version .69 adds bounded rejection memory and pursuit-aware firing approaches fo
 
 Version .70 shared planner/lure/script logic behind Pure hooks; retained decision digests match the pre-refactor .69 controllers. Version .71 changes only the Pure separation handoff: a selected, checked escape reaches the existing movement pre-arm before readiness is required. Final route checks and protection readiness still gate the click. Regular combat, trap geometry, native prayer timing, supply accounting and conservation are unchanged.
 
-The shared `build.gradle` matches upstream. Firecape uses the existing JUnit 5 runner with Mockito. Against Microbot client 2.6.55 the Firecape suite passes **307 tests** in 56 classes with zero failures, errors or skips.
+The shared `build.gradle` matches upstream. Firecape uses the existing JUnit 5 runner without Mockito, static mocks, a Vintage engine or a Java agent. Explicit JDK proxies and fake transports exercise prayer ownership, visible acknowledgement, native dispatch, startup supply/rotation gating and controller isolation. The full standard Hub build against official Microbot 2.6.30 passed **702 tests**, including **242 Firecape tests**, with zero failures, errors or skips. Three new movement handoff checks cover pre-arm, one guarded movement request and release when a blocker dies. No existing tests were removed or skipped.
 
 Public fixtures retain **27 compact frames from .27, .29, .57, .66 and .69**, with exact relevant collision geometry and source SHA256 provenance. The additional .69 frame reuses the byte-identical .57 geometry; full recordings remain in private backups. Historical replay/adapter archives remain private rather than being compressed into the public suite.
 
@@ -153,4 +149,8 @@ Copyright (c) 2026, **DRO (droplugins)**. See LICENSE.txt for the full BSD-2-Cla
 
 Third-party attribution and license notices are retained. Redistribution should credit DRO by retaining its copyright and license notices; the Codex and Rick acknowledgements are included in CREDITS.txt.
 
-After exit defaults to **Log out**. Select **Get another cape** to bank/regear and start again after a confirmed cape or a failed cave attempt. Missing supplies override repeat: the script requests terminal logout, waits for the login screen, then shows the missing-supply message. Startup configuration failures do not loop. Observe-only mode does not log out or repeat.
+## After exit
+
+The bottom **After exit** option defaults to **Log out**. **Get another cape** banks, regears and begins a new attempt after a cape or failed cave attempt. Startup failures and missing required supplies stop and log out instead of repeating. Supply messages appear after logout is confirmed; terminal supply stops suppress Auto Login. End-of-wave recovery pauses remain separate and still resume by world-hop.
+
+Version .72 fixes the startup config-proxy failure; .73 adds the After exit control and confirmed terminal logout. These changes have automated validation, not a new live cape run.

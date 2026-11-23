@@ -7,12 +7,15 @@
 package net.runelite.client.plugins.microbot.drofirecape;
 
 import com.google.inject.Provides;
+import java.util.List;
+import javax.swing.SwingUtilities;
 import javax.inject.Inject;
 import net.runelite.api.events.*;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.ui.overlay.OverlayManager;
 
 @PluginDescriptor(name = PluginConstants.DRO + "Firecape",version=DroFirecapePlugin.version,minClientVersion="2.6.32",enabledByDefault=PluginConstants.DEFAULT_ENABLED,
@@ -23,14 +26,27 @@ import net.runelite.client.ui.overlay.OverlayManager;
     isExternal=PluginConstants.IS_EXTERNAL,
     tags={"microbot","dro","firecape","fight caves","jad","boss"})
 public final class DroFirecapePlugin extends Plugin {
-    public static final String version="0.3.88";
+    public static final String version="0.3.90";
     @Inject private FcControllers script;
     @Inject private DroFirecapeConfig config;
     @Inject private DroFirecapeOverlay overlay;
     @Inject private OverlayManager overlayManager;
+    @Inject private ConfigManager configManager;
+    private boolean started;
     @Provides DroFirecapeConfig provideConfig(ConfigManager manager){return manager.getConfig(DroFirecapeConfig.class);}
-    @Override protected void startUp(){overlayManager.add(overlay);script.run(config);}
-    @Override protected void shutDown(){script.shutdown();overlayManager.remove(overlay);}
+    @Override protected void startUp(){
+        List<String> removed=FcRemovedSettings.takeEnabled(key->configManager.getConfiguration(DroFirecapeConfig.GROUP,key),
+            key->configManager.unsetConfiguration(DroFirecapeConfig.GROUP,key));
+        if(!removed.isEmpty()) {
+            // Stop once: the player relied on a setting that no longer exists.
+            String message=FcRemovedSettings.message(removed);
+            Microbot.log(message);Microbot.showMessage(message);
+            SwingUtilities.invokeLater(()->Microbot.stopPlugin(this));
+            return;
+        }
+        started=true;overlayManager.add(overlay);script.run(config);
+    }
+    @Override protected void shutDown(){if(!started)return;started=false;script.shutdown();overlayManager.remove(overlay);}
     @Subscribe public void onGameTick(GameTick e){script.onGameTick();}
     @Subscribe public void onClientTick(ClientTick e){script.onClientTick();}
     @Subscribe public void onChatMessage(ChatMessage e){script.onChatMessage(e);}
@@ -39,8 +55,5 @@ public final class DroFirecapePlugin extends Plugin {
     @Subscribe public void onAnimationChanged(AnimationChanged e){script.onAnimationChanged(e);}
     @Subscribe public void onActorDeath(ActorDeath e){script.onActorDeath(e);}
     @Subscribe public void onHitsplatApplied(HitsplatApplied e){script.onHitsplatApplied(e);}
-    @Subscribe public void onProjectileMoved(ProjectileMoved e){script.onProjectileMoved(e);}
     @Subscribe public void onGameStateChanged(GameStateChanged e){script.onGameStateChanged(e);}
-    /** The game has read a click: a tab may change again (FcInput press failsafe). */
-    @Subscribe public void onMenuOptionClicked(MenuOptionClicked e){FcInput.pressRead();}
 }
