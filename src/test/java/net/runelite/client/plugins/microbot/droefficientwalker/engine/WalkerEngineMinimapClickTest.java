@@ -47,6 +47,14 @@ class WalkerEngineMinimapClickTest {
       String message = TravelFailureMessages.describeTravelFailure("walk-clicks-not-moving", null, null);
       assertTrue(message.startsWith("Your character did not move after repeated walk clicks."));
       assertTrue(message.contains("world map"));
+      assertTrue(message.contains("no longer frozen or stunned"));
       assertTrue(TravelFailureMessages.describeTravelFailure("no-clickable-walk-target", null, null).contains("minimap is visible"));
+   }
+
+   @Test
+   void recoveringFromAStallRestoresTheEarlierStatus() {
+      assertEquals("Walking to Varrock", WalkerEngine.statusAfterWalkStall(WalkerEngine.WALK_STALL_STATUS, "Walking to Varrock"));
+      assertEquals("Waiting for the bank to open.", WalkerEngine.statusAfterWalkStall("Waiting for the bank to open.", "Walking to Varrock"));
+      assertTrue(WalkerEngine.WALK_STALL_STATUS.startsWith("Efficient Walker: Character is not moving"));
    }
 }
