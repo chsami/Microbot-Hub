@@ -51,9 +51,9 @@ import net.runelite.api.WorldType;
 import net.runelite.api.WorldView;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
-import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.widgets.Widget;
 import net.runelite.client.plugins.microbot.Microbot;
+import net.runelite.client.plugins.microbot.droefficientwalker.MinimapOrbs;
 import net.runelite.client.plugins.microbot.droefficientwalker.TravelCombatPolicy;
 import net.runelite.client.plugins.microbot.droefficientwalker.WalkerMouseControl;
 import net.runelite.client.plugins.microbot.droefficientwalker.WalkerTabState;
@@ -79,12 +79,6 @@ public final class WalkerEngine {
    private static final int[] TELEPORT_PREP_ITEM_IDS;
    private static final int[] TELEPORT_PREP_TARGET_QUANTITIES;
    private static final WalkerEngine.RouteRequest CANCELLED_REQUEST;
-   private static final int[] MINIMAP_ORB_WIDGETS = {
-      InterfaceID.Orbs.XP_DROPS, InterfaceID.Orbs.ORB_HEALTH, InterfaceID.Orbs.ORB_PRAYER,
-      InterfaceID.Orbs.ORB_RUNENERGY, InterfaceID.Orbs.ORB_SPECENERGY, InterfaceID.Orbs.ORB_STORE,
-      InterfaceID.Orbs.ORB_CONTENTRECOM, InterfaceID.Orbs.WORLDMAP, InterfaceID.Orbs.WIKI,
-      InterfaceID.ToplevelOsrsStretch.COMPASSCLICK, InterfaceID.ToplevelPreEoc.COMPASSCLICK, InterfaceID.Toplevel.COMPASSCLICK
-   };
    private final Client client;
    private final WalkerEngineConfig config;
    private final List<TransportCatalog.TransportEdge> transports;
@@ -944,11 +938,20 @@ public final class WalkerEngine {
 
                                              boolean stalledAtOrigin = !moving && this.lastWalkClickTick >= 0
                                                 && sceneX == this.clickOriginSceneX && sceneY == this.clickOriginSceneY;
-                                             if (stalledAtOrigin && this.walkTarget != null && hasExhaustedWalkClickRetries(this.walkClickRepeats)) {
-                                                this.stalledWalkTargets.add(this.walkTarget);
+                                             if (stalledAtOrigin && this.walkTarget != null && hasExhaustedWalkClickRetries(this.walkClickRepeats)
+                                                && this.stalledWalkTargets.add(this.walkTarget)) {
+                                                Microbot.status = "Efficient Walker: not moving, trying a closer tile";
                                              }
 
-                                             int furthestClickIndex = nextDoor == null ? remainingTiles.length - 1 : nextDoor.routeIndex;
+                                             if (stalledAtOrigin && hasExhaustedStalledWalkTargets(this.stalledWalkTargets.size())) {
+                                                this.failNavigation("walk-clicks-not-moving");
+                                                return;
+                                             }
+
+                                             int furthestClickIndex = stalledClickIndexLimit(
+                                                nextDoor == null ? remainingTiles.length - 1 : nextDoor.routeIndex,
+                                                stalledAtOrigin ? this.stalledWalkTargets.size() : 0
+                                             );
 
                                              for (int clickIndex = furthestClickIndex; clickIndex > 0; clickIndex--) {
                                                 LocalPoint localTarget = LocalPoint.fromScene(
@@ -1013,7 +1016,7 @@ public final class WalkerEngine {
                                                 }
                                              }
 
-                                             this.failNavigation("no-clickable-walk-target");
+                                             this.failNavigation(stalledAtOrigin && !this.stalledWalkTargets.isEmpty() ? "walk-clicks-not-moving" : "no-clickable-walk-target");
                                           }
                                        }
                                     }
@@ -1274,37 +1277,19 @@ public final class WalkerEngine {
 
    private Point projectToMinimap(LocalPoint localPoint) {
       Point point = Perspective.localToMinimap(this.client, localPoint);
-      return point != null && Rs2MiniMap.isPointInsideMinimap(point) && !this.isOverMinimapOrb(point) ? point : null;
-   }
-
-   private boolean isOverMinimapOrb(Point point) {
-      List<Rectangle> orbBounds = new ArrayList<>();
-      for (int widgetId : MINIMAP_ORB_WIDGETS) {
-         Widget widget = this.client.getWidget(widgetId);
-         if (widget != null && !widget.isHidden()) {
-            orbBounds.add(widget.getBounds());
-         }
-      }
-
-      return isPointInsideAny(point, orbBounds);
-   }
-
-   static boolean isPointInsideAny(Point point, List<Rectangle> bounds) {
-      if (point == null) {
-         return false;
-      }
-
-      for (Rectangle rectangle : bounds) {
-         if (rectangle != null && rectangle.contains(point.getX(), point.getY())) {
-            return true;
-         }
-      }
-
-      return false;
+      return point != null && Rs2MiniMap.isPointInsideMinimap(point) && !MinimapOrbs.covers(this.client, point) ? point : null;
    }
 
    static boolean hasExhaustedWalkClickRetries(int repeats) {
       return repeats >= 3;
+   }
+
+   static boolean hasExhaustedStalledWalkTargets(int stalledTargets) {
+      return stalledTargets >= 5;
+   }
+
+   static int stalledClickIndexLimit(int furthestClickIndex, int stalledTargets) {
+      return furthestClickIndex >> Math.min(stalledTargets, 30);
    }
 
    static int nextWalkClickRepeats(int repeats, boolean sameOrigin, boolean sameTarget) {

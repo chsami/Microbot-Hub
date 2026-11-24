@@ -1,9 +1,5 @@
 package net.runelite.client.plugins.microbot.droefficientwalker.engine;
 
-import java.awt.Rectangle;
-import java.util.Arrays;
-import java.util.Collections;
-import net.runelite.api.Point;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -11,17 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class WalkerEngineMinimapClickTest {
-   @Test
-   void minimapPointOnAnOrbIsRejected() {
-      Rectangle worldMapOrb = new Rectangle(1830, 150, 30, 30);
-      Rectangle compass = new Rectangle(1720, 5, 35, 35);
-
-      assertTrue(WalkerEngine.isPointInsideAny(new Point(1845, 165), Arrays.asList(compass, worldMapOrb)));
-      assertFalse(WalkerEngine.isPointInsideAny(new Point(1790, 90), Arrays.asList(compass, worldMapOrb)));
-      assertFalse(WalkerEngine.isPointInsideAny(new Point(1845, 165), Collections.singletonList(null)));
-      assertFalse(WalkerEngine.isPointInsideAny(null, Collections.singletonList(worldMapOrb)));
-   }
-
    @Test
    void repeatedClicksOnTheSameTargetWithoutMovingAreBounded() {
       int repeats = WalkerEngine.nextWalkClickRepeats(0, false, false);
@@ -39,5 +24,29 @@ class WalkerEngineMinimapClickTest {
    void movingOrChangingTargetResetsTheRepeatCount() {
       assertEquals(1, WalkerEngine.nextWalkClickRepeats(5, false, true));
       assertEquals(1, WalkerEngine.nextWalkClickRepeats(5, true, false));
+   }
+
+   @Test
+   void eachStalledTargetHalvesTheFurthestClickIndex() {
+      assertEquals(52, WalkerEngine.stalledClickIndexLimit(52, 0));
+      assertEquals(26, WalkerEngine.stalledClickIndexLimit(52, 1));
+      assertEquals(13, WalkerEngine.stalledClickIndexLimit(52, 2));
+      assertEquals(3, WalkerEngine.stalledClickIndexLimit(52, 4));
+      assertEquals(0, WalkerEngine.stalledClickIndexLimit(1, 1));
+      assertEquals(0, WalkerEngine.stalledClickIndexLimit(52, 40));
+   }
+
+   @Test
+   void walkingGivesUpAfterFiveStalledTargetsFromTheSameTile() {
+      assertFalse(WalkerEngine.hasExhaustedStalledWalkTargets(4));
+      assertTrue(WalkerEngine.hasExhaustedStalledWalkTargets(5));
+   }
+
+   @Test
+   void stalledWalkClicksExplainTheWorldMapInsteadOfTheMinimap() {
+      String message = TravelFailureMessages.describeTravelFailure("walk-clicks-not-moving", null, null);
+      assertTrue(message.startsWith("Your character did not move after repeated walk clicks."));
+      assertTrue(message.contains("world map"));
+      assertTrue(TravelFailureMessages.describeTravelFailure("no-clickable-walk-target", null, null).contains("minimap is visible"));
    }
 }
