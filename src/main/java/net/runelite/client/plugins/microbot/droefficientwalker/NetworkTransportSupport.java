@@ -1640,12 +1640,15 @@ final class NetworkTransportSupport
                 && target.equalsIgnoreCase(existingTarget == null ? "" : existingTarget);
         });
 
+        // The crossing exists only after Shilo Village (varp 116 > 14), as in transports.tsv;
+        // without it accounts lacking the quest route into Shilo and stall at the cart.
+        List<Object> shiloQuestComplete = List.of(requirementCtor.newInstance(116, 14, '>'));
         int added = 0;
         for (WorldPoint origin : eastOrigins)
         {
             Object edge = transportCtor.newInstance(origin, westLanding, action, target, brokenCartId,
                 Collections.emptyList(), Collections.emptyList(), Collections.emptyList(),
-                Collections.emptyList(), Collections.emptyList(), false, new int[0]);
+                shiloQuestComplete, Collections.emptyList(), false, new int[0]);
             merged.add(0, edge);
             added++;
         }
@@ -1653,7 +1656,7 @@ final class NetworkTransportSupport
         {
             Object edge = transportCtor.newInstance(origin, eastLanding, action, target, brokenCartId,
                 Collections.emptyList(), Collections.emptyList(), Collections.emptyList(),
-                Collections.emptyList(), Collections.emptyList(), false, new int[0]);
+                shiloQuestComplete, Collections.emptyList(), false, new int[0]);
             merged.add(0, edge);
             added++;
         }
@@ -1673,6 +1676,16 @@ final class NetworkTransportSupport
             && origin.getY() >= 2950 && origin.getY() <= 2954
             && destination.equals(new WorldPoint(2880, 2952, 0));
         return eastToWest || westToEast;
+    }
+
+    private static final WorldPoint BRIMHAVEN_BACKDOOR_LANDING = new WorldPoint(2734, 9478, 0);
+
+    static boolean isUngatedBrimhavenBackdoor(Transport source)
+    {
+        // Both directions exist only after the rope is tied; the shared copies lack that check.
+        return source.getObjectId() == 66 && BRIMHAVEN_BACKDOOR_LANDING.equals(source.getDestination())
+            || source.getObjectId() == 30201 && BRIMHAVEN_BACKDOOR_LANDING.equals(source.getOrigin())
+                && source.getVarbits().isEmpty();
     }
 
     private List<Transport> loadSharedCatalog()
@@ -1708,6 +1721,9 @@ final class NetworkTransportSupport
                     // Only Sticky Swamp's outbound copies bypass its working Mycelium
                     // destination handler and repeatedly click Use without choosing a stop.
                     if (StickySwampExit.replaces(source)) continue;
+                    // The client's shared Brimhaven back-door rows use the plain rope (66) with no
+                    // unlock check; engine data carries the real rope (30200, varbit 5629 > 0).
+                    if (isUngatedBrimhavenBackdoor(source)) continue;
                     if (SlayerDungeonTransports.isSupersededTransport(source.getObjectId(), source.getOrigin())) continue;
                     // Charters and their deck exits have one dedicated executor. Shared
                     // copies would bypass its arrival checks and failure blacklist.
