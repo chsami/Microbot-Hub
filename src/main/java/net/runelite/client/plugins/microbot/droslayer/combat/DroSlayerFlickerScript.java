@@ -17,6 +17,8 @@ import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
@@ -36,12 +38,16 @@ public class DroSlayerFlickerScript {
     private DroSlayerConfig config;
     private DroSlayerPrayer activePrayer = null;
     private volatile DroSlayerPrayer departurePrayer;
+    private final Set<Rs2PrayerEnum> flickedPrayers = ConcurrentHashMap.newKeySet();
+    private volatile boolean hitLanded;
     private int tickToFlick = 0;
     private boolean isRunning = false;
 
     public void start(DroSlayerConfig config) {
         this.config = config;
         departurePrayer = null;
+        flickedPrayers.clear();
+        hitLanded = false;
         this.isRunning = true;
         log.info("DroSlayerFlickerScript started");
     }
@@ -51,6 +57,8 @@ public class DroSlayerFlickerScript {
         currentMonstersAttackingUsRef.set(new ArrayList<>());
         activePrayer = null;
         departurePrayer = null;
+        flickedPrayers.clear();
+        hitLanded = false;
         log.info("DroSlayerFlickerScript stopped");
     }
 
@@ -95,6 +103,7 @@ public class DroSlayerFlickerScript {
                 DroSlayerRuntime.performAction(BaseProfileDro.ActionPhase.MAINTENANCE, true,
                         () -> Rs2Prayer.toggle(held.getPrayer(), true));
             }
+            hitLanded = false;
             return;
         }
 
@@ -139,11 +148,15 @@ public class DroSlayerFlickerScript {
         // The prayer varbit lags one tick, so a second same-style monster due this tick
         // would otherwise click the same prayer again and switch it back off.
         java.util.Set<Rs2PrayerEnum> toggledThisTick = java.util.EnumSet.noneOf(Rs2PrayerEnum.class);
+        java.util.Set<Rs2PrayerEnum> dueThisTick = java.util.EnumSet.noneOf(Rs2PrayerEnum.class);
+        boolean hasPrayerPoints = Rs2Player.hasPrayerPoints();
         for (DroSlayerMonster monster : currentMonstersAttackingUsRef.get()) {
             monster.lastAttack--;
-            if (monster.lastAttack == tickToFlick && !monster.npc.isDead()) {
+            if (hasPrayerPoints && monster.lastAttack == tickToFlick && !monster.npc.isDead()) {
                 Rs2PrayerEnum prayer = getPrayerToActivate(monster);
+                if (prayer != null) dueThisTick.add(prayer);
                 if (prayer != null && !Rs2Prayer.isPrayerActive(prayer) && toggledThisTick.add(prayer)) {
+                    flickedPrayers.add(prayer);
                     log.debug("Flicking {} on (monster: {}, tick: {})", prayer, monster.npc.getName(), monster.lastAttack);
                     DroSlayerRuntime.performAction(BaseProfileDro.ActionPhase.MAINTENANCE, true, () -> {
                         Rs2Prayer.toggle(prayer, true);
@@ -153,8 +166,11 @@ public class DroSlayerFlickerScript {
             resetLastAttack(false);
         }
 
+        boolean released = hitLanded && releaseFlickedPrayers(dueThisTick);
+        hitLanded = false;
+
         // Disable prayers if no monsters attacking and not interacting
-        if (currentMonstersAttackingUsRef.get().isEmpty() &&
+        if (!released && currentMonstersAttackingUsRef.get().isEmpty() &&
                 !Rs2Player.isInteracting() &&
                 (Rs2Prayer.isPrayerActive(Rs2PrayerEnum.PROTECT_MELEE) ||
                         Rs2Prayer.isPrayerActive(Rs2PrayerEnum.PROTECT_MAGIC) ||
@@ -217,7 +233,20 @@ public class DroSlayerFlickerScript {
 
         // Reset attack timers when we get hit (helps re-sync timing)
         resetLastAttack(true);
-        // Note: Don't disable prayers here - if we got hit, we want protection ON
+        hitLanded = true;
+    }
+
+    private boolean releaseFlickedPrayers(Set<Rs2PrayerEnum> dueThisTick) {
+        boolean released = false;
+        for (Rs2PrayerEnum prayer : flickedPrayers) {
+            if (dueThisTick.contains(prayer) || !Rs2Prayer.isPrayerActive(prayer)) continue;
+            log.debug("Flicking {} off after hit", prayer);
+            DroSlayerRuntime.performAction(BaseProfileDro.ActionPhase.MAINTENANCE, true, () -> {
+                Rs2Prayer.toggle(prayer, false);
+            });
+            released = true;
+        }
+        return released;
     }
 
     public void resetLastAttack(boolean forceReset) {
