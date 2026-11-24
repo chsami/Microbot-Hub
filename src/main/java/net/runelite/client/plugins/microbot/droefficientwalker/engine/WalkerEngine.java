@@ -51,6 +51,7 @@ import net.runelite.api.WorldType;
 import net.runelite.api.WorldView;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
+import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.widgets.Widget;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.droefficientwalker.TravelCombatPolicy;
@@ -78,6 +79,12 @@ public final class WalkerEngine {
    private static final int[] TELEPORT_PREP_ITEM_IDS;
    private static final int[] TELEPORT_PREP_TARGET_QUANTITIES;
    private static final WalkerEngine.RouteRequest CANCELLED_REQUEST;
+   private static final int[] MINIMAP_ORB_WIDGETS = {
+      InterfaceID.Orbs.XP_DROPS, InterfaceID.Orbs.ORB_HEALTH, InterfaceID.Orbs.ORB_PRAYER,
+      InterfaceID.Orbs.ORB_RUNENERGY, InterfaceID.Orbs.ORB_SPECENERGY, InterfaceID.Orbs.ORB_STORE,
+      InterfaceID.Orbs.ORB_CONTENTRECOM, InterfaceID.Orbs.WORLDMAP, InterfaceID.Orbs.WIKI,
+      InterfaceID.ToplevelOsrsStretch.COMPASSCLICK, InterfaceID.ToplevelPreEoc.COMPASSCLICK, InterfaceID.Toplevel.COMPASSCLICK
+   };
    private final Client client;
    private final WalkerEngineConfig config;
    private final List<TransportCatalog.TransportEdge> transports;
@@ -119,6 +126,8 @@ public final class WalkerEngine {
    private int clickOriginSceneX;
    private int clickOriginSceneY;
    private WorldPoint walkTarget;
+   private int walkClickRepeats;
+   private final Set<WorldPoint> stalledWalkTargets;
    private boolean initialWalkClickPending;
    private boolean initialTransportClickPending;
    private boolean preflightComplete;
@@ -241,6 +250,7 @@ public final class WalkerEngine {
       this.lastTeleportActionTick = -1;
       this.lastTransitionTick = -1;
       this.lastWalkClickTick = -1;
+      this.stalledWalkTargets = new HashSet<>();
       this.lastPreflightActionTick = -1;
       this.lastDecision = "idle";
       this.doorAttemptsByLocation = new HashMap<>();
@@ -932,6 +942,12 @@ public final class WalkerEngine {
                                                 }
                                              }
 
+                                             boolean stalledAtOrigin = !moving && this.lastWalkClickTick >= 0
+                                                && sceneX == this.clickOriginSceneX && sceneY == this.clickOriginSceneY;
+                                             if (stalledAtOrigin && this.walkTarget != null && hasExhaustedWalkClickRetries(this.walkClickRepeats)) {
+                                                this.stalledWalkTargets.add(this.walkTarget);
+                                             }
+
                                              int furthestClickIndex = nextDoor == null ? remainingTiles.length - 1 : nextDoor.routeIndex;
 
                                              for (int clickIndex = furthestClickIndex; clickIndex > 0; clickIndex--) {
@@ -965,6 +981,10 @@ public final class WalkerEngine {
 
                                                 if (clickPoint != null) {
                                                    WorldPoint worldTarget = WorldPoint.fromLocal(worldView, localTarget.getX(), localTarget.getY(), route.plane);
+                                                   if (stalledAtOrigin && this.stalledWalkTargets.contains(worldTarget)) {
+                                                      continue;
+                                                   }
+
                                                    boolean sameTarget = this.lastWalkClickTick >= 0 && worldTarget.equals(this.walkTarget);
                                                    boolean switchFromMinimap = sameTarget && this.lastClickUsedMinimap && !useMinimap;
                                                    if (moving && sameTarget && !switchFromMinimap) {
@@ -1237,6 +1257,12 @@ public final class WalkerEngine {
 
    private void recordWalkClick(int originSceneX, int originSceneY, WorldPoint target, boolean usedMinimap) {
       pohTiming.action(System.currentTimeMillis());
+      boolean sameOrigin = this.lastWalkClickTick >= 0 && originSceneX == this.clickOriginSceneX && originSceneY == this.clickOriginSceneY;
+      if (!sameOrigin) {
+         this.stalledWalkTargets.clear();
+      }
+
+      this.walkClickRepeats = nextWalkClickRepeats(this.walkClickRepeats, sameOrigin, target.equals(this.walkTarget));
       this.lastWalkClickTick = this.client.getTickCount();
       this.clickOriginSceneX = originSceneX;
       this.clickOriginSceneY = originSceneY;
@@ -1248,7 +1274,41 @@ public final class WalkerEngine {
 
    private Point projectToMinimap(LocalPoint localPoint) {
       Point point = Perspective.localToMinimap(this.client, localPoint);
-      return point != null && Rs2MiniMap.isPointInsideMinimap(point) ? point : null;
+      return point != null && Rs2MiniMap.isPointInsideMinimap(point) && !this.isOverMinimapOrb(point) ? point : null;
+   }
+
+   private boolean isOverMinimapOrb(Point point) {
+      List<Rectangle> orbBounds = new ArrayList<>();
+      for (int widgetId : MINIMAP_ORB_WIDGETS) {
+         Widget widget = this.client.getWidget(widgetId);
+         if (widget != null && !widget.isHidden()) {
+            orbBounds.add(widget.getBounds());
+         }
+      }
+
+      return isPointInsideAny(point, orbBounds);
+   }
+
+   static boolean isPointInsideAny(Point point, List<Rectangle> bounds) {
+      if (point == null) {
+         return false;
+      }
+
+      for (Rectangle rectangle : bounds) {
+         if (rectangle != null && rectangle.contains(point.getX(), point.getY())) {
+            return true;
+         }
+      }
+
+      return false;
+   }
+
+   static boolean hasExhaustedWalkClickRetries(int repeats) {
+      return repeats >= 3;
+   }
+
+   static int nextWalkClickRepeats(int repeats, boolean sameOrigin, boolean sameTarget) {
+      return sameOrigin && sameTarget ? repeats + 1 : 1;
    }
 
    private boolean captureAndStartPlanning(final WalkerEngine.RouteRequest request, Player player, boolean allowTeleports) {
