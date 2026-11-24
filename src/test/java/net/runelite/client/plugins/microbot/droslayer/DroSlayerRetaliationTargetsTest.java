@@ -60,6 +60,9 @@ public class DroSlayerRetaliationTargetsTest {
             when(query.firstOnClientThread()).thenAnswer(ignored -> scene.stream()
                     .filter(npc -> filters.stream().allMatch(predicate -> predicate.test(npc)))
                     .findFirst().orElse(null));
+            when(query.nearestOnClientThread()).thenAnswer(ignored -> scene.stream()
+                    .filter(npc -> filters.stream().allMatch(predicate -> predicate.test(npc)))
+                    .findFirst().orElse(null));
             when(query.count()).thenAnswer(ignored -> (int) scene.stream()
                     .filter(npc -> filters.stream().allMatch(predicate -> predicate.test(npc))).count());
             return query;

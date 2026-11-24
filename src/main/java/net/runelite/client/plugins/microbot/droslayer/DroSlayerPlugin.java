@@ -43,7 +43,7 @@ import java.awt.*;
 @Slf4j
 public class DroSlayerPlugin extends Plugin {
 
-    public static final String version = "1.3.99";
+    public static final String version = "1.3.100";
 
     @Inject
     private DroSlayerConfig config;
@@ -260,6 +260,9 @@ public class DroSlayerPlugin extends Plugin {
         String message = net.runelite.client.util.Text.removeTags(event.getMessage()).toLowerCase(java.util.Locale.ROOT);
         slayerScript.onWildernessWeaponMessage(message);
         slayerScript.onLootMessage(message);
+        if (message.contains("reach that")) {
+            slayerScript.onUnreachableMessage();
+        }
         if (message.contains("enough space to set up") || message.contains("cannot set up a cannon here")) {
             slayerScript.onCannonPlacementRejected();
         }

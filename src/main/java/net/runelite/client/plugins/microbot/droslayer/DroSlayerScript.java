@@ -247,6 +247,40 @@ public class DroSlayerScript extends Script {
     private Rs2PrayerEnum lastOffensiveOverride;
     private volatile boolean profileReloadPending;
 
+    // Failsafe behind the collision checks: the game's own "I can't reach that!" sets aside the
+    // monster or item clicked just before it, so the script picks something else.
+    private static final long UNREACHABLE_MESSAGE_WINDOW_MS = 5_000L;
+    private static final long UNREACHABLE_SET_ASIDE_MS = 60_000L;
+    private final java.util.Map<Integer, Long> unreachableNpcs = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.Map<WorldPoint, Long> unreachableLoot = new java.util.concurrent.ConcurrentHashMap<>();
+    private volatile int lastAttackIndex = -1;
+    private volatile long lastAttackMs;
+    private volatile WorldPoint lastLootTarget;
+    private volatile long lastLootMs;
+
+    public void onUnreachableMessage() {
+        long now = System.currentTimeMillis();
+        boolean npcRecent = lastAttackIndex >= 0 && now - lastAttackMs <= UNREACHABLE_MESSAGE_WINDOW_MS;
+        boolean lootRecent = lastLootTarget != null && now - lastLootMs <= UNREACHABLE_MESSAGE_WINDOW_MS;
+        if (lootRecent && (!npcRecent || lastLootMs >= lastAttackMs)) {
+            unreachableLoot.put(lastLootTarget, now + UNREACHABLE_SET_ASIDE_MS);
+            log.info("Item at {} is unreachable; skipping it for a minute", lastLootTarget);
+            lastLootTarget = null;
+        } else if (npcRecent) {
+            unreachableNpcs.put(lastAttackIndex, now + UNREACHABLE_SET_ASIDE_MS);
+            log.info("Target is unreachable; skipping it for a minute");
+            lastAttackIndex = -1;
+        }
+    }
+
+    private static boolean setAside(java.util.Map<?, Long> setAside, Object key) {
+        Long until = setAside.get(key);
+        if (until == null) return false;
+        if (until > System.currentTimeMillis()) return true;
+        setAside.remove(key);
+        return false;
+    }
+
     public void onLootMessage(String message) {
         if (cluePickup.onMessage(message, System.currentTimeMillis()))
             log.info("Clue pickup tier limit reached; skipping that tier until Slayer restarts");
@@ -5526,6 +5560,12 @@ public class DroSlayerScript extends Script {
         // Build the loot engine with exclusion filter
         Rs2LootEngine.Builder builder = Rs2LootEngine.with(params)
                 .withLootAction(groundItem -> {
+                    if (isLootBlocked(groundItem.getLocation())) {
+                        log.debug("Skipping unreachable item: {}", groundItem.getName());
+                        return;
+                    }
+                    lastLootTarget = groundItem.getLocation();
+                    lastLootMs = System.currentTimeMillis();
                     // Check exclusion list before looting
                     if (isItemExcluded(groundItem.getName(), excludedItems)) {
                         log.debug("Skipping excluded item: {}", groundItem.getName());
@@ -5834,6 +5874,7 @@ public class DroSlayerScript extends Script {
 
         if (attackableNpcs.isEmpty()) {
             if (revealZygomite()) return;
+            if (approachUnreachableTarget(targetMonsters)) return;
 
             log.debug("No attackable slayer monsters found nearby matching: {}", targetMonsters);
 
@@ -6056,7 +6097,7 @@ public class DroSlayerScript extends Script {
                 .where(npc -> taskDestination == null ||
                         npc.getWorldLocation().distanceTo(taskDestination) <= config.attackRadius() + 5)
                 .where(this::canAttackNpc)
-                .firstOnClientThread();
+                .nearestOnClientThread();
     }
 
     /**
@@ -6069,7 +6110,7 @@ public class DroSlayerScript extends Script {
                 .where(npc -> npc.getInteracting() == Microbot.getClient().getLocalPlayer())
                 .where(npc -> !npc.isDead() && npc.getHealthRatio() != 0)
                 .where(this::canAttackNpc)
-                .firstOnClientThread();
+                .nearestOnClientThread();
     }
 
     /** Failed optional bursting restores the ordinary saved loadout instead of idling or retrying forever. */
@@ -6346,14 +6387,78 @@ public class DroSlayerScript extends Script {
             // Match the definition used by Rs2NpcModel.click, before activating the mouse.
             net.runelite.api.NPCComposition definition = Microbot.getClient().getNpcDefinition(npc.getId());
             if (definition == null || definition.getActions() == null) return false;
-            return Arrays.stream(definition.getActions()).anyMatch("Attack"::equalsIgnoreCase);
+            if (Arrays.stream(definition.getActions()).noneMatch("Attack"::equalsIgnoreCase)) return false;
+            if (setAside(unreachableNpcs, npc.getIndex())) return false;
+            // A monster behind a fence, wall or closed gate cannot be fought from here; clicking
+            // Attack only repeats "I can't reach that". handleCombat walks in through the gate.
+            return isNpcReachable(npc, Math.max(1, definition.getSize()));
         }).orElse(false);
+    }
+
+    /**
+     * False only when the NPC stands on walkable ground that the player cannot walk to (a fenced
+     * garden, the far side of a wall or closed gate). Monsters on unwalkable tiles such as water
+     * (cave kraken) are fought at range and stay attackable.
+     */
+    private static boolean isNpcReachable(Rs2NpcModel npc, int size) {
+        // Unknown scenes and instanced boss rooms keep the previous behaviour (attackable).
+        net.runelite.api.WorldView view = Microbot.getClient().getTopLevelWorldView();
+        if (view == null || view.getScene() == null || view.getScene().isInstance()) return true;
+        WorldPoint location = npc.getWorldLocation();
+        if (location == null) return true;
+        boolean walkableFootprint = false;
+        for (int dx = 0; dx < size; dx++) {
+            for (int dy = 0; dy < size; dy++) {
+                WorldPoint tile = location.dx(dx).dy(dy);
+                if (!net.runelite.client.plugins.microbot.util.tile.Rs2Tile.isWalkable(tile)) continue;
+                walkableFootprint = true;
+                if (net.runelite.client.plugins.microbot.util.tile.Rs2Tile.isTileReachable(tile)) return true;
+            }
+        }
+        return !walkableFootprint;
+    }
+
+    /**
+     * Loot is never clicked across anything that blocks movement (fence, wall, closed gate, rock,
+     * table). An item on walkable ground needs its own tile reachable; an item on a blocked tile
+     * needs a reachable side tile. The "I can't reach that!" set-aside covers anything else.
+     */
+    private boolean isLootBlocked(WorldPoint location) {
+        if (location == null) return false;
+        if (setAside(unreachableLoot, location)) return true;
+        if (net.runelite.client.plugins.microbot.util.tile.Rs2Tile.isWalkable(location)) return !net.runelite.client.plugins.microbot.util.tile.Rs2Tile.isTileReachable(location);
+        return !(net.runelite.client.plugins.microbot.util.tile.Rs2Tile.isTileReachable(location.dx(1)) || net.runelite.client.plugins.microbot.util.tile.Rs2Tile.isTileReachable(location.dx(-1))
+                || net.runelite.client.plugins.microbot.util.tile.Rs2Tile.isTileReachable(location.dy(1)) || net.runelite.client.plugins.microbot.util.tile.Rs2Tile.isTileReachable(location.dy(-1)));
+    }
+
+    /**
+     * Task monsters are present but every one is behind a fence, wall or closed gate (e.g. the
+     * Handelmort Mansion guard dogs). Efficient Walker routes to the nearest one and opens the
+     * gates on the way; returns true while that walk owns this tick.
+     */
+    private boolean approachUnreachableTarget(List<String> targetMonsters) {
+        WorldPoint here = Rs2Player.getWorldLocation();
+        if (here == null) return false;
+        Rs2NpcModel blocked = Microbot.getRs2NpcCache().query()
+                .where(npc -> !npc.isDead())
+                .where(npc -> npc.getName() != null)
+                .where(npc -> targetMonsters.stream().anyMatch(monster -> matchesTargetMonster(npc.getName(), monster)))
+                .where(npc -> npc.getWorldLocation() != null && npc.getWorldLocation().getPlane() == here.getPlane())
+                .where(npc -> taskDestination == null
+                        || npc.getWorldLocation().distanceTo(taskDestination) <= config.attackRadius())
+                .nearestOnClientThread();
+        if (blocked == null || blocked.getWorldLocation() == null) return false;
+        log.info("Target {} is not reachable from here; walking to it", blocked.getName());
+        DroSlayerRuntime.walkFull(config, blocked.getWorldLocation(), 1);
+        return true;
     }
 
     private boolean attackNpc(Rs2NpcModel npc) {
         traceDroAction("attackNpc");
         if (occupiedAreaPending && !isBeingAttacked()) return false;
         if (!canAttackNpc(npc)) return false;
+        lastAttackIndex = npc.getIndex();
+        lastAttackMs = System.currentTimeMillis();
         return DroSlayerRuntime.performAction(
                 BaseProfileDro.ActionPhase.ACTIVE_WORK, false, () -> npc.click("Attack"));
     }
@@ -6424,7 +6529,9 @@ public class DroSlayerScript extends Script {
         } else {
             // Broader match for general task names
             // e.g., task "blue dragons" with monster "blue dragon" should match NPC "Blue dragon"
-            return npcLower.contains(targetLower) || targetLower.contains(npcLower);
+            // The reverse only for plurals: "guard dog" must not match the NPC "Guard".
+            return npcLower.contains(targetLower) || targetLower.equals(npcLower + "s")
+                    || targetLower.equals(npcLower + "es");
         }
     }
 
