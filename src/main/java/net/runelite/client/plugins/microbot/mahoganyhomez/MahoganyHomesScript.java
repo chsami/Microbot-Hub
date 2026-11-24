@@ -355,8 +355,9 @@ public class MahoganyHomesScript extends Script {
 
     // Finish by talking to the NPC
     private void finish() {
-        if (plugin.getCurrentHome() != null
-                && plugin.getCurrentHome().isInside(Rs2Player.getWorldLocation())
+        Home home = plugin.getCurrentHome();
+        if (home != null
+                && home.isInside(Rs2Player.getWorldLocation())
                 && Hotspot.isEverythingFixed()) {
             if(plugin.getConfig().usePlankSack() && planksInPlankSack() > 0 && !Rs2Inventory.isFull()){
                 if (Rs2Inventory.contains(ItemID.PLANK_SACK) && Rs2Inventory.contains(ItemID.STEEL_BAR)) {
@@ -367,7 +368,7 @@ public class MahoganyHomesScript extends Script {
                     }
                 }
             }
-            var npc = Microbot.getRs2NpcCache().query().withId(plugin.getCurrentHome().getNpcId()).nearest();
+            var npc = Microbot.getRs2NpcCache().query().withId(home.getNpcId()).nearest();
             WorldPoint playerLocation = Rs2Player.getWorldLocation();
             if (playerLocation == null) return;
             if (npc == null && playerLocation.getPlane() > 0) {
@@ -375,7 +376,7 @@ public class MahoganyHomesScript extends Script {
                 int playerPlane = playerLocation.getPlane();
 
                 var ladders = Microbot.getRs2TileObjectCache().query()
-                        .withIds(Arrays.stream(plugin.getCurrentHome().getLadders()).mapToInt(Integer::intValue).toArray())
+                        .withIds(Arrays.stream(home.getLadders()).mapToInt(Integer::intValue).toArray())
                         .where(obj -> obj.getWorldLocation().getPlane() == playerPlane)
                         .toList();
                 var closestLadder2 = ladders.stream()
@@ -393,7 +394,7 @@ public class MahoganyHomesScript extends Script {
                 Rs2WorldPoint npcLocation = new Rs2WorldPoint(npc.getWorldLocation());
                 log("Local NPC path distance: " + npcLocation.distanceToPath(playerLocation));
                 if (npcLocation.distanceToPath(playerLocation) < 20) {
-                    Home talkedHome = plugin.getCurrentHome();
+                    Home talkedHome = home;
                     if (npc.click("Talk-to")) {
                         log("Getting reward from NPC");
                         boolean answered = sleepUntil(Rs2Dialogue::hasContinue, 10000);
