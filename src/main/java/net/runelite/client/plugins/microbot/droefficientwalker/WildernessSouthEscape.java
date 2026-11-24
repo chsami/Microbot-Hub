@@ -36,7 +36,7 @@ final class WildernessSouthEscape
             WorldPoint target = furthestSouth(here, drift, candidate ->
             {
                 Point point = Rs2MiniMap.worldToMinimap(candidate);
-                return point != null && Rs2MiniMap.isPointInsideMinimap(point);
+                return point != null && Rs2MiniMap.isPointInsideMinimap(point) && !MinimapOrbs.covers(client, point);
             });
             return target == null ? null : Rs2MiniMap.worldToMinimap(target);
         }).orElse(null);

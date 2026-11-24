@@ -574,7 +574,7 @@ final class MicrobotSailingFacade {
         if (p == null || centreCheck == null || b.width <= 0 || b.height <= 0) return null;
         Ellipse2D clip = new Ellipse2D.Double(b.x + b.width * .1, b.y + b.height * .1, b.width * .8, b.height * .8);
         // Wrong deck/world-view projection cannot be allowed to click another UI control.
-        if (!clip.contains(p.getX(), p.getY()) || Math.hypot(centreCheck.getX() - b.getCenterX(), centreCheck.getY() - b.getCenterY()) > Math.min(b.width, b.height) * .3) return null;
+        if (!clip.contains(p.getX(), p.getY()) || MinimapOrbs.covers(client, p) || Math.hypot(centreCheck.getX() - b.getCenterX(), centreCheck.getY() - b.getCenterY()) > Math.min(b.width, b.height) * .3) return null;
         return p;
     }
 

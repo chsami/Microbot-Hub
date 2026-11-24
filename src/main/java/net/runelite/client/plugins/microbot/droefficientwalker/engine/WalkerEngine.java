@@ -53,6 +53,7 @@ import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.widgets.Widget;
 import net.runelite.client.plugins.microbot.Microbot;
+import net.runelite.client.plugins.microbot.droefficientwalker.MinimapOrbs;
 import net.runelite.client.plugins.microbot.droefficientwalker.TravelCombatPolicy;
 import net.runelite.client.plugins.microbot.droefficientwalker.WalkerMouseControl;
 import net.runelite.client.plugins.microbot.droefficientwalker.WalkerTabState;
@@ -78,6 +79,7 @@ public final class WalkerEngine {
    private static final int[] TELEPORT_PREP_ITEM_IDS;
    private static final int[] TELEPORT_PREP_TARGET_QUANTITIES;
    private static final WalkerEngine.RouteRequest CANCELLED_REQUEST;
+   static final String WALK_STALL_STATUS = "Efficient Walker: Character is not moving; trying a closer tile.";
    private final Client client;
    private final WalkerEngineConfig config;
    private final List<TransportCatalog.TransportEdge> transports;
@@ -119,6 +121,10 @@ public final class WalkerEngine {
    private int clickOriginSceneX;
    private int clickOriginSceneY;
    private WorldPoint walkTarget;
+   private int walkClickRepeats;
+   private final Set<WorldPoint> stalledWalkTargets;
+   private boolean walkStallStatusShown;
+   private String statusBeforeWalkStall;
    private boolean initialWalkClickPending;
    private boolean initialTransportClickPending;
    private boolean preflightComplete;
@@ -241,6 +247,7 @@ public final class WalkerEngine {
       this.lastTeleportActionTick = -1;
       this.lastTransitionTick = -1;
       this.lastWalkClickTick = -1;
+      this.stalledWalkTargets = new HashSet<>();
       this.lastPreflightActionTick = -1;
       this.lastDecision = "idle";
       this.doorAttemptsByLocation = new HashMap<>();
@@ -447,6 +454,7 @@ public final class WalkerEngine {
       this.initialTransportClickPending = false;
       this.lastWalkClickTick = -1;
       this.walkTarget = null;
+      this.clearWalkStallStatus();
       this.doorAttemptsByLocation.clear();
       this.excludedDoorLocations.clear();
       this.excludedTransports.clear();
@@ -919,6 +927,10 @@ public final class WalkerEngine {
                                              }
                                           } else {
                                              boolean moving = player.getPoseAnimation() != player.getIdlePoseAnimation();
+                                             if (moving) {
+                                                this.clearWalkStallStatus();
+                                             }
+
                                              if (this.lastWalkClickTick >= 0) {
                                                 int clickedTargetIndex = this.walkTarget == null ? -1 : route.points.indexOf(this.walkTarget);
                                                 if (moving && clickedTargetIndex > routeIndex + 4) {
@@ -932,7 +944,22 @@ public final class WalkerEngine {
                                                 }
                                              }
 
-                                             int furthestClickIndex = nextDoor == null ? remainingTiles.length - 1 : nextDoor.routeIndex;
+                                             boolean stalledAtOrigin = !moving && this.lastWalkClickTick >= 0
+                                                && sceneX == this.clickOriginSceneX && sceneY == this.clickOriginSceneY;
+                                             if (stalledAtOrigin && this.walkTarget != null && hasExhaustedWalkClickRetries(this.walkClickRepeats)
+                                                && this.stalledWalkTargets.add(this.walkTarget)) {
+                                                this.showWalkStallStatus();
+                                             }
+
+                                             if (stalledAtOrigin && hasExhaustedStalledWalkTargets(this.stalledWalkTargets.size())) {
+                                                this.failNavigation("walk-clicks-not-moving");
+                                                return;
+                                             }
+
+                                             int furthestClickIndex = stalledClickIndexLimit(
+                                                nextDoor == null ? remainingTiles.length - 1 : nextDoor.routeIndex,
+                                                stalledAtOrigin ? this.stalledWalkTargets.size() : 0
+                                             );
 
                                              for (int clickIndex = furthestClickIndex; clickIndex > 0; clickIndex--) {
                                                 LocalPoint localTarget = LocalPoint.fromScene(
@@ -965,6 +992,10 @@ public final class WalkerEngine {
 
                                                 if (clickPoint != null) {
                                                    WorldPoint worldTarget = WorldPoint.fromLocal(worldView, localTarget.getX(), localTarget.getY(), route.plane);
+                                                   if (stalledAtOrigin && this.stalledWalkTargets.contains(worldTarget)) {
+                                                      continue;
+                                                   }
+
                                                    boolean sameTarget = this.lastWalkClickTick >= 0 && worldTarget.equals(this.walkTarget);
                                                    boolean switchFromMinimap = sameTarget && this.lastClickUsedMinimap && !useMinimap;
                                                    if (moving && sameTarget && !switchFromMinimap) {
@@ -993,7 +1024,7 @@ public final class WalkerEngine {
                                                 }
                                              }
 
-                                             this.failNavigation("no-clickable-walk-target");
+                                             this.failNavigation(stalledAtOrigin && !this.stalledWalkTargets.isEmpty() ? "walk-clicks-not-moving" : "no-clickable-walk-target");
                                           }
                                        }
                                     }
@@ -1237,6 +1268,13 @@ public final class WalkerEngine {
 
    private void recordWalkClick(int originSceneX, int originSceneY, WorldPoint target, boolean usedMinimap) {
       pohTiming.action(System.currentTimeMillis());
+      boolean sameOrigin = this.lastWalkClickTick >= 0 && originSceneX == this.clickOriginSceneX && originSceneY == this.clickOriginSceneY;
+      if (!sameOrigin) {
+         this.stalledWalkTargets.clear();
+         this.clearWalkStallStatus();
+      }
+
+      this.walkClickRepeats = nextWalkClickRepeats(this.walkClickRepeats, sameOrigin, target.equals(this.walkTarget));
       this.lastWalkClickTick = this.client.getTickCount();
       this.clickOriginSceneX = originSceneX;
       this.clickOriginSceneY = originSceneY;
@@ -1248,7 +1286,44 @@ public final class WalkerEngine {
 
    private Point projectToMinimap(LocalPoint localPoint) {
       Point point = Perspective.localToMinimap(this.client, localPoint);
-      return point != null && Rs2MiniMap.isPointInsideMinimap(point) ? point : null;
+      return point != null && Rs2MiniMap.isPointInsideMinimap(point) && !MinimapOrbs.covers(this.client, point) ? point : null;
+   }
+
+   private void showWalkStallStatus() {
+      if (!this.walkStallStatusShown) {
+         this.statusBeforeWalkStall = Microbot.status;
+         this.walkStallStatusShown = true;
+      }
+
+      Microbot.status = WALK_STALL_STATUS;
+   }
+
+   private void clearWalkStallStatus() {
+      if (this.walkStallStatusShown) {
+         this.walkStallStatusShown = false;
+         Microbot.status = statusAfterWalkStall(Microbot.status, this.statusBeforeWalkStall);
+         this.statusBeforeWalkStall = null;
+      }
+   }
+
+   static String statusAfterWalkStall(String current, String beforeStall) {
+      return WALK_STALL_STATUS.equals(current) ? beforeStall : current;
+   }
+
+   static boolean hasExhaustedWalkClickRetries(int repeats) {
+      return repeats >= 3;
+   }
+
+   static boolean hasExhaustedStalledWalkTargets(int stalledTargets) {
+      return stalledTargets >= 5;
+   }
+
+   static int stalledClickIndexLimit(int furthestClickIndex, int stalledTargets) {
+      return furthestClickIndex >> Math.min(stalledTargets, 30);
+   }
+
+   static int nextWalkClickRepeats(int repeats, boolean sameOrigin, boolean sameTarget) {
+      return sameOrigin && sameTarget ? repeats + 1 : 1;
    }
 
    private boolean captureAndStartPlanning(final WalkerEngine.RouteRequest request, Player player, boolean allowTeleports) {
@@ -2148,6 +2223,7 @@ public final class WalkerEngine {
          this.activeTransportMarker = null;
          this.pendingDoor = null;
          this.lastWalkClickTick = -1;
+         this.clearWalkStallStatus();
          this.doorAttemptsByLocation.clear();
          this.excludedDoorLocations.clear();
          this.excludedTransports.clear();

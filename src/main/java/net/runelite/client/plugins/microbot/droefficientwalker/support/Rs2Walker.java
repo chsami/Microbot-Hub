@@ -11,6 +11,7 @@ import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldArea;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
+import net.runelite.client.plugins.microbot.droefficientwalker.MinimapOrbs;
 import net.runelite.client.plugins.microbot.droefficientwalker.support.banking.Rs2WalkerBankingPlanner;
 import net.runelite.client.plugins.microbot.shortestpath.Transport;
 import net.runelite.client.plugins.microbot.shortestpath.TransportType;
@@ -62,6 +63,7 @@ public class Rs2Walker {
 
         if (point == null) return false;
         if (!Rs2MiniMap.isPointInsideMinimap(point)) return false;
+        if (MinimapOrbs.coversOnClientThread(point)) return false;
 
         Microbot.getMouse().click(point);
         
