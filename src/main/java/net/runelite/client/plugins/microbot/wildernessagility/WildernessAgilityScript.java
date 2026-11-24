@@ -295,8 +295,8 @@ public final class WildernessAgilityScript extends Script {
                 
                 // Check for Phoenix Escape trigger - Phoenix necklace missing
                 if (config.phoenixEscape() && !emergencyEscapeTriggered) {
-                    if (!hasPhoenixNecklace()) {
-                        Microbot.log("[WildernessAgility] Phoenix necklace missing - triggering escape!");
+                    if (!hasPhoenixNecklace() && !isHeadingToBankOutsideWilderness()) {
+                        Microbot.log("[WildernessAgility] Phoenix necklace missing");
                         if (!triggerPhoenixEscape()) return;
                     }
                 }
@@ -304,7 +304,7 @@ public final class WildernessAgilityScript extends Script {
                 // Check for health percentage emergency escape
                 if (config.leaveAtHealthPercent() > 0 && !emergencyEscapeTriggered) {
                     if (Rs2Player.getHealthPercentage() <= config.leaveAtHealthPercent()) {
-                        Microbot.log("[WildernessAgility] Health dropped to " + (int)Rs2Player.getHealthPercentage() + "% - triggering emergency escape!");
+                        Microbot.log("[WildernessAgility] Health dropped to " + (int)Rs2Player.getHealthPercentage() + "%");
                         if (!triggerPhoenixEscape()) return;
                     }
                 }
@@ -1412,8 +1412,8 @@ public final class WildernessAgilityScript extends Script {
 
         if (!isInWilderness()) {
             String reason = config.phoenixEscape() && !hasPhoenixNecklace()
-                ? "Stopped: no Phoenix necklace worn or in your inventory. Wear a Phoenix necklace, then start again, or turn off 'Phoenix Escape' under Escape Settings."
-                : "Stopped: health is at or below 'Leave at Health %' outside the Wilderness. Heal up, then start again, or lower 'Leave at Health %' under Escape Settings.";
+                ? "Stopped: you have no Phoenix necklace worn or in your inventory (an escape uses it up). Wear or carry a Phoenix necklace, then start again, or turn off 'Phoenix Escape' under Escape Settings."
+                : "Stopped: your health (" + (int) Rs2Player.getHealthPercentage() + "%) is at or below 'Leave at Health %' (" + config.leaveAtHealthPercent() + "%) and you are not in the Wilderness. Eat or wait to heal, then start again, or lower 'Leave at Health %' under Escape Settings.";
             Microbot.status = reason;
             Microbot.log("[WildernessAgility] " + reason);
             Microbot.stopPlugin(plugin);
@@ -1460,6 +1460,11 @@ public final class WildernessAgilityScript extends Script {
         }
         WorldPoint loc = Rs2Player.getWorldLocation();
         return loc != null && Rs2Pvp.getWildernessLevelFrom(loc) > 0;
+    }
+
+    boolean isHeadingToBankOutsideWilderness() {
+        return (currentState == ObstacleState.BANKING || currentState == ObstacleState.WALK_TO_LEVER)
+            && !isInWilderness();
     }
 
     /**
@@ -1881,6 +1886,9 @@ public final class WildernessAgilityScript extends Script {
         if (config.withdrawVenomProtection().getItemId() != -1) {
             supplyIds.add(config.withdrawVenomProtection().getItemId());
         }
+        if (config.phoenixEscape()) {
+            supplyIds.add(PHOENIX_NECKLACE_ID);
+        }
         if (!Rs2Inventory.items().allMatch(item -> supplyIds.contains(item.getId()))) {
             Rs2Bank.depositAll();
             sleep(getActionDelay());
@@ -1935,7 +1943,12 @@ public final class WildernessAgilityScript extends Script {
             Rs2Bank.withdrawOne(TELEPORT_ID);
             sleepUntil(() -> Rs2Inventory.hasItem(TELEPORT_ID), 3000);
         }
-        
+
+        if (config.phoenixEscape() && !hasPhoenixNecklace()) {
+            Rs2Bank.withdrawOne(PHOENIX_NECKLACE_ID);
+            sleepUntil(() -> Rs2Inventory.hasItem(PHOENIX_NECKLACE_ID), 3000);
+        }
+
         // Confirm all items are present
         boolean venomPresent = config.withdrawVenomProtection() == WildernessAgilityConfig.VenomProtectionOption.None || 
             (config.withdrawVenomProtection().getItemId() != -1 && Rs2Inventory.hasItem(config.withdrawVenomProtection().getItemId()));
@@ -1959,10 +1972,21 @@ public final class WildernessAgilityScript extends Script {
             missing.add(venom == WildernessAgilityConfig.VenomProtectionOption.AraxyteVenomSack ? venom.toString() : venom + " (4 dose)");
             settings.add("'Withdraw Venom Protection'");
         }
+        boolean phoenixMissing = config.phoenixEscape() && !hasPhoenixNecklace();
+        if (phoenixMissing) {
+            missing.add("Phoenix necklace");
+        }
         if (!missing.isEmpty()) {
             bankingAttempts++;
             if (bankingAttempts >= MAX_BANKING_ATTEMPTS) {
-                String reason = "Stopped: could not withdraw " + String.join(", ", missing) + " from the bank after " + bankingAttempts + " tries. Put " + (missing.size() == 1 ? "it" : "them") + " in your bank, or turn off " + String.join(" / ", settings) + " under Banking Settings.";
+                List<String> turnOff = new ArrayList<>();
+                if (!settings.isEmpty()) {
+                    turnOff.add(String.join(" / ", settings) + " under Banking Settings");
+                }
+                if (phoenixMissing) {
+                    turnOff.add("'Phoenix Escape' under Escape Settings");
+                }
+                String reason = "Stopped: could not withdraw " + String.join(", ", missing) + " from the bank after " + bankingAttempts + " tries. Put " + (missing.size() == 1 ? "it" : "them") + " in your bank, or turn off " + String.join(" and ", turnOff) + ".";
                 Microbot.status = reason;
                 Microbot.log("[WildernessAgility] " + reason);
                 Microbot.stopPlugin(plugin);
