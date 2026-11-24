@@ -6445,6 +6445,9 @@ public class DroSlayerScript extends Script {
     private int approachNpcIndex = -1;
     private String approachName;
     private long approachStartedAt;
+    private int approachRouteFailures;
+    // After a give-up, no new walk-in until this time, so handleCombat reaches the no-target / crash-hop path.
+    private long approachPausedUntil;
 
     private void clearApproach() {
         approachTile = null;
@@ -6462,13 +6465,11 @@ public class DroSlayerScript extends Script {
         WorldPoint here = Rs2Player.getWorldLocation();
         if (here == null) return false;
         long now = System.currentTimeMillis();
+        if (approachTile == null && now < approachPausedUntil) return false;
         if (approachTile != null) {
             boolean arrived = DroSlayerRuntime.walkFull(config, approachTile, 0);
-            if (arrived || now - approachStartedAt > CRASH_HOP_DELAY_MS) {
-                unreachableNpcs.put(approachNpcIndex, now + UNREACHABLE_SET_ASIDE_MS);
-                log.info("Can't reach any {}; setting it aside", approachName);
-                Microbot.status = "Can't reach any " + approachName + "; trying elsewhere";
-                clearApproach();
+            if (arrived || now - approachStartedAt > CRASH_HOP_DELAY_MS || approachWalkFailed(arrived)) {
+                giveUpApproach(now);
                 return false;
             }
             return true;
@@ -6486,17 +6487,42 @@ public class DroSlayerScript extends Script {
         approachNpcIndex = blocked.getIndex();
         approachName = blocked.getName();
         approachStartedAt = now;
+        approachRouteFailures = DroSlayerRuntime.routeFailures();
         log.info("Can't reach any {} from here; walking round", approachName);
         Microbot.status = "Can't reach any " + approachName + " from here; walking round";
-        DroSlayerRuntime.walkFull(config, approachTile, 0);
+        boolean arrived = DroSlayerRuntime.walkFull(config, approachTile, 0);
+        if (approachWalkFailed(arrived)) {
+            giveUpApproach(now);
+            return false;
+        }
         return true;
+    }
+
+    /** A walk-in route that was blocked, cancelled or rejected adds a route failure; give up instead of retrying. */
+    private boolean approachWalkFailed(boolean arrived) {
+        return !arrived && DroSlayerRuntime.routeFailures() > approachRouteFailures;
+    }
+
+    private void giveUpApproach(long now) {
+        unreachableNpcs.put(approachNpcIndex, now + UNREACHABLE_SET_ASIDE_MS);
+        log.info("Can't reach any {}; setting it aside", approachName);
+        Microbot.status = "Can't reach any " + approachName + "; trying elsewhere";
+        DroSlayerRuntime.cancelWalk();
+        // Walk-in failures must not spend the recovery budget of the next real route (e.g. a bank trip).
+        if (DroSlayerRuntime.routeFailures() > approachRouteFailures) DroSlayerRuntime.clearRouteFailures();
+        approachPausedUntil = now + UNREACHABLE_SET_ASIDE_MS;
+        clearApproach();
     }
 
     private boolean attackNpc(Rs2NpcModel npc) {
         traceDroAction("attackNpc");
         if (occupiedAreaPending && !isBeingAttacked()) return false;
         if (!canAttackNpc(npc)) return false;
-        clearApproach();
+        if (approachTile != null) {
+            // Stop the walk-in route so it cannot pull the player away from the fight.
+            DroSlayerRuntime.cancelWalk();
+            clearApproach();
+        }
         lastAttackIndex = npc.getIndex();
         lastAttackMs = System.currentTimeMillis();
         return DroSlayerRuntime.performAction(
