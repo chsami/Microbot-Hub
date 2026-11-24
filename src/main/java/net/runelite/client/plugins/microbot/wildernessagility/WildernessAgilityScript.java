@@ -15,6 +15,7 @@ import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.inventory.*;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
+import net.runelite.client.plugins.microbot.util.player.Rs2Pvp;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
@@ -296,15 +297,15 @@ public final class WildernessAgilityScript extends Script {
                 if (config.phoenixEscape() && !emergencyEscapeTriggered) {
                     if (!hasPhoenixNecklace()) {
                         Microbot.log("[WildernessAgility] Phoenix necklace missing - triggering escape!");
-                        triggerPhoenixEscape();
+                        if (!triggerPhoenixEscape()) return;
                     }
                 }
-                
+
                 // Check for health percentage emergency escape
                 if (config.leaveAtHealthPercent() > 0 && !emergencyEscapeTriggered) {
                     if (Rs2Player.getHealthPercentage() <= config.leaveAtHealthPercent()) {
                         Microbot.log("[WildernessAgility] Health dropped to " + (int)Rs2Player.getHealthPercentage() + "% - triggering emergency escape!");
-                        triggerPhoenixEscape();
+                        if (!triggerPhoenixEscape()) return;
                     }
                 }
                 
@@ -1404,11 +1405,21 @@ public final class WildernessAgilityScript extends Script {
     /**
      * Triggers Phoenix Escape - enables player monitor and uses robust escape logic
      */
-    private void triggerPhoenixEscape() {
+    boolean triggerPhoenixEscape() {
         if (emergencyEscapeTriggered) {
-            return; // Already triggered
+            return true; // Already triggered
         }
-        
+
+        if (!isInWilderness()) {
+            String reason = config.phoenixEscape() && !hasPhoenixNecklace()
+                ? "Stopped: no Phoenix necklace worn or in your inventory. Wear a Phoenix necklace, then start again, or turn off 'Phoenix Escape' under Escape Settings."
+                : "Stopped: health is at or below 'Leave at Health %' outside the Wilderness. Heal up, then start again, or lower 'Leave at Health %' under Escape Settings.";
+            Microbot.status = reason;
+            Microbot.log("[WildernessAgility] " + reason);
+            Microbot.stopPlugin(plugin);
+            return false;
+        }
+
         emergencyEscapeTriggered = true;
         emergencyEscapeStartTime = System.currentTimeMillis();
         
@@ -1440,6 +1451,15 @@ public final class WildernessAgilityScript extends Script {
         
         // Set state to Emergency Escape (dedicated escape state)
         currentState = ObstacleState.EMERGENCY_ESCAPE;
+        return true;
+    }
+
+    private boolean isInWilderness() {
+        if (Rs2Pvp.isInWilderness()) {
+            return true;
+        }
+        WorldPoint loc = Rs2Player.getWorldLocation();
+        return loc != null && Rs2Pvp.getWildernessLevelFrom(loc) > 0;
     }
 
     /**
@@ -2045,12 +2065,9 @@ public final class WildernessAgilityScript extends Script {
             if (!itemHandled) {
                 // If no known food items can be eaten/dropped, try to drop any non-essential items
                 if (Rs2Inventory.count() >= config.maxInventorySize()) {
-                    // Drop any item that's not essential (not knife, teleport, coins, or tickets)
-                    Rs2Inventory.items().filter(item -> 
-                        item.getId() != KNIFE_ID && 
-                        item.getId() != TELEPORT_ID && 
-                        item.getId() != COINS_ID &&
-                        item.getId() != TICKET_ITEM_ID
+                    int venomItemId = config.withdrawVenomProtection().getItemId();
+                    Rs2Inventory.items().filter(item ->
+                        !isKeptWhenClearingInventory(item.getId(), venomItemId)
                     ).findFirst().ifPresent(item -> {
                         Rs2Inventory.interact(item, "Drop");
                         waitForInventoryChanges(800);
@@ -2063,6 +2080,17 @@ public final class WildernessAgilityScript extends Script {
         if (attempts >= maxAttempts) {
             Microbot.log("clearInventoryIfNeeded() reached max attempts, breaking to prevent infinite loop");
         }
+    }
+
+    static boolean isKeptWhenClearingInventory(int itemId, int venomItemId) {
+        return itemId == KNIFE_ID
+            || itemId == TELEPORT_ID
+            || itemId == COINS_ID
+            || itemId == TICKET_ITEM_ID
+            || itemId == PHOENIX_NECKLACE_ID
+            || itemId == LOOTING_BAG_CLOSED_ID
+            || itemId == LOOTING_BAG_OPEN_ID
+            || itemId == venomItemId;
     }
     public int getDispenserLoots() {
         return dispenserLoots;
