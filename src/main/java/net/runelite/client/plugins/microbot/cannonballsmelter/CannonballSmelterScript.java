@@ -126,7 +126,7 @@ public class CannonballSmelterScript extends Script {
     }
 
     public void bank() {
-        if (!hasBalls() || hasBars()) return;
+        if (hasBars()) return;
     
         Microbot.status = "Banking...";
         int attempts = 0;
@@ -180,6 +180,12 @@ public class CannonballSmelterScript extends Script {
                 Microbot.showMessage("Could not find ammo mould or double ammo mould in bank, exiting...");
                 sleep(3000, 5000);
                 shutdown();
+                return;
+            }
+
+            if (Rs2Bank.isOpen() && Rs2Inventory.isFull()) {
+                Rs2Bank.depositAll();
+                sleepUntil(() -> !Rs2Inventory.isFull(), 5000);
             }
 
             if(Rs2Bank.hasItem("double ammo mould")) {
@@ -195,6 +201,7 @@ public class CannonballSmelterScript extends Script {
             Microbot.showMessage("Can't find Steel bars in bank, exiting...");
             sleep(3000,5000);
             shutdown();
+            return;
         }
         Rs2Bank.withdrawAll(ItemID.STEEL_BAR);
         sleepUntil(() -> Rs2Inventory.hasItem(ItemID.STEEL_BAR));
