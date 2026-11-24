@@ -6381,6 +6381,11 @@ public class DroSlayerScript extends Script {
 
     /** Interaction alone does not imply combat: harmless NPCs can follow/look at the player. */
     private boolean canAttackNpc(Rs2NpcModel npc) {
+        return canAttackNpc(npc, true);
+    }
+
+    /** Every attack check; {@code requireReach} false skips only the fence/wall reachability test. */
+    private boolean canAttackNpc(Rs2NpcModel npc, boolean requireReach) {
         if (npc == null) return false;
         return Microbot.getClientThread().runOnClientThreadOptional(() -> {
             if (npc.isDead()) return false;
@@ -6391,7 +6396,7 @@ public class DroSlayerScript extends Script {
             if (setAside(unreachableNpcs, npc.getIndex())) return false;
             // A monster behind a fence, wall or closed gate cannot be fought from here; clicking
             // Attack only repeats "I can't reach that". handleCombat walks in through the gate.
-            return isNpcReachable(npc, Math.max(1, definition.getSize()));
+            return !requireReach || isNpcReachable(npc, Math.max(1, definition.getSize()));
         }).orElse(false);
     }
 
@@ -6426,30 +6431,64 @@ public class DroSlayerScript extends Script {
     private boolean isLootBlocked(WorldPoint location) {
         if (location == null) return false;
         if (setAside(unreachableLoot, location)) return true;
+        // Instances: drop locations are real instance coordinates while the player's are template ones,
+        // so the reachability test would reject every drop. Loot normally there.
+        net.runelite.api.WorldView view = Microbot.getClient().getTopLevelWorldView();
+        if (view == null || view.getScene() == null || view.getScene().isInstance()) return false;
         if (net.runelite.client.plugins.microbot.util.tile.Rs2Tile.isWalkable(location)) return !net.runelite.client.plugins.microbot.util.tile.Rs2Tile.isTileReachable(location);
         return !(net.runelite.client.plugins.microbot.util.tile.Rs2Tile.isTileReachable(location.dx(1)) || net.runelite.client.plugins.microbot.util.tile.Rs2Tile.isTileReachable(location.dx(-1))
                 || net.runelite.client.plugins.microbot.util.tile.Rs2Tile.isTileReachable(location.dy(1)) || net.runelite.client.plugins.microbot.util.tile.Rs2Tile.isTileReachable(location.dy(-1)));
     }
 
+    // Walk-in toward a task monster behind a fence or closed gate: one fixed tile, bounded in time.
+    private WorldPoint approachTile;
+    private int approachNpcIndex = -1;
+    private String approachName;
+    private long approachStartedAt;
+
+    private void clearApproach() {
+        approachTile = null;
+        approachNpcIndex = -1;
+        approachName = null;
+    }
+
     /**
-     * Task monsters are present but every one is behind a fence, wall or closed gate (e.g. the
-     * Handelmort Mansion guard dogs). Efficient Walker routes to the nearest one and opens the
-     * gates on the way; returns true while that walk owns this tick.
+     * Every task monster is behind a fence, wall or closed gate (e.g. the Handelmort Mansion guard dogs).
+     * Efficient Walker walks to one fixed tile (the chosen monster's tile when picked), opening gates on the
+     * way. If that is not done within the crash-hop delay, or the tile is reached and still nothing can be
+     * attacked, the monster is set aside and the normal no-target / world-hop path takes over.
      */
     private boolean approachUnreachableTarget(List<String> targetMonsters) {
         WorldPoint here = Rs2Player.getWorldLocation();
         if (here == null) return false;
+        long now = System.currentTimeMillis();
+        if (approachTile != null) {
+            boolean arrived = DroSlayerRuntime.walkFull(config, approachTile, 0);
+            if (arrived || now - approachStartedAt > CRASH_HOP_DELAY_MS) {
+                unreachableNpcs.put(approachNpcIndex, now + UNREACHABLE_SET_ASIDE_MS);
+                log.info("Can't reach any {}; setting it aside", approachName);
+                Microbot.status = "Can't reach any " + approachName + "; trying elsewhere";
+                clearApproach();
+                return false;
+            }
+            return true;
+        }
         Rs2NpcModel blocked = Microbot.getRs2NpcCache().query()
-                .where(npc -> !npc.isDead())
                 .where(npc -> npc.getName() != null)
                 .where(npc -> targetMonsters.stream().anyMatch(monster -> matchesTargetMonster(npc.getName(), monster)))
                 .where(npc -> npc.getWorldLocation() != null && npc.getWorldLocation().getPlane() == here.getPlane())
                 .where(npc -> taskDestination == null
                         || npc.getWorldLocation().distanceTo(taskDestination) <= config.attackRadius())
+                .where(npc -> canAttackNpc(npc, false))
                 .nearestOnClientThread();
         if (blocked == null || blocked.getWorldLocation() == null) return false;
-        log.info("Target {} is not reachable from here; walking to it", blocked.getName());
-        DroSlayerRuntime.walkFull(config, blocked.getWorldLocation(), 1);
+        approachTile = blocked.getWorldLocation();
+        approachNpcIndex = blocked.getIndex();
+        approachName = blocked.getName();
+        approachStartedAt = now;
+        log.info("Can't reach any {} from here; walking round", approachName);
+        Microbot.status = "Can't reach any " + approachName + " from here; walking round";
+        DroSlayerRuntime.walkFull(config, approachTile, 0);
         return true;
     }
 
@@ -6457,6 +6496,7 @@ public class DroSlayerScript extends Script {
         traceDroAction("attackNpc");
         if (occupiedAreaPending && !isBeingAttacked()) return false;
         if (!canAttackNpc(npc)) return false;
+        clearApproach();
         lastAttackIndex = npc.getIndex();
         lastAttackMs = System.currentTimeMillis();
         return DroSlayerRuntime.performAction(
