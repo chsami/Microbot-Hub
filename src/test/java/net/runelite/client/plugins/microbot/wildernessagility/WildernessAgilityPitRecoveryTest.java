@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.List;
 
@@ -94,6 +95,28 @@ class WildernessAgilityPitRecoveryTest {
         assertEquals(state("PIT_RECOVERY"), get(script, "currentState"));
         assertEquals(state("ROPE"), get(script, "pitRecoveryTarget"));
         assertFalse((boolean) get(script, "ropeRecoveryWalked"));
+    }
+
+    @Test
+    void nullPlayerLocationSkipsPipeTick() throws Exception {
+        WildernessAgilityScript script = new WildernessAgilityScript();
+        Method handlePipe = WildernessAgilityScript.class.getDeclaredMethod("handlePipe");
+        handlePipe.setAccessible(true);
+
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class);
+             MockedStatic<Rs2Walker> walker = mockStatic(Rs2Walker.class)) {
+            player.when(Rs2Player::getWorldLocation).thenReturn(null);
+            player.when(Rs2Player::isAnimating).thenReturn(false);
+            player.when(Rs2Player::isMoving).thenReturn(false);
+
+            assertDoesNotThrow(() -> handlePipe.invoke(script));
+
+            walker.verifyNoInteractions();
+            microbot.verifyNoInteractions();
+        }
+
+        assertFalse((boolean) get(script, "isWaitingForPipe"));
     }
 
     private static Object state(String name) throws Exception {

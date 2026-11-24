@@ -617,6 +617,7 @@ public final class WildernessAgilityScript extends Script {
             return;
         }
         WorldPoint loc = Rs2Player.getWorldLocation();
+        if (loc == null) return;
         if (!Rs2Player.isAnimating() && !Rs2Player.isMoving()) {
             // Player must be within 4 tiles of (3004, 3937, 0) to interact with the pipe at (3004, 3938, 0)
             WorldPoint pipeTile = new WorldPoint(3004, 3938, 0);
