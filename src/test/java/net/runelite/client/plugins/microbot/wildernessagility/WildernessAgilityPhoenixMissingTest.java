@@ -76,7 +76,7 @@ class WildernessAgilityPhoenixMissingTest {
         }
 
         assertFalse((boolean) get(script, "emergencyEscapeTriggered"));
-        assertTrue(Microbot.status.contains("Phoenix necklace"));
+        assertTrue(Microbot.status.contains("not wearing a Phoenix necklace"));
     }
 
     @Test
@@ -127,7 +127,31 @@ class WildernessAgilityPhoenixMissingTest {
 
             bank.verify(Rs2Bank::depositAll);
             bank.verify(() -> Rs2Bank.withdrawOne(PHOENIX_NECKLACE));
+            inventory.verify(() -> Rs2Inventory.wield(PHOENIX_NECKLACE));
             microbot.verify(() -> Microbot.stopPlugin(any(WildernessAgilityPlugin.class)), never());
+        }
+
+        assertEquals("POST_BANK_CONFIG", get(script, "currentState").toString());
+    }
+
+    @Test
+    void bankTripDoesNotReequipANecklaceAlreadyWorn() throws Exception {
+        WildernessAgilityScript script = scriptWith(mock(WildernessAgilityPlugin.class));
+        setState(script, "BANKING");
+
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<Global> global = mockStatic(Global.class);
+             MockedStatic<Rs2Bank> bank = mockStatic(Rs2Bank.class);
+             MockedStatic<Rs2Equipment> equipment = mockStatic(Rs2Equipment.class);
+             MockedStatic<Rs2Inventory> inventory = mockStatic(Rs2Inventory.class)) {
+            bank.when(Rs2Bank::isOpen).thenReturn(true);
+            equipment.when(() -> Rs2Equipment.isWearing("Phoenix necklace")).thenReturn(true);
+            inventory.when(Rs2Inventory::items).thenAnswer(invocation -> Stream.empty());
+
+            script.handleBanking();
+
+            bank.verify(() -> Rs2Bank.withdrawOne(PHOENIX_NECKLACE), never());
+            inventory.verify(() -> Rs2Inventory.wield(PHOENIX_NECKLACE), never());
         }
 
         assertEquals("POST_BANK_CONFIG", get(script, "currentState").toString());

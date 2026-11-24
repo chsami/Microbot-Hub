@@ -1412,7 +1412,7 @@ public final class WildernessAgilityScript extends Script {
 
         if (!isInWilderness()) {
             String reason = config.phoenixEscape() && !hasPhoenixNecklace()
-                ? "Stopped: you have no Phoenix necklace worn or in your inventory (an escape uses it up). Wear or carry a Phoenix necklace, then start again, or turn off 'Phoenix Escape' under Escape Settings."
+                ? "Stopped: you are not wearing a Phoenix necklace (it breaks when it saves you at low health). Put one on, then start again, or turn off 'Phoenix Escape' under Escape Settings."
                 : "Stopped: your health (" + (int) Rs2Player.getHealthPercentage() + "%) is at or below 'Leave at Health %' (" + config.leaveAtHealthPercent() + "%) and you are not in the Wilderness. Eat or wait to heal, then start again, or lower 'Leave at Health %' under Escape Settings.";
             Microbot.status = reason;
             Microbot.log("[WildernessAgility] " + reason);
@@ -1947,6 +1947,13 @@ public final class WildernessAgilityScript extends Script {
         if (config.phoenixEscape() && !hasPhoenixNecklace()) {
             Rs2Bank.withdrawOne(PHOENIX_NECKLACE_ID);
             sleepUntil(() -> Rs2Inventory.hasItem(PHOENIX_NECKLACE_ID), 3000);
+        }
+
+        if (config.phoenixEscape() && !Rs2Equipment.isWearing("Phoenix necklace") && Rs2Inventory.hasItem(PHOENIX_NECKLACE_ID)) {
+            Rs2Inventory.wield(PHOENIX_NECKLACE_ID);
+            if (!sleepUntil(() -> Rs2Equipment.isWearing("Phoenix necklace"), 3000)) {
+                Microbot.log("[WildernessAgility] Took a Phoenix necklace from the bank but could not put it on. Wear it before running the course.");
+            }
         }
 
         // Confirm all items are present
