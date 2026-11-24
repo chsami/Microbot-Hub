@@ -68,6 +68,18 @@ class MahoganyHomesScriptTest {
     }
 
     @Test
+    void fixableObjectsIsEmptyWhenCurrentHomeIsCleared() {
+        MahoganyHomesScript script = scriptWithPlugin();
+        assertTrue(script.getFixableObjects(null).isEmpty());
+    }
+
+    @Test
+    void readyFurnitureIsNullWhenCurrentHomeIsCleared() {
+        MahoganyHomesScript script = scriptWithPlugin();
+        assertNull(script.readyFurniture(null));
+    }
+
+    @Test
     void contactActionIndexFindsNpcOptionOnSpell() {
         assertEquals(1, MahoganyHomesScript.contactActionIndex(new String[] {"Cast", "<col=ff9040>Amy</col>", null, "Honest Jimmy"}, "Amy"));
         assertEquals(0, MahoganyHomesScript.contactActionIndex(new String[] {"amy"}, "Amy"));
