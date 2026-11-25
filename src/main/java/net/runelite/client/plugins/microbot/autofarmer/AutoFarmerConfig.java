@@ -3,30 +3,17 @@ package net.runelite.client.plugins.microbot.autofarmer;
 import net.runelite.client.config.*;
 import net.runelite.client.plugins.microbot.inventorysetups.InventorySetup;
 
-@ConfigInformation("Automated Herb Runs across all patches<br/><br/>" +
-        "<b>Two Setup Options:</b><br/>" +
-        "1. Inventory Setup: Use your custom inventory configuration<br/>" +
-        "2. Auto Banking: Let the plugin handle everything!<br/><br/>" +
-        "<b>Auto Banking withdraws:</b><br/>" +
-        "• Farming tools (rake, spade, seed dibber, magic secateurs)<br/>" +
-        "• Teleportation runes (law, air, earth, fire, water)<br/>" +
-        "• Your selected herb seeds<br/>" +
-        "• Your selected compost type<br/>" +
-        "• Ectophial (if Morytania is enabled)<br/><br/>" +
-        "Credits to liftedmango and See1Duck")
+@ConfigInformation("Choose crops and patches, then start. Banking and travel are handled automatically.<br/><br/>" +
+        "Custom inventory, movement and recovery options are below.<br/>Credits: liftedmango and See1Duck")
 @ConfigGroup("AutoFarmer")
 public interface AutoFarmerConfig extends Config {
 
-    @ConfigSection(
-            name = "Inventory Setup Method",
-            description = "Choose between inventory setup or auto banking",
-            position = 0
-    )
+    @ConfigSection(name = "Custom inventory", description = "Custom inventory", position = 7, closedByDefault = true)
     String inventorySection = "inventory";
 
     @ConfigItem(
             keyName = "useInventorySetup",
-            name = "Use Inventory Setup",
+            name = "Use saved setup",
             description = "Enable to use RuneLite inventory setups | Disable for automatic banking",
             section = inventorySection,
             position = 0
@@ -37,7 +24,7 @@ public interface AutoFarmerConfig extends Config {
 
     @ConfigItem(
             keyName = "inventorySetup",
-            name = "Inventory Setup Name",
+            name = "Saved setup",
             description = "Select your pre-configured inventory setup",
             section = inventorySection,
             position = 1
@@ -46,16 +33,12 @@ public interface AutoFarmerConfig extends Config {
         return null;
     }
 
-    @ConfigSection(
-            name = "Auto Banking Settings",
-            description = "Configure automatic banking options",
-            position = 1
-    )
+    @ConfigSection(name = "Farm setup", description = "Farm setup", position = 0, closedByDefault = false)
     String autoSection = "autobanking";
 
     @ConfigItem(
             keyName = "herbSeedType",
-            name = "Herb Seed Type",
+            name = "Herb seeds",
             description = "Choose which herb seeds to plant",
             section = autoSection,
             position = 0
@@ -66,7 +49,7 @@ public interface AutoFarmerConfig extends Config {
 
     @ConfigItem(
             keyName = "compostType",
-            name = "Compost Type",
+            name = "Compost",
             description = "Type of compost to use (select NONE to disable composting)",
             section = autoSection,
             position = 1
@@ -77,10 +60,10 @@ public interface AutoFarmerConfig extends Config {
 
     @ConfigItem(
             keyName = "allowPartialRuns",
-            name = "Allow Partial Runs",
+            name = "Allow partial runs",
             description = "Allow herb runs with fewer seeds than patches available",
-            section = autoSection,
-            position = 2
+            section = advancedSection,
+            position = 0
     )
     default boolean allowPartialRuns() {
         return false;
@@ -88,69 +71,73 @@ public interface AutoFarmerConfig extends Config {
 
     @ConfigItem(
             keyName = "dropEmptyBuckets",
-            name = "Drop Empty Buckets",
+            name = "Drop empty buckets",
             description = "Drop empty buckets after applying compost to patches",
-            section = autoSection,
-            position = 3
+            section = advancedSection,
+            position = 1
     )
     default boolean dropEmptyBuckets() {
         return true;
     }
 
-    @ConfigItem(keyName = "buySeedsWhenEmpty", name = "GE seeds when empty (+99%)", description = "Only at zero plantable herb seeds in bank and inventory: buy 100 of the highest eligible/configured seed using +99%. Existing offers are left alone.", position = 21, section = settingsSection)
+    @ConfigItem(keyName = "buySeedsWhenEmpty", name = "Buy seeds at GE", description = "Only at zero plantable herb seeds in bank and inventory: buy 100 of the highest eligible/configured seed using +99%. Existing offers are left alone.", position = 2, section = advancedSection)
     default boolean buySeedsWhenEmpty() { return false; }
 
-    @ConfigItem(keyName = "clearFailureAndResume", name = "Clear failure and resume", description = "After fixing the problem, enable this and start AutoFarmer again. Resets itself to off.", position = 20, section = settingsSection)
+    @ConfigItem(keyName = "clearFailureAndResume", name = "Clear failure", description = "After fixing the problem, enable this and start AutoFarmer again. Resets itself to off.", position = 0, section = sessionSection)
     default boolean clearFailureAndResume() { return false; }
 
-    @ConfigItem(keyName = "dropEventFood", name = "Drop ordinary event food", description = "Drop only ordinary food newly received from a completed built-in random event; preserve existing food, money, gems, outfits and rare items", position = 19, section = settingsSection)
+    @ConfigItem(keyName = "dropEventFood", name = "Drop event food", description = "Drop only ordinary food newly received from a completed built-in random event; preserve existing food, money, gems, outfits and rare items", position = 2, section = eventsSection)
     default boolean dropEventFood() { return true; }
 
-    @ConfigItem(keyName = "useLampsOnFarming", name = "Use event XP rewards on Farming", description = "Spend standard random-event lamps and Books of knowledge on Farming. Other reward items remain protected.", position = 18, section = settingsSection)
+    @ConfigItem(keyName = "useLampsOnFarming", name = "Use XP on Farming", description = "Spend standard random-event lamps and Books of knowledge on Farming. Other reward items remain protected.", position = 1, section = eventsSection)
     default boolean useLampsOnFarming() { return false; }
 
-    @ConfigItem(keyName = "builtInRandomEvents", name = "Built-in random events", description = "Accept Genie/Count Check XP rewards and dismiss other invitations. Spending lamps/books on Farming requires its own setting. Disable the standalone Local helper so this policy is in control.", position = 17, section = settingsSection)
+    @ConfigItem(keyName = "builtInRandomEvents", name = "Handle random events", description = "Accept Genie/Count Check XP rewards and dismiss other invitations. Spending lamps/books on Farming requires its own setting. Disable the standalone Local helper so this policy is in control.", position = 0, section = eventsSection)
     default boolean builtInRandomEvents() { return true; }
 
-    @ConfigItem(keyName = "useAirBattlestaff", name = "Use air battlestaff", description = "Equip a banked air battlestaff when usable and omit air rune withdrawals while equipped", position = 15, section = settingsSection)
+    @ConfigItem(keyName = "useAirBattlestaff", name = "Use air battlestaff", description = "Equip a banked air battlestaff when usable and omit air rune withdrawals while equipped", position = 3, section = advancedSection)
     default boolean useAirBattlestaff() { return true; }
-    @ConfigItem(keyName = "refillLeprechaun", name = "Refill leprechaun compost", description = "Below 12 stored compost, carry up to 100 total from your bank as notes and deposit at the next patch", position = 16, section = settingsSection)
+    @ConfigItem(keyName = "refillLeprechaun", name = "Top up compost", description = "Below 12 stored compost, carry up to 100 total from your bank as notes and deposit at the next patch", position = 4, section = advancedSection)
     default boolean refillLeprechaun() { return true; }
 
-    @ConfigItem(keyName = "smoothMouse", name = "Smooth mouse movement", description = "Use the client's curved mouse paths with more movement steps and varied reaction time", position = 13, section = settingsSection)
-    default boolean smoothMouse() { return true; }
-    @ConfigItem(keyName = "relaxedPacing", name = "Relaxed action pacing", description = "Add short varied pauses before farming and banking interactions", position = 14, section = settingsSection)
+    @ConfigItem(keyName = "mouseMotionMode", name = "Mouse profile",
+            description = "Client profile respects Microbot's Mouse settings without extra speed, reaction or deviation overrides. Legacy smoothing adds AutoFarmer's older slower movement tuning. Neither guarantees ban prevention.",
+            position = 5, section = advancedSection)
+    default MouseMotionMode mouseMotionMode() { return MouseMotionMode.CLIENT_PROFILE; }
+    @ConfigItem(keyName = "relaxedPacing", name = "Relaxed pacing", description = "Add short varied pauses before farming and banking interactions", position = 6, section = advancedSection)
     default boolean relaxedPacing() { return true; }
 
-    @ConfigItem(keyName = "logoutBetweenRuns", name = "Logout while crops grow", description = "Logout after the run and login when the next patch check is due. Keep the client open.", position = 11, section = settingsSection)
+    @ConfigItem(keyName = "logoutBetweenRuns", name = "Logout while growing", description = "Logout after the run and login when the next patch check is due. Keep the client open.", position = 1, section = settingsSection)
     default boolean logoutBetweenRuns() { return true; }
 
     @Range(min = 0, max = 1440)
-    @ConfigItem(keyName = "cropLogoutThresholdMinutes", name = "Minimum crop wait to log out (minutes)",
+    @ConfigItem(keyName = "cropLogoutThresholdMinutes", name = "Logout wait (min)",
             description = "Log out when the time until the next crop check exceeds this many minutes. 0 allows any positive wait.",
-            position = 22, section = settingsSection)
+            position = 3, section = settingsSection)
     default int cropLogoutThresholdMinutes() { return 1; }
 
     @Range(min = 5, max = 180)
-    @ConfigItem(keyName = "growthMinutes", name = "Crop check interval (minutes)", description = "Approximate delay after planting; live patch state is checked on return", position = 12, section = settingsSection)
+    @ConfigItem(keyName = "growthMinutes", name = "Crop wait (min)", description = "Approximate delay after planting; live patch state is checked on return", position = 2, section = settingsSection)
     default int growthMinutes() { return 90; }
 
-    @ConfigItem(keyName = "repeatRuns", name = "Repeat runs", description = "Check for ready patches every five minutes after each run", position = 10, section = settingsSection)
+    @ConfigItem(keyName = "repeatRuns", name = "Repeat runs", description = "Check for ready patches every five minutes after each run", position = 0, section = settingsSection)
     default boolean repeatRuns() { return true; }
 
-    @ConfigSection(
-            name = "General Settings",
-            description = "General plugin settings",
-            position = 2
-    )
+    @ConfigSection(name = "Run schedule", description = "Run schedule", position = 1, closedByDefault = false)
     String settingsSection = "settings";
+
+    @ConfigSection(name = "Advanced", description = "Optional banking and movement tuning", position = 8, closedByDefault = true)
+    String advancedSection = "advanced";
+
+    @ConfigSection(name = "Random events", description = "Random-event rewards and inventory cleanup", position = 6, closedByDefault = true)
+    String eventsSection = "events";
 
     @ConfigItem(
             keyName = "goToBank",
-            name = "Bank After Run",
+            name = "Bank after run",
             description = "Go to closest bank after completing the herb run",
-            position = 0,
-            section = settingsSection
+            position = 7,
+            section = advancedSection
     )
     default boolean goToBank() {
         return true;
@@ -158,7 +145,7 @@ public interface AutoFarmerConfig extends Config {
 
     @ConfigItem(
             keyName = "enableTrollheim",
-            name = "Enable Trollheim Patch",
+            name = "Trollheim",
             description = "Enable Trollheim patch in herb run (requires My Arm's Big Adventure)",
             position = 1,
             section = locationSection
@@ -169,7 +156,7 @@ public interface AutoFarmerConfig extends Config {
 
     @ConfigItem(
             keyName = "enableCatherby",
-            name = "Enable Catherby Patch",
+            name = "Catherby",
             description = "Enable Catherby patch in herb run",
             position = 2,
             section = locationSection
@@ -180,7 +167,7 @@ public interface AutoFarmerConfig extends Config {
 
     @ConfigItem(
             keyName = "enableMorytania",
-            name = "Enable Morytania Patch",
+            name = "Morytania",
             description = "Enable Morytania patch in herb run",
             position = 3,
             section = locationSection
@@ -191,7 +178,7 @@ public interface AutoFarmerConfig extends Config {
 
     @ConfigItem(
             keyName = "enableVarlamore",
-            name = "Enable Varlamore Patch",
+            name = "Varlamore",
             description = "Enable Varlamore patch in herb run",
             position = 4,
             section = locationSection
@@ -202,7 +189,7 @@ public interface AutoFarmerConfig extends Config {
 
     @ConfigItem(
             keyName = "enableHosidius",
-            name = "Enable Hosidius Patch",
+            name = "Hosidius",
             description = "Enable Hosidius patch in herb run",
             position = 5,
             section = locationSection
@@ -213,7 +200,7 @@ public interface AutoFarmerConfig extends Config {
 
     @ConfigItem(
             keyName = "enableArdougne",
-            name = "Enable Ardougne Patch",
+            name = "Ardougne",
             description = "Enable Ardougne patch in herb run",
             position = 6,
             section = locationSection
@@ -224,7 +211,7 @@ public interface AutoFarmerConfig extends Config {
 
     @ConfigItem(
             keyName = "enableFalador",
-            name = "Enable Falador Patch",
+            name = "Falador",
             description = "Enable Falador patch in herb run",
             position = 7,
             section = locationSection
@@ -235,7 +222,7 @@ public interface AutoFarmerConfig extends Config {
 
     @ConfigItem(
             keyName = "enableWeiss",
-            name = "Enable Weiss Patch",
+            name = "Weiss",
             description = "Enable Weiss patch in herb run (requires Making Friends with My Arm)",
             position = 8,
             section = locationSection
@@ -246,7 +233,7 @@ public interface AutoFarmerConfig extends Config {
 
     @ConfigItem(
             keyName = "enableGuild",
-            name = "Enable Farming Guild Patch",
+            name = "Farming Guild",
             description = "Enable Farming Guild patch in herb run",
             position = 9,
             section = locationSection
@@ -257,7 +244,7 @@ public interface AutoFarmerConfig extends Config {
 
     //    @ConfigItem(
 //            keyName = "enableHarmony",
-//            name = "Enable Harmony Island Patch",
+//            name = "Harmony Island",
 //            description = "Enable Harmony Island patch in herb run",
 //            position = 9,
 //            section = locationSection
@@ -265,23 +252,15 @@ public interface AutoFarmerConfig extends Config {
 //    default boolean enableHarmony() {
 //        return false;
 //    }
-    @ConfigSection(
-            name = "Location toggles",
-            description = "Location toggles",
-            position = 3
-    )
+    @ConfigSection(name = "Herb patches", description = "Herb patches", position = 2, closedByDefault = true)
     String locationSection = "Location";
 
-    @ConfigSection(
-            name = "Allotments",
-            description = "Allotment patch settings",
-            position = 4
-    )
+    @ConfigSection(name = "Allotments", description = "Allotments", position = 4, closedByDefault = true)
     String allotmentSection = "allotments";
 
     @ConfigItem(
             keyName = "enableAllotments",
-            name = "Enable Allotments",
+            name = "Grow allotments",
             description = "Plant and harvest allotment patches at each location",
             section = allotmentSection,
             position = 0
@@ -292,7 +271,7 @@ public interface AutoFarmerConfig extends Config {
 
     @ConfigItem(
             keyName = "allotmentSeedType",
-            name = "Allotment Seed Type",
+            name = "Allotment seeds",
             description = "Choose which allotment seeds to plant (3 seeds per patch)",
             section = allotmentSection,
             position = 1
@@ -301,16 +280,12 @@ public interface AutoFarmerConfig extends Config {
         return AllotmentSeedType.SWEETCORN;
     }
 
-    @ConfigSection(
-            name = "Flowers",
-            description = "Flower patch settings",
-            position = 5
-    )
+    @ConfigSection(name = "Flowers", description = "Flowers", position = 5, closedByDefault = true)
     String flowerSection = "flowers";
 
     @ConfigItem(
             keyName = "enableFlowers",
-            name = "Enable Flowers",
+            name = "Grow flowers",
             description = "Plant and harvest flower patches at each location",
             section = flowerSection,
             position = 0
@@ -321,7 +296,7 @@ public interface AutoFarmerConfig extends Config {
 
     @ConfigItem(
             keyName = "flowerSeedType",
-            name = "Flower Seed Type",
+            name = "Flower seeds",
             description = "Choose which flower seeds to plant (White lily protects all allotments)",
             section = flowerSection,
             position = 1
@@ -331,12 +306,12 @@ public interface AutoFarmerConfig extends Config {
     }
 
 
-    @ConfigSection(name = "Session limits", description = "Daily break and patch recovery", position = 31)
+    @ConfigSection(name = "Recovery", description = "Recovery", position = 9, closedByDefault = true)
     String sessionSection = "sessionLimits";
 
     @ConfigItem(keyName = "dailyBreak", name = "Daily break",
             description = "Log out for 3 to 6 hours at a random time, at most once per local calendar day",
-            section = sessionSection, position = 0)
+            section = settingsSection, position = 4)
     default boolean dailyBreak() { return false; }
 
     @Range(min = 1, max = 10)
@@ -345,26 +320,26 @@ public interface AutoFarmerConfig extends Config {
             section = sessionSection, position = 1)
     default int patchRetryLimit() { return 3; }
 
-    @ConfigSection(name = "Trees", description = "Regular and fruit tree runs", position = 30)
+    @ConfigSection(name = "Trees", description = "Trees", position = 3, closedByDefault = true)
     String treeSection = "trees";
 
-    @ConfigItem(keyName = "enableTrees", name = "Enable Regular Trees",
+    @ConfigItem(keyName = "enableTrees", name = "Regular trees",
             description = "Check health, clear, and replant regular trees", section = treeSection, position = 0)
     default boolean enableTrees() { return false; }
 
-    @ConfigItem(keyName = "regularSapling", name = "Regular Tree Sapling",
+    @ConfigItem(keyName = "regularSapling", name = "Tree sapling",
             description = "Keep this sapling in the bank or your inventory", section = treeSection, position = 1)
     default TreeSapling.Regular regularSapling() { return TreeSapling.Regular.Willow; }
 
-    @ConfigItem(keyName = "enableFruitTrees", name = "Enable Fruit Trees",
+    @ConfigItem(keyName = "enableFruitTrees", name = "Fruit trees",
             description = "Check health, clear, and replant fruit trees", section = treeSection, position = 2)
     default boolean enableFruitTrees() { return false; }
 
-    @ConfigItem(keyName = "fruitSapling", name = "Fruit Tree Sapling",
+    @ConfigItem(keyName = "fruitSapling", name = "Fruit sapling",
             description = "Keep this sapling in the bank or your inventory", section = treeSection, position = 3)
     default TreeSapling.Fruit fruitSapling() { return TreeSapling.Fruit.Curry; }
 
-    @ConfigItem(keyName = "payGardenerToClear", name = "Pay Gardener to Clear",
+    @ConfigItem(keyName = "payGardenerToClear", name = "Pay to clear trees",
             description = "Pay 200 GP per mature tree after checking health; requires coins instead of an axe",
             section = treeSection, position = 4)
     default boolean payGardenerToClear() { return false; }

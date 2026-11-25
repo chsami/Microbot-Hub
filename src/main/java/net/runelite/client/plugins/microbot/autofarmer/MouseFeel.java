@@ -15,6 +15,10 @@ final class MouseFeel {
     private SpeedManager originalSpeed;
     private SpeedManager scaledSpeed;
     private int reaction, variation, steps;
+    void apply(MouseMotionNature next, MouseMotionMode mode) {
+        if (mode == MouseMotionMode.LEGACY_SMOOTHING) enable(next);
+        else restore();
+    }
     void enable(MouseMotionNature next) {
         if (next == nature) return;
         restore();
