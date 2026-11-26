@@ -358,8 +358,14 @@ public class HerbrunScript extends Script {
         Rs2TileObjectModel patch = new Rs2TileObjectModel(rs2TileObject);
         return herbPatchState(patch::hasActionContaining, () -> {
             var game_obj = Rs2TileObjectModel.compositionOf(rs2TileObject.getId(), true);
-            return Microbot.getVarbitValue(game_obj.getVarbitId());
+            return liveVarbitValue(game_obj.getVarbitId());
         });
+    }
+
+    static int liveVarbitValue(int varbitId) {
+        return Microbot.getClientThread()
+                .runOnClientThreadOptional(() -> Microbot.getClient().getVarbitValue(varbitId))
+                .orElse(-1);
     }
 
     static String herbPatchState(Predicate<String> hasAction, IntSupplier varbit) {
@@ -622,7 +628,7 @@ public class HerbrunScript extends Script {
         if (patch.hasActionContaining("Clear")) return "Dead";
 
         var comp = Rs2TileObjectModel.compositionOf(tileObj.getId(), true);
-        int varbit = Microbot.getVarbitValue(comp.getVarbitId());
+        int varbit = liveVarbitValue(comp.getVarbitId());
         if (varbit <= 5) return "Empty";
 
         return "Growing";
