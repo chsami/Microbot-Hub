@@ -59,6 +59,7 @@ import net.runelite.client.plugins.microbot.droefficientwalker.WalkerMouseContro
 import net.runelite.client.plugins.microbot.droefficientwalker.WalkerTabState;
 import net.runelite.client.plugins.microbot.util.walker.Rs2MiniMap;
 import net.runelite.client.plugins.microbot.globval.enums.InterfaceTab;
+import net.runelite.client.plugins.microbot.droefficientwalker.support.pathfinder.PathfinderConfig;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
@@ -960,6 +961,7 @@ public final class WalkerEngine {
                                                 nextDoor == null ? remainingTiles.length - 1 : nextDoor.routeIndex,
                                                 stalledAtOrigin ? this.stalledWalkTargets.size() : 0
                                              );
+                                             furthestClickIndex = this.capClickBeforeDanger(remainingTiles, furthestClickIndex, flags.length, worldView, route);
 
                                              for (int clickIndex = furthestClickIndex; clickIndex > 0; clickIndex--) {
                                                 LocalPoint localTarget = LocalPoint.fromScene(
@@ -3874,6 +3876,75 @@ public final class WalkerEngine {
          this.menuAction = menuAction;
          this.target = target;
       }
+   }
+
+   /**
+    * The game paths a walk click itself and may cut a corner next to an aggressive NPC (Draynor Manor
+    * undead trees) although the planned route keeps clear. Step the click back until no dangerous-ring
+    * tile lies between the player and it; the final destination stays exempt.
+    */
+   private int capClickBeforeDanger(int[] remainingTiles, int furthestClickIndex, int gridWidth, WorldView worldView,
+      WalkerEngine.LocalRoute route) {
+      if (furthestClickIndex < 2 || furthestClickIndex >= remainingTiles.length) return furthestClickIndex;
+      List<WorldPoint> tiles = new ArrayList<>(furthestClickIndex + 1);
+      for (int index = 0; index <= furthestClickIndex; index++) {
+         LocalPoint local = LocalPoint.fromScene(LocalCollisionGrid.unpackX(remainingTiles[index], gridWidth),
+            LocalCollisionGrid.unpackY(remainingTiles[index], gridWidth), worldView);
+         if (local == null) return furthestClickIndex;
+         tiles.add(WorldPoint.fromLocal(worldView, local.getX(), local.getY(), route.plane));
+      }
+      WorldPoint destination = this.globalRoute.isEmpty()
+         ? route.points.get(route.points.size() - 1) : this.globalRoute.get(this.globalRoute.size() - 1);
+      return capClickIndexBeforeDanger(tiles, furthestClickIndex, destination);
+   }
+
+   /**
+    * Any 8-direction shortest walk from the player ({@code tiles[0]}) to a tile stays inside their
+    * bounding box. Step back from {@code selectedIndex} until that box holds no dangerous-ring tile,
+    * ignoring the player's tile and route tiles the planner accepted; fall back to the next planned
+    * tile. The destination is exempt. Mirrors the shared walker's {@code WalkerPathGeometry} rule; the
+    * engine must not depend on the main walker.
+    */
+   static int capClickIndexBeforeDanger(List<WorldPoint> tiles, int selectedIndex, WorldPoint destination) {
+      if (tiles == null || selectedIndex < 2 || selectedIndex >= tiles.size()) return selectedIndex;
+      WorldPoint player = tiles.get(0);
+      WorldPoint selected = tiles.get(selectedIndex);
+      if (player == null || selected == null || selected.equals(destination)) return selectedIndex;
+      int plane = player.getPlane();
+      int minX = player.getX(), maxX = minX, minY = player.getY(), maxY = minY;
+      Set<WorldPoint> routeTiles = new HashSet<>();
+      for (int index = 0; index <= selectedIndex; index++) {
+         WorldPoint tile = tiles.get(index);
+         if (tile == null || tile.getPlane() != plane) continue;
+         routeTiles.add(tile);
+         minX = Math.min(minX, tile.getX());
+         maxX = Math.max(maxX, tile.getX());
+         minY = Math.min(minY, tile.getY());
+         maxY = Math.max(maxY, tile.getY());
+      }
+      List<WorldPoint> hazards = new ArrayList<>();
+      for (int x = minX; x <= maxX; x++) {
+         for (int y = minY; y <= maxY; y++) {
+            WorldPoint tile = new WorldPoint(x, y, plane);
+            if (!routeTiles.contains(tile) && PathfinderConfig.isDangerousRingTile(x, y, plane)) hazards.add(tile);
+         }
+      }
+      if (hazards.isEmpty()) return selectedIndex;
+      for (int index = selectedIndex; index > 1; index--) {
+         WorldPoint candidate = tiles.get(index);
+         if (candidate == null || candidate.getPlane() != plane) continue;
+         int boxMinX = Math.min(player.getX(), candidate.getX()), boxMaxX = Math.max(player.getX(), candidate.getX());
+         int boxMinY = Math.min(player.getY(), candidate.getY()), boxMaxY = Math.max(player.getY(), candidate.getY());
+         boolean clear = true;
+         for (WorldPoint hazard : hazards) {
+            if (hazard.getX() >= boxMinX && hazard.getX() <= boxMaxX && hazard.getY() >= boxMinY && hazard.getY() <= boxMaxY) {
+               clear = false;
+               break;
+            }
+         }
+         if (clear) return index;
+      }
+      return 1;
    }
 
    private static final class LocalRoute {

@@ -1026,6 +1026,14 @@ public class PathfinderConfig {
         return DANGEROUS_ADJACENT_TILES_PACKED.contains(packedPoint);
     }
 
+    /**
+     * True if the tile lies in a listed hazard's melee-aggro ring, whether or not the
+     * "Avoid dangerous NPCs" option is on. Used by the engine's click capping and route costs.
+     */
+    public static boolean isDangerousRingTile(int x, int y, int plane) {
+        return DANGEROUS_ADJACENT_TILES_PACKED.contains(WorldPointUtil.packWorldPoint(x, y, plane));
+    }
+
     private static Set<Integer> loadDangerousTilesFromResources() {
         Set<Integer> tiles = new HashSet<>();
         final String prefixComment = "#";

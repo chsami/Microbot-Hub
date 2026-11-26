@@ -291,6 +291,7 @@ final class NetworkTransportSupport
     private static final int CHARTER_ORIGIN_RADIUS = 10;
     private static final int LANDING_RADIUS = 8;
     private static final long EXECUTION_TIMEOUT_MS = 75_000L;
+    private static final WorldPoint PORT_PISCARILIUS_LANDING = new WorldPoint(1824, 3695, 1);
     private static final long SHARED_TRANSPORT_LANDING_WAIT_MS = 2_000L;
 
     // Current Dro grouping/minigame interface components (same interface used by Rs2Walker).
@@ -5852,6 +5853,9 @@ final class NetworkTransportSupport
                         || Rs2Dialogue.clickOption("Arrr! Yar! Let's be on our way, yar!", true))) continue;
                 if (transport.getObjectId() == 6650 && isLunarIsle(transport.getDestination())
                     && Rs2Dialogue.clickOption("Can we sail to Lunar Isle now?", true)) continue;
+                // Before Kourend is unlocked Veos has only Talk-to; his first trip is option 2.
+                if ("Veos".equalsIgnoreCase(transport.getName()) && near(transport.getDestination(), PORT_PISCARILIUS_LANDING, 5)
+                    && Rs2Dialogue.clickOption("That's great, can you take me there please?", true)) continue;
                 String destination = transport.getDisplayInfo();
                 if (destination != null && !destination.isBlank()
                     && Rs2Dialogue.clickOption(destination, true)) continue;

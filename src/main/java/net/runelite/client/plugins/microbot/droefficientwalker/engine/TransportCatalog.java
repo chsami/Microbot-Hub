@@ -150,7 +150,7 @@ final class TransportCatalog {
       TransportEdge portPiscarilius = createNpcTransport(
          new WorldPoint(3055, 3245, 0), new WorldPoint(1824, 3695, 1),
          CatalogText.PORT_PISCARILIUS_ACTION.value(), CatalogText.PORT_PISCARILIUS_NPC_TARGET.value(),
-         8630, 10724, 10933
+         8630, 10724, 10933, 8484, 10723
       );
       return List.of(portSarim, portPiscarilius);
    }

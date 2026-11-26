@@ -169,7 +169,7 @@ final class TransportCatalog
                 new WorldPoint(1824, 3695, 1),
                 "Port Piscarilius",
                 "Veos / Cabin Boy Herbert",
-                8630, 10724, 10933)
+                8630, 10724, 10933, 8484, 10723)
         );
     }
 
