@@ -361,9 +361,17 @@ public class TutorialIslandScript extends Script {
     }
 
     private boolean attackRatAtRange() {
-        Rs2NpcModel rat = Microbot.getRs2NpcCache().query().withName("Giant rat").nearest();
-        if (rat == null) return false;
-        return rat.click("Attack");
+        Rs2NpcModel rat = Microbot.getRs2NpcCache().query().withName("Giant rat").where(Rs2NpcModel::hasLineOfSight).nearest();
+        switch (RatPen.nextRanged(Rs2Player.getWorldLocation(), rat != null)) {
+            case ATTACK:
+                return rat.click("Attack");
+            case WALK_TO_RANGE_SPOT:
+                Rs2Walker.walkTo(RatPen.RANGE_SPOT, 1);
+                Rs2Player.waitForWalking();
+                return false;
+            default:
+                return false;
+        }
     }
 
     public void GettingStarted() {
