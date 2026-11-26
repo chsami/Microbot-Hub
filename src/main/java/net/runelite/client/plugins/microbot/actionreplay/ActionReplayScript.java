@@ -11,11 +11,14 @@ import net.runelite.client.plugins.microbot.actionreplay.model.Recording;
 import net.runelite.client.plugins.microbot.actionreplay.model.TargetType;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
+import net.runelite.client.plugins.microbot.globval.enums.InterfaceTab;
 import net.runelite.client.plugins.microbot.util.grounditem.Rs2GroundItem;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
+import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.menu.NewMenuEntry;
 import net.runelite.client.plugins.microbot.util.misc.Rs2UiHelper;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
+import net.runelite.client.plugins.microbot.util.tabs.Rs2Tab;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 
@@ -89,6 +92,7 @@ public class ActionReplayScript extends Script
 
 	private void runOnce()
 	{
+		clearSelectedWidget();
 		for (int i = 0; i < recording.getActions().size(); i++)
 		{
 			if (abortFlag.get())
@@ -213,6 +217,16 @@ Rs2TileObjectModel match = Microbot.getRs2TileObjectCache().query()
 
 		int param1 = a.getParam1();
 
+		if (isTargetOnInventoryItem(a, ma))
+		{
+			return replayTargetOnInventoryItem(a, ma);
+		}
+
+		if ((param1 >>> 16) == InterfaceID.MAGIC_SPELLBOOK && !Rs2Widget.isWidgetVisible(param1))
+		{
+			Rs2Tab.switchTo(InterfaceTab.MAGIC);
+		}
+
 		if ((param1 >>> 16) > 0 && !Rs2Widget.isWidgetVisible(param1))
 		{
 			log.warn("ActionReplay: widget {} not visible, skipping '{}'", param1, a.describe());
@@ -236,16 +250,55 @@ Rs2TileObjectModel match = Microbot.getRs2TileObjectCache().query()
 			return Rs2Inventory.interact(itemName, a.getMenuOption(), true);
 		}
 
+		return invoke(a, buildMenuEntry(a, ma, a.getParam0()));
+	}
+
+	private boolean replayTargetOnInventoryItem(RecordedAction a, MenuAction ma)
+	{
+		Rs2ItemModel item = Rs2Inventory.get(a.getItemId());
+		if (item == null)
+		{
+			log.warn("ActionReplay: item {} not in inventory, skipping '{}'", a.getItemId(), a.describe());
+			return false;
+		}
+		if (!sleepUntil(() -> Microbot.getClient().isWidgetSelected(), 1800))
+		{
+			log.warn("ActionReplay: nothing selected to use on item {}, skipping '{}'", a.getItemId(), a.describe());
+			return false;
+		}
+		if (!Rs2Widget.isWidgetVisible(a.getParam1()) && !Rs2Tab.switchTo(InterfaceTab.INVENTORY))
+		{
+			log.warn("ActionReplay: inventory not open, skipping '{}'", a.describe());
+			return false;
+		}
+		return invoke(a, buildMenuEntry(a, ma, item.getSlot()));
+	}
+
+	static boolean isTargetOnInventoryItem(RecordedAction a, MenuAction ma)
+	{
+		return ma == MenuAction.WIDGET_TARGET_ON_WIDGET
+			&& a.getItemId() > 0
+			&& a.getParam1() > 0
+			&& (a.getParam1() >>> 16) == InterfaceID.INVENTORY;
+	}
+
+	static NewMenuEntry buildMenuEntry(RecordedAction a, MenuAction ma, int param0)
+	{
 		NewMenuEntry entry = new NewMenuEntry(
 			a.getMenuOption(),
 			a.getTargetName() != null ? a.getTargetName() : "",
 			a.getIdentifier(),
 			ma,
-			a.getParam0(),
-			param1,
+			param0,
+			a.getParam1(),
 			false
 		);
 		entry.setItemId(a.getItemId());
+		return entry;
+	}
+
+	private boolean invoke(RecordedAction a, NewMenuEntry entry)
+	{
 		try
 		{
 			Rectangle rect = buildClickRect(a);
@@ -257,6 +310,17 @@ Rs2TileObjectModel match = Microbot.getRs2TileObjectCache().query()
 			log.warn("ActionReplay: doInvoke failed for step {}: {}", a.describe(), e.getMessage());
 			return false;
 		}
+	}
+
+	private void clearSelectedWidget()
+	{
+		Microbot.getClientThread().invoke(() ->
+		{
+			if (Microbot.getClient().isWidgetSelected())
+			{
+				Microbot.getClient().setWidgetSelected(false);
+			}
+		});
 	}
 
 	private Rectangle buildClickRect(RecordedAction a)
