@@ -2,8 +2,6 @@
 
 Hunts herbiboars on Fossil Island: follows the trail, attacks the tunnel, harvests the herbs and banks at the Museum Camp.
 
-![Herbi Hunter](assets/card.png)
-
 ## Credits
 Built on the Herbiboar plugin by Igor, with work from chsami and Kavraka91. I added the play styles, the humanised mouse and keyboard input and the panel.
 

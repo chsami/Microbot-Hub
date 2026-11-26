@@ -55,8 +55,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 @PluginDescriptor(
         name = HerbiHunterPlugin.PREFIX + "Herbi Hunter",
         description = "Hunts herbiboars on Fossil Island with Relaxed and Focused play styles, banking, restocking and session history.",
-        tags = {"herbiboar", "herbi hunter", "herbi", "hunter", "herblore", "fossil island", "skilling", "irked"},
-        authors = {"Igor", "chsami", "Kavraka91", "irkedMATT"},
+        tags = {"herbiboar", "hunter", "herblore", "irked"},
+        authors = {"irkedMATT"},
         version = HerbiHunterPlugin.version,
         minClientVersion = "2.6.60",
         iconUrl = "https://chsami.github.io/Microbot-Hub/HerbiHunterPlugin/assets/icon.png",
@@ -66,7 +66,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 )
 
 public class HerbiHunterPlugin extends Plugin {
-    static final String version = "1.0.0";
+    static final String version = "1.0.1";
     // Kept here, not in PluginConstants, so the PR stays inside this plugin's folder.
     static final String PREFIX = "<html>[<font color=#FF8FB1>irk</font>] ";
 
