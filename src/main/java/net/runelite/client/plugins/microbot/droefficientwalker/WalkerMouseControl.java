@@ -21,6 +21,12 @@ public final class WalkerMouseControl
 {
     private static final WalkerDoorAttempts doorAttempts = new WalkerDoorAttempts();
     static String takeDoorFailure() { return doorAttempts.takeFailure(); }
+    static void observePlayer(Client client) {
+        if (client == null) return;
+        var player = client.getLocalPlayer();
+        WorldPoint location = player == null ? null : player.getWorldLocation();
+        doorAttempts.observe(location, client.getWorld(), System.currentTimeMillis());
+    }
     private static volatile EfficientWalkerConfig config;
     private static final WalkerMouseProfile profile = new WalkerMouseProfile();
     private static volatile boolean idleAllowed;
@@ -191,12 +197,20 @@ public final class WalkerMouseControl
                 && (entry.getTarget().toLowerCase(java.util.Locale.ROOT).contains("door")
                     || entry.getTarget().toLowerCase(java.util.Locale.ROOT).contains("gate"))
                 || entry.getIdentifier() == PiratesHideoutDoorAction.DOOR_ID)) {
+            EfficientWalkerConfig currentSettings = config;
+            if (!invoke && currentSettings != null
+                && (currentSettings.useMicrobotMouse() || net.runelite.client.plugins.microbot.droefficientwalker.compat.CanvasPointerLease.active())
+                && pending.get() != null) {
+                return;
+            }
             dispatched = Microbot.getClientThread().runOnClientThreadOptional(() -> {
                 var player = client.getLocalPlayer();
                 if (player == null || client.getTopLevelWorldView() == null) return null;
                 WorldPoint door = entry.getGameObject() == null
                     ? WorldPoint.fromScene(client, entry.getParam0(), entry.getParam1(), client.getPlane())
                     : entry.getGameObject().getWorldLocation();
+                int orientation = entry.getGameObject() instanceof net.runelite.api.WallObject
+                    ? ((net.runelite.api.WallObject) entry.getGameObject()).getOrientationA() : 0;
                 NewMenuEntry hutAction = null;
                 if (MagicAxesDoorAction.isHutDoor(door)) {
                     String problem = MagicAxesDoorAction.accessProblem(
@@ -213,7 +227,7 @@ public final class WalkerMouseControl
                         net.runelite.client.plugins.microbot.util.player.Rs2Player.getBoostedSkillLevel(net.runelite.api.Skill.THIEVING));
                     if (problem != null) { doorAttempts.reject(problem); return null; }
                 }
-                if (doorAttempts.request(entry.getIdentifier(), door,
+                if (doorAttempts.request(entry.getIdentifier(), door, orientation,
                     player.getWorldLocation(), client.getWorld(),
                     net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory.hasItem(983),
                     System.currentTimeMillis()) != WalkerDoorAttempts.Decision.ALLOW) return null;

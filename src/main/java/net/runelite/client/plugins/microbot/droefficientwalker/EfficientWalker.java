@@ -1386,6 +1386,7 @@ public final class EfficientWalker
 
     private void tickWithMouseProfile()
     {
+        WalkerMouseControl.observePlayer(client);
         boolean inputHeld = Microbot.pauseAllScripts.get()
             || net.runelite.client.plugins.microbot.util.input.InputArbiter.isHuman();
         bankTeleportBootstrap.holdPreparationBudget(inputHeld);
