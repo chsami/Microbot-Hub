@@ -10,6 +10,7 @@ import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.droefficientwalker.support.banking.Rs2WalkerBankingPlanner;
 import net.runelite.client.plugins.microbot.globval.enums.InterfaceTab;
+import net.runelite.client.plugins.microbot.shortestpath.CaveAccessRequirements;
 import net.runelite.client.plugins.microbot.shortestpath.Transport;
 import net.runelite.client.plugins.microbot.droefficientwalker.support.Rs2TransportEdge;
 import net.runelite.client.plugins.microbot.droefficientwalker.support.TransportResources;
@@ -1737,7 +1738,9 @@ final class NetworkTransportSupport
                     boolean recordedSurfaceLink = StickySwampExit.zipline(source) || MagicAxesHutTransports.isEntry(source)
                         || TzhaarAccess.isLink(source) || WeissBoulderAccess.isLink(source)
                         || TemporossAccess.isArenaShortcut(source)
-                        || TirannwnObstacleSupport.isRecordedSurfaceLink(source);
+                        || TirannwnObstacleSupport.isRecordedSurfaceLink(source)
+                        || ShantayPassAccess.isPass(source)
+                        || source.getObjectId() == 2185;
                     if ((!standardShared && !underground && !lunarPlain && !moonclanSpell && !recordedSurfaceLink)
                         || !TransportExecutionRegistry.canExecute(source))
                     {
@@ -1767,12 +1770,15 @@ final class NetworkTransportSupport
         Set<String> maintainedObjects = new HashSet<>();
         for (Transport source : sharedCatalog)
         {
-            if (isUndergroundObjectTransport(source) || isLunarNetworkPlainTransport(source) || WebTravel.isWeb(source) || TzhaarAccess.isLink(source))
+            if (isUndergroundObjectTransport(source) || isLunarNetworkPlainTransport(source)
+                || WebTravel.isWeb(source) || TzhaarAccess.isLink(source)
+                || ShantayPassAccess.isPass(source) || source.getObjectId() == 2185)
                 maintainedObjects.add(catalogEdgeKey(source.getOrigin(), source.getDestination(),
                     source.getAction(), source.getName(), source.getObjectId()));
         }
         merged.removeIf(existing -> ApeAtollTransports.replacesTravel(transportInt(existing, transportObjectIdField),
             transportWorldPoint(existing, transportOriginField)) || MotherlodeTransports.replaces(transportInt(existing, transportObjectIdField),
+            transportWorldPoint(existing, transportOriginField)) || ShantayPassAccess.replacesPreservedEdge(transportInt(existing, transportObjectIdField),
             transportWorldPoint(existing, transportOriginField)) || maintainedObjects.contains(catalogEdgeKey(
             transportWorldPoint(existing, transportOriginField),
             transportWorldPoint(existing, transportDestinationField),
@@ -1870,8 +1876,43 @@ final class NetworkTransportSupport
 
     private boolean sharedRequirementsSatisfiedNow(Transport source, boolean planning)
     {
-        if (LumbridgeSwampCaveAccess.isEntrance(source)
-            && !(planning ? caveLightAvailable : CaveLightSource.hasLight())) return false;
+        if (LumbridgeSwampCaveAccess.isEntrance(source))
+        {
+            if (!(planning ? caveLightAvailable : CaveLightSource.hasLight())
+                || Dro.getVarbitValue(CaveAccessRequirements.SWAMP_CAVES_ROPED_VARBIT) != 1)
+            {
+                return false;
+            }
+        }
+        if (CaveAccessRequirements.isKalphiteLairRopeEdge(source)
+            && Dro.getVarbitValue(CaveAccessRequirements.KALPHITE_ROPE_1_VARBIT) != 1
+            && Dro.getVarbitValue(CaveAccessRequirements.DESERT_DIARY_HARD_VARBIT) != 1)
+        {
+            return false;
+        }
+        if (CaveAccessRequirements.isDorgeshKaanKalphiteTunnel(source)
+            && (Rs2Player.getQuestState(Quest.DEATH_TO_THE_DORGESHUUN) != QuestState.FINISHED
+                || !(planning ? caveLightAvailable : CaveLightSource.hasLight())))
+        {
+            return false;
+        }
+        if (CaveAccessRequirements.isDorgeshKaanDoor(source)
+            && Rs2Player.getQuestState(Quest.DEATH_TO_THE_DORGESHUUN) != QuestState.FINISHED)
+        {
+            return false;
+        }
+        if (ShantayPassAccess.isPass(source))
+        {
+            return ShantayPassAccess.requirementsSatisfied(
+                source,
+                ShantayPassAccess.hasDesertDiaryElite(),
+                Rs2Inventory.itemQuantity(ItemID.SHANTAY_PASS),
+                Rs2Inventory.itemQuantity(COINS));
+        }
+        if (source.getObjectId() == 2185 && !undergroundUnlocksSatisfied(source))
+        {
+            return false;
+        }
         // This is the recorded long approach. The Trollheim teleport approach never
         // passes through this door and keeps its own spell/tablet requirements.
         if (isTrollStrongholdSecretEntrance(source)
@@ -1987,13 +2028,13 @@ final class NetworkTransportSupport
                 requirement.getVarplayerId(), requirement.getValue(), comparator));
         }
 
-        boolean underground = isUndergroundObjectTransport(source);
+        boolean bypassEnginePredicates = isUndergroundObjectTransport(source) || ShantayPassAccess.isPass(source);
         return transportCtor.newInstance(
             origin, source.getDestination(),
             source.getAction(), source.getName(), source.getObjectId(),
-            skills, Collections.emptyList(), underground ? Collections.emptyList() : varbits,
-            underground ? Collections.emptyList() : varplayers,
-            underground ? Collections.emptyList() : new ArrayList<>(source.getQuests().keySet()),
+            skills, Collections.emptyList(), bypassEnginePredicates ? Collections.emptyList() : varbits,
+            bypassEnginePredicates ? Collections.emptyList() : varplayers,
+            bypassEnginePredicates ? Collections.emptyList() : new ArrayList<>(source.getQuests().keySet()),
             false, new int[0]);
     }
 
@@ -2661,6 +2702,39 @@ final class NetworkTransportSupport
     boolean hasBankBackedAlKharidTollCandidate(WorldPoint target)
     {
         return bankBackedAlKharidTollRequirement(target) > 0;
+    }
+
+    /**
+     * Bank-backed Shantay Pass supply for destinations south of Shantay Pass when neither a pass,
+     * 5 coins nor the Elite Desert Diary are already available.
+     */
+    Map<Integer, Integer> bankBackedShantayPassRequirements(WorldPoint target)
+    {
+        if (!ShantayPassAccess.needsSouthboundEntry(playerLocation(), target)
+            || ShantayPassAccess.hasDesertDiaryElite())
+        {
+            return Map.of();
+        }
+        if (Rs2Inventory.hasItem(ItemID.SHANTAY_PASS)
+            || Rs2Inventory.itemQuantity(COINS) >= ShantayPassAccess.PASS_COST)
+        {
+            return Map.of();
+        }
+        if (Rs2Bank.count(ItemID.SHANTAY_PASS) > 0)
+        {
+            return Map.of(ItemID.SHANTAY_PASS, 1);
+        }
+        int missingCoins = Math.max(0, ShantayPassAccess.PASS_COST - Rs2Inventory.itemQuantity(COINS));
+        if (missingCoins > 0 && Rs2Bank.count(COINS) >= missingCoins)
+        {
+            return Map.of(COINS, missingCoins);
+        }
+        return Map.of();
+    }
+
+    boolean hasBankBackedShantayPassCandidate(WorldPoint target)
+    {
+        return !bankBackedShantayPassRequirements(target).isEmpty();
     }
 
     private Object buildNativeGateTransport(WorldPoint origin, WorldPoint destination,
@@ -5570,6 +5644,13 @@ final class NetworkTransportSupport
             ? Microbot.getClientThread().runOnClientThreadOptional(() -> LumbridgeSwampCaveAccess.warning(client)).orElse(null) : null;
         if (swampCave && existingCaveWarning == null) return false;
         boolean caveWarningOpen = existingCaveWarning != null && existingCaveWarning.group >= 0;
+
+        boolean shantayPass = ShantayPassAccess.isPass(transport);
+        ShantayPassAccess.Warning existingShantayWarning = shantayPass
+            ? Microbot.getClientThread().runOnClientThreadOptional(() -> ShantayPassAccess.warning(client)).orElse(null) : null;
+        boolean shantayWarningOpen = existingShantayWarning != null && existingShantayWarning.group >= 0;
+        if (shantayPass && !shantayWarningOpen && !ShantayPassAccess.ensurePassBeforeCrossing(transport)) return false;
+
         if (transport.getObjectId() <= 0 || transport.getAction() == null) return false;
         if (EdgevilleDungeonAccess.isTrapdoor(transport)) {
             TileObject trapdoor = findCatalogObject(transport);
@@ -5611,13 +5692,13 @@ final class NetworkTransportSupport
             return speaker != null && !speaker.isHidden() && transport.getName() != null
                 && transport.getName().equalsIgnoreCase(net.runelite.client.util.Text.removeTags(speaker.getText()));
         }).orElse(false);
-        if (dialogueOpen && !matchingDialogue && !caveWarningOpen)
+        if (dialogueOpen && !matchingDialogue && !caveWarningOpen && !shantayWarningOpen)
         {
             if (Microbot.pauseAllScripts.get() || net.runelite.client.plugins.microbot.util.input.InputArbiter.isHuman()) return false;
             Rs2Keyboard.keyPress(java.awt.event.KeyEvent.VK_ESCAPE);
             if (!waitUntil(() -> !Rs2Dialogue.hasSelectAnOption() && !Rs2Dialogue.hasContinue(), 1000L)) return false;
         }
-        if (!matchingDialogue && !caveWarningOpen)
+        if (!matchingDialogue && !caveWarningOpen && !shantayWarningOpen)
         {
             if (transport.getType() == TransportType.NPC || transport.getType() == TransportType.SHIP
                 || transport.getType() == TransportType.BOAT)
@@ -5649,13 +5730,15 @@ final class NetworkTransportSupport
         boolean sophanemEntry = transport.getObjectId() == 20278;
         boolean darknessWarningAccepted = false;
         boolean swampWarningAccepted = false;
+        boolean shantayWarningAccepted = false;
         long lastDialogueClickAt = 0;
         TransportMenuAttempts dialogueAttempts = new TransportMenuAttempts();
         boolean retryableObject = transport.getType() == TransportType.TRANSPORT
             && (transport.getOrigin().getPlane() != transport.getDestination().getPlane()
                 || transport.getOrigin().distanceTo2D(transport.getDestination()) > 8
                 || MotherlodeTransports.isUpperLadderDescent(transport)
-                || MagicAxesHutTransports.isEntry(transport));
+                || MagicAxesHutTransports.isEntry(transport)
+                || shantayPass);
         int objectAttempts = 1;
         long lastObjectAttemptAt = System.currentTimeMillis();
         long deadline = System.currentTimeMillis() + 20_000L;
@@ -5679,6 +5762,20 @@ final class NetworkTransportSupport
                     continue;
                 }
             }
+            if (shantayPass)
+            {
+                if (!LumbridgeSwampCaveAccess.inputAllowed()) return false;
+                ShantayPassAccess.Warning warning = Microbot.getClientThread().runOnClientThreadOptional(() ->
+                    ShantayPassAccess.warning(client)).orElse(null);
+                if (warning != null && warning.group >= 0)
+                {
+                    if (warning.selection != null && dialogueAttempts.allow("shantay-warning:" + warning.group,
+                        System.currentTimeMillis()) && ShantayPassAccess.acceptWarning(client, transport, warning))
+                        shantayWarningAccepted = true;
+                    waitUntil(() -> sharedTransportLanded(playerLocation(), transport), 100L);
+                    continue;
+                }
+            }
             if (Rs2Dialogue.hasSelectAnOption() || Rs2Dialogue.hasContinue())
             {
                 String menuState = Microbot.getClientThread().runOnClientThreadOptional(() ->
@@ -5697,7 +5794,7 @@ final class NetworkTransportSupport
             // Arrival coordinates can update before the previous transport's input lock ends.
             // This also affects consecutive caves on the same plane, not just ladders.
             // Retry at most four times, only idle and still beside the source object.
-            if (retryableObject && !swampWarningAccepted && objectAttempts < 4
+            if (retryableObject && !swampWarningAccepted && !shantayWarningAccepted && objectAttempts < 4
                 && System.currentTimeMillis() - lastObjectAttemptAt >= 2500L
                 && !Rs2Dialogue.hasContinue() && !Rs2Dialogue.hasSelectAnOption()
                 && Microbot.getClientThread().runOnClientThreadOptional(() -> {

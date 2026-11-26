@@ -111,5 +111,10 @@ public final class CaveLightSource {
                 || TravelEquipment.wornItems().keySet().stream().anyMatch(CaveLightSource::isSafeLight);
     }
 
+    /** Whether a safe lit light source is carried or can be prepared (optionally from bank). */
+    public static boolean canObtainLight(boolean bankAllowed) {
+        return prepare(bankAllowed) != null;
+    }
+
     private CaveLightSource() { }
 }
