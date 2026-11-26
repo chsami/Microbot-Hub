@@ -6,7 +6,7 @@ import net.runelite.client.config.*;
  * Efficient Walker configuration.
  */
 @ConfigGroup(EfficientWalkerConfig.GROUP)
-@ConfigInformation("By droplugins.")
+@ConfigInformation("By droplugins and RLitePlus.")
 public interface EfficientWalkerConfig extends EfficientSailingConfig
 {
     String GROUP = "efficientwalker";
