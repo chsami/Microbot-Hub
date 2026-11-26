@@ -5243,16 +5243,29 @@ final class NetworkTransportSupport
             if (source.getType() == TransportType.CANOE && Objects.equals(source.getOrigin(), transport.getOrigin()))
                 newlySuppressed |= failedSharedEdges.add(sharedEdgeKey(source));
         }
-        if (newlySuppressed) Microbot.log(canoeStationSuppressedMessage(transport.getOrigin(), timedOut));
+        if (newlySuppressed)
+            Microbot.log(canoeStationSuppressedMessage(canoeStationName(transport.getOrigin(), sharedCatalog), timedOut));
     }
 
-    static String canoeStationSuppressedMessage(WorldPoint station, boolean timedOut)
+    static String canoeStationName(WorldPoint station, List<Transport> catalog)
     {
-        String where = station == null ? "this station" : "the station at " + station.getX() + ", " + station.getY();
-        return "Efficient Walker: the canoe trip at " + where
+        if (station == null) return null;
+        return catalog.stream()
+            .filter(source -> source.getType() == TransportType.CANOE && source.getDestination() != null
+                && source.getDisplayInfo() != null && !source.getDisplayInfo().isEmpty()
+                && source.getDestination().distanceTo(station) <= 15)
+            .min(Comparator.comparingInt(source -> source.getDestination().distanceTo(station)))
+            .map(Transport::getDisplayInfo)
+            .orElse(null);
+    }
+
+    static String canoeStationSuppressedMessage(String station, boolean timedOut)
+    {
+        return "Efficient Walker: the canoe trip" + (station == null ? "" : " from " + station)
             + (timedOut ? " took too long" : " did not finish")
-            + ", so the walker will not use canoes from this station until you hop, log out or restart it."
-            + " Canoes need 12 Woodcutting and an axe.";
+            + ", so the walker will skip canoes from " + (station == null ? "that station" : station)
+            + " until you hop worlds or log out."
+            + " Canoes need an axe and 12 Woodcutting; longer trips need 27, 42 or 57 Woodcutting.";
     }
 
     private boolean sharedApproachReachable(WorldPoint player, Transport transport)

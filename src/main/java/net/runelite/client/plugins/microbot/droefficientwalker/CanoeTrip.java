@@ -21,8 +21,8 @@ final class CanoeTrip
         for (int attempt = 0; attempt < MAX_STEPS; attempt++)
         {
             if (landed.getAsBoolean()) return Outcome.LANDED;
-            if (!atStation.getAsBoolean()) return awaitLanding.getAsBoolean() ? Outcome.LANDED : Outcome.FAILED;
             if (!allowed.getAsBoolean()) return Outcome.INTERRUPTED;
+            if (!atStation.getAsBoolean()) return awaitLanding.getAsBoolean() ? Outcome.LANDED : Outcome.FAILED;
             step.getAsBoolean();
         }
         if (landed.getAsBoolean()) return Outcome.LANDED;

@@ -72,6 +72,14 @@ class CanoeTripTest
         assertEquals(2, steps.get());
     }
 
+    @Test void takingControlAndWalkingAwayFromTheStationInterruptsWithoutFailing()
+    {
+        AtomicBoolean human = new AtomicBoolean();
+        assertEquals(CanoeTrip.Outcome.INTERRUPTED, CanoeTrip.travel(() -> false, () -> !human.get(), () -> !human.get(),
+            () -> { human.set(true); return true; },
+            () -> { fail("No landing wait after the player took control"); return false; }));
+    }
+
     @Test void aStuckStationIsBounded()
     {
         AtomicInteger steps = new AtomicInteger();

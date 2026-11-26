@@ -132,12 +132,27 @@ public class CanoeRoutingTest
 
     @Test public void theStationMessageTellsThePlayerWhyCanoesStoppedAndHowToGetThemBack()
     {
-        String failed = NetworkTransportSupport.canoeStationSuppressedMessage(FEROX, false);
-        assertTrue(failed.contains("3154, 3638"), failed);
-        assertTrue(failed.contains("did not finish"), failed);
-        assertTrue(failed.contains("12 Woodcutting and an axe"), failed);
-        assertTrue(failed.contains("restart"), failed);
-        assertTrue(NetworkTransportSupport.canoeStationSuppressedMessage(FEROX, true).contains("took too long"));
+        String failed = NetworkTransportSupport.canoeStationSuppressedMessage("Edgeville", false);
+        assertTrue(failed.contains("canoe trip from Edgeville did not finish"), failed);
+        assertTrue(failed.contains("skip canoes from Edgeville until you hop worlds or log out"), failed);
+        assertTrue(failed.contains("an axe and 12 Woodcutting; longer trips need 27, 42 or 57 Woodcutting"), failed);
+        assertFalse(failed.contains("restart"), failed);
+        String unnamed = NetworkTransportSupport.canoeStationSuppressedMessage(null, true);
+        assertTrue(unnamed.contains("canoe trip took too long"), unnamed);
+        assertTrue(unnamed.contains("skip canoes from that station"), unnamed);
+    }
+
+    @Test public void theFailedStationIsNamedFromTheCanoeCatalog()
+    {
+        List<Transport> catalog = TransportResources.loadAllFromResources().values().stream()
+            .flatMap(Set::stream).collect(java.util.stream.Collectors.toList());
+        assertEquals("Edgeville", NetworkTransportSupport.canoeStationName(EDGEVILLE, catalog));
+        assertEquals("Ferox Enclave", NetworkTransportSupport.canoeStationName(new WorldPoint(3154, 3630, 0), catalog));
+        assertEquals("Champions Guild", NetworkTransportSupport.canoeStationName(new WorldPoint(3202, 3343, 0), catalog));
+        assertEquals("Lumbridge", NetworkTransportSupport.canoeStationName(new WorldPoint(3243, 3237, 0), catalog));
+        assertEquals("Barbarian Village", NetworkTransportSupport.canoeStationName(new WorldPoint(3112, 3411, 0), catalog));
+        assertNull(NetworkTransportSupport.canoeStationName(new WorldPoint(3222, 3218, 0), catalog));
+        assertNull(NetworkTransportSupport.canoeStationName(null, catalog));
     }
 
     @Test public void pausingOrTakingControlMidCanoeKeepsTheStationAndOnlyARealFailureSuppressesIt() throws Exception
