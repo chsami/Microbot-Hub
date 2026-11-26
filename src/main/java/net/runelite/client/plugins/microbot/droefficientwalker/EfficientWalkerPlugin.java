@@ -45,7 +45,7 @@ import java.util.function.Supplier;
     tags = {"walking", "pathfinding", "microbot"},
     authors = {"droplugins"},
     enabledByDefault = PluginConstants.DEFAULT_ENABLED,
-    version = "1.12.71",
+    version = "1.12.72",
     iconUrl = "https://chsami.github.io/Microbot-Hub/EfficientWalkerPlugin/assets/icon.png",
     cardUrl = "https://chsami.github.io/Microbot-Hub/EfficientWalkerPlugin/assets/card.png",
     isExternal = PluginConstants.IS_EXTERNAL
