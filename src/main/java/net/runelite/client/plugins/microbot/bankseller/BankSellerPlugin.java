@@ -29,7 +29,7 @@ import net.runelite.client.plugins.microbot.PluginConstants;
 @Slf4j
 public class BankSellerPlugin extends Plugin {
 
-	static final String version = "1.0.6";
+	static final String version = "1.0.7";
     @Inject
     private BankSellerConfig config;
 
