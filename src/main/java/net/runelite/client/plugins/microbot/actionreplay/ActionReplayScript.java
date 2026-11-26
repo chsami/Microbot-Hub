@@ -123,6 +123,7 @@ public class ActionReplayScript extends Script
 			if (!executeStep(action))
 			{
 				log.warn("ActionReplay: skipping step #{} ({})", i, action.describe());
+				clearSelectedWidget();
 			}
 		}
 	}
@@ -258,17 +259,17 @@ Rs2TileObjectModel match = Microbot.getRs2TileObjectCache().query()
 		Rs2ItemModel item = Rs2Inventory.get(a.getItemId());
 		if (item == null)
 		{
-			log.warn("ActionReplay: item {} not in inventory, skipping '{}'", a.getItemId(), a.describe());
+			log.warn("ActionReplay: no item for '{}' in your inventory, skipping", a.describe());
 			return false;
 		}
 		if (!sleepUntil(() -> Microbot.getClient().isWidgetSelected(), 1800))
 		{
-			log.warn("ActionReplay: nothing selected to use on item {}, skipping '{}'", a.getItemId(), a.describe());
+			log.warn("ActionReplay: the spell or item for '{}' was not selected, so the step was skipped. Check that you have the runes and Magic level for the spell and that the step before it (clicking the spell or item) worked.", a.describe());
 			return false;
 		}
 		if (!Rs2Widget.isWidgetVisible(a.getParam1()) && !Rs2Tab.switchTo(InterfaceTab.INVENTORY))
 		{
-			log.warn("ActionReplay: inventory not open, skipping '{}'", a.describe());
+			log.warn("ActionReplay: could not open the inventory tab (close any open interface), skipping '{}'", a.describe());
 			return false;
 		}
 		return invoke(a, buildMenuEntry(a, ma, item.getSlot()));
