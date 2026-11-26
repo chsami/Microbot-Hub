@@ -11,6 +11,7 @@ import net.runelite.api.Tile;
 import net.runelite.api.WorldType;
 import net.runelite.api.WorldView;
 import net.runelite.api.coords.LocalPoint;
+import net.runelite.api.coords.WorldArea;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.NpcID;
@@ -24,6 +25,7 @@ import net.runelite.client.plugins.microbot.mining.data.Rocks;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
+import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.coords.Rs2WorldPoint;
 import net.runelite.client.plugins.microbot.util.depositbox.Rs2DepositBox;
@@ -34,15 +36,20 @@ import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.player.Rs2Pvp;
 import net.runelite.client.plugins.microbot.util.security.Login;
+import net.runelite.client.plugins.microbot.util.walker.Rs2PathApi;
+import net.runelite.client.plugins.microbot.util.walker.Rs2RouteRequest;
+import net.runelite.client.plugins.microbot.util.walker.Rs2RouteResult;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import org.slf4j.event.Level;
 
 import java.util.ArrayList;
 import java.awt.event.KeyEvent;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -66,9 +73,13 @@ public class AutoMiningScript extends Script {
     private boolean rockSeenAtAnchor;
     private long noRockSince;
     private boolean noRocksInRange;
+    private BankLocation walkBackBank;
+    private WorldPoint walkBackBankAnchor;
 
     public boolean run(AutoMiningConfig config) {
         initialPlayerLocation = null;
+        walkBackBank = null;
+        walkBackBankAnchor = null;
         minedAtAnchor = false;
         rockSeenAtAnchor = false;
         noRockSince = 0;
@@ -175,7 +186,7 @@ public class AutoMiningScript extends Script {
 
                         if (config.useBank()) {
                             if (config.clayBracelet() && config.ORE() == Rocks.CLAY) {
-                                if (!Rs2Bank.walkToBankAndUseBank()) {
+                                if (!Rs2Bank.walkToBankAndUseBank(bankForWalkBack())) {
                                     return;
                                 }
 
@@ -216,7 +227,7 @@ public class AutoMiningScript extends Script {
                                 }
                             } else {
                                 if (!Rs2Bank.isOpen()) {
-                                    if (!Rs2Bank.walkToBankAndUseBank()) {
+                                    if (!Rs2Bank.walkToBankAndUseBank(bankForWalkBack())) {
                                         return;
                                     }
                                     return;
@@ -297,6 +308,50 @@ public class AutoMiningScript extends Script {
             }
         }
         return false;
+    }
+
+    private BankLocation bankForWalkBack() {
+        WorldPoint anchor = initialPlayerLocation;
+        if (anchor == null) {
+            return Rs2Bank.getNearestBank();
+        }
+        if (!anchor.equals(walkBackBankAnchor)) {
+            walkBackBankAnchor = anchor;
+            walkBackBank = nearestBankOnFoot(anchor);
+            if (walkBackBank != null) {
+                Microbot.log("Auto Mining: banking at " + walkBackBank + ", the closest bank on foot, so the walk back stays short.");
+            } else {
+                Microbot.log("Auto Mining: no bank within walking distance of the mining spot, using the nearest bank including teleports.");
+            }
+        }
+        return walkBackBank != null ? walkBackBank : Rs2Bank.getNearestBank();
+    }
+
+    private static BankLocation nearestBankOnFoot(WorldPoint anchor) {
+        List<BankLocation> banks = Arrays.stream(BankLocation.values())
+                .filter(BankLocation::hasRequirements)
+                .collect(Collectors.toList());
+        if (banks.isEmpty()) {
+            return null;
+        }
+        Set<WorldPoint> targets = banks.stream()
+                .map(BankLocation::getWorldPoint)
+                .collect(Collectors.toSet());
+        Rs2RouteResult route = Rs2PathApi.plan(Rs2RouteRequest.toAny(anchor, targets)
+                .withRefreshPolicy(Rs2RouteRequest.RefreshPolicy.ALWAYS)
+                .withoutTeleports());
+        return bankAtPathEnd(route.getPath(), banks);
+    }
+
+    static BankLocation bankAtPathEnd(List<WorldPoint> path, Collection<BankLocation> banks) {
+        if (path == null || path.isEmpty()) {
+            return null;
+        }
+        WorldArea end = new WorldArea(path.get(path.size() - 1), 2, 2);
+        return banks.stream()
+                .filter(bank -> new WorldArea(bank.getWorldPoint(), 2, 2).intersectsWith2D(end))
+                .findFirst()
+                .orElse(null);
     }
 
     private GameObject findRock(int distance) {

@@ -16,7 +16,7 @@ import java.awt.*;
         description = "Mines and banks ores",
         tags = {"mining", "microbot", "skilling"},
         version = AutoMiningPlugin.version,
-        minClientVersion = "2.6.43",
+        minClientVersion = "2.6.53",
         cardUrl = "",
         iconUrl = "",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -24,7 +24,7 @@ import java.awt.*;
 )
 @Slf4j
 public class AutoMiningPlugin extends Plugin {
-    public static final String version = "1.0.20";
+    public static final String version = "1.0.21";
     @Inject
     private AutoMiningConfig config;
     @Provides

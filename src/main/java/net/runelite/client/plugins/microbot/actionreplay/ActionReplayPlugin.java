@@ -50,7 +50,7 @@ import java.util.stream.Stream;
 )
 public class ActionReplayPlugin extends Plugin
 {
-	public static final String version = "1.1.0";
+	public static final String version = "1.1.2";
 
 	static final Path RECORDINGS_DIR = RuneLite.RUNELITE_DIR.toPath().resolve("microbot-recordings");
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();

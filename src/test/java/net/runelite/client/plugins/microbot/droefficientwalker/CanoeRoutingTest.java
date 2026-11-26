@@ -4,15 +4,23 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 import net.runelite.api.Client;
+import net.runelite.api.Player;
 import net.runelite.api.coords.WorldPoint;
+import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigItem;
+import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.droefficientwalker.support.TransportResources;
 import net.runelite.client.plugins.microbot.droefficientwalker.support.pathfinder.PathfinderConfig;
 import net.runelite.client.plugins.microbot.droefficientwalker.support.pathfinder.SplitFlagMap;
 import net.runelite.client.plugins.microbot.shortestpath.Transport;
 import net.runelite.client.plugins.microbot.shortestpath.TransportType;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -100,6 +108,111 @@ public class CanoeRoutingTest
         engine.selected.destination = POND;
         when(config.allowWildernessTravel()).thenReturn(true);
         assertTrue((Boolean) allowed.invoke(bridge, engine.selected));
+    }
+
+    @Test public void aFailedCanoeSuppressesEveryCanoeFromThatStationOnly() throws Exception
+    {
+        NetworkTransportSupport bridge = new NetworkTransportSupport(mock(Client.class), mock(EfficientWalkerConfig.class),
+            getClass().getClassLoader(), Engine.class, new Engine(), "unused", mock(CatalogTeleportSupport.class));
+        WorldPoint lumbridge = new WorldPoint(3243, 3237, 0);
+        Transport failed = canoe(FEROX, EDGEVILLE);
+        Transport sibling = canoe(FEROX, lumbridge);
+        Transport elsewhere = canoe(lumbridge, EDGEVILLE);
+        Transport other = mock(Transport.class);
+        when(other.getType()).thenReturn(TransportType.MAGIC_CARPET);
+        when(other.getOrigin()).thenReturn(FEROX);
+        when(other.getDestination()).thenReturn(lumbridge);
+        field(NetworkTransportSupport.class, "sharedCatalog").set(bridge, List.of(failed, sibling, elsewhere, other));
+        method(NetworkTransportSupport.class, "suppressSharedEdge", Transport.class, boolean.class).invoke(bridge, failed, false);
+        @SuppressWarnings("unchecked")
+        Set<String> suppressed = (Set<String>) field(NetworkTransportSupport.class, "failedSharedEdges").get(bridge);
+        Method key = method(NetworkTransportSupport.class, "sharedEdgeKey", Transport.class);
+        assertEquals(Set.of(key.invoke(null, failed), key.invoke(null, sibling)), suppressed);
+    }
+
+    @Test public void theStationMessageTellsThePlayerWhyCanoesStoppedAndHowToGetThemBack()
+    {
+        String failed = NetworkTransportSupport.canoeStationSuppressedMessage("Edgeville", false);
+        assertTrue(failed.contains("canoe trip from Edgeville did not finish"), failed);
+        assertTrue(failed.contains("skip canoes from Edgeville until you hop worlds or log out"), failed);
+        assertTrue(failed.contains("an axe and 12 Woodcutting; longer trips need 27, 42 or 57 Woodcutting"), failed);
+        assertFalse(failed.contains("restart"), failed);
+        String unnamed = NetworkTransportSupport.canoeStationSuppressedMessage(null, true);
+        assertTrue(unnamed.contains("canoe trip took too long"), unnamed);
+        assertTrue(unnamed.contains("skip canoes from that station"), unnamed);
+    }
+
+    @Test public void theFailedStationIsNamedFromTheCanoeCatalog()
+    {
+        List<Transport> catalog = TransportResources.loadAllFromResources().values().stream()
+            .flatMap(Set::stream).collect(java.util.stream.Collectors.toList());
+        assertEquals("Edgeville", NetworkTransportSupport.canoeStationName(EDGEVILLE, catalog));
+        assertEquals("Ferox Enclave", NetworkTransportSupport.canoeStationName(new WorldPoint(3154, 3630, 0), catalog));
+        assertEquals("Champions Guild", NetworkTransportSupport.canoeStationName(new WorldPoint(3202, 3343, 0), catalog));
+        assertEquals("Lumbridge", NetworkTransportSupport.canoeStationName(new WorldPoint(3243, 3237, 0), catalog));
+        assertEquals("Barbarian Village", NetworkTransportSupport.canoeStationName(new WorldPoint(3112, 3411, 0), catalog));
+        assertNull(NetworkTransportSupport.canoeStationName(new WorldPoint(3222, 3218, 0), catalog));
+        assertNull(NetworkTransportSupport.canoeStationName(null, catalog));
+    }
+
+    @Test public void pausingOrTakingControlMidCanoeKeepsTheStationAndOnlyARealFailureSuppressesIt() throws Exception
+    {
+        EfficientWalkerConfig config = mock(EfficientWalkerConfig.class);
+        when(config.useCanoes()).thenReturn(true);
+        when(config.allowWildernessTravel()).thenReturn(true);
+        Engine engine = new Engine();
+        NetworkTransportSupport bridge = new NetworkTransportSupport(mock(Client.class), config,
+            getClass().getClassLoader(), Engine.class, engine, "unused", mock(CatalogTeleportSupport.class));
+        WorldPoint lumbridge = new WorldPoint(3243, 3237, 0);
+        Transport trip = canoe(EDGEVILLE, FEROX);
+        Transport sibling = canoe(EDGEVILLE, lumbridge);
+        field(NetworkTransportSupport.class, "sharedCatalog").set(bridge, List.of(trip, sibling));
+        @SuppressWarnings("unchecked")
+        Set<String> suppressed = (Set<String>) field(NetworkTransportSupport.class, "failedSharedEdges").get(bridge);
+        Method tick = method(NetworkTransportSupport.class, "beforeSharedTransportTick", Transport.class);
+        Method execute = method(NetworkTransportSupport.class, "executeSharedTransport", Transport.class);
+        Client client = (Client) field(NetworkTransportSupport.class, "client").get(bridge);
+        Player player = mock(Player.class);
+        when(player.getWorldLocation()).thenReturn(EDGEVILLE);
+        when(client.getLocalPlayer()).thenReturn(player);
+        ClientThread thread = mock(ClientThread.class);
+        when(thread.invoke(any(Supplier.class))).thenAnswer(i -> ((Supplier<?>) i.getArgument(0)).get());
+        try (MockedStatic<Microbot> micro = mockStatic(Microbot.class))
+        {
+            micro.when(Microbot::getClientThread).thenReturn(thread);
+            Microbot.pauseAllScripts.set(true);
+            Object interrupted = execute.invoke(bridge, trip);
+            assertEquals("INTERRUPTED", String.valueOf(interrupted));
+            Microbot.pauseAllScripts.set(false);
+
+            field(NetworkTransportSupport.class, "currentSharedTransport").set(bridge, trip);
+            field(NetworkTransportSupport.class, "actionFuture").set(bridge, CompletableFuture.completedFuture(interrupted));
+            assertTrue((Boolean) tick.invoke(bridge, trip));
+            assertTrue(suppressed.isEmpty());
+            assertNull(bridge.consumeReplanTarget());
+
+            Object failed = Enum.valueOf(interrupted.getClass().asSubclass(Enum.class), "FAILED");
+            field(NetworkTransportSupport.class, "currentSharedTransport").set(bridge, trip);
+            field(NetworkTransportSupport.class, "actionFuture").set(bridge, CompletableFuture.completedFuture(failed));
+            assertTrue((Boolean) tick.invoke(bridge, trip));
+            Method key = method(NetworkTransportSupport.class, "sharedEdgeKey", Transport.class);
+            assertEquals(Set.of(key.invoke(null, trip), key.invoke(null, sibling)), suppressed);
+            assertEquals(engine.getDestination(), bridge.consumeReplanTarget());
+        }
+        finally
+        {
+            Microbot.pauseAllScripts.set(false);
+        }
+    }
+
+    private static Transport canoe(WorldPoint from, WorldPoint to)
+    {
+        Transport row = mock(Transport.class);
+        when(row.getType()).thenReturn(TransportType.CANOE);
+        when(row.getOrigin()).thenReturn(from);
+        when(row.getDestination()).thenReturn(to);
+        when(row.getAction()).thenReturn("Paddle Canoe");
+        return row;
     }
 
     private static final class Edge

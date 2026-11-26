@@ -120,7 +120,8 @@ public final class EfficientSceneMovement
             if (map == null || map.isHidden() || map.getBounds() == null) return null;
             Point point = Perspective.localToMinimap(client, target);
             Shape clip = Rs2MiniMap.getMinimapClipArea();
-            return onCanvas(client, point) && clip != null && clip.contains(point.getX(), point.getY()) ? point : null;
+            return onCanvas(client, point) && clip != null && clip.contains(point.getX(), point.getY())
+                && !MinimapOrbs.covers(client, point) ? point : null;
         }
         if (view.getScene() == null) return null;
         int distance = SceneRenderGeometry.renderedDrawDistance(client.isGpu(), view.getScene().getDrawDistance());

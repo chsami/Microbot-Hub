@@ -433,7 +433,9 @@ public class ScurriusScript extends Script {
                         }
 
                         Rs2Walker.walkTo(bossLocation);
-                        if (!pausedBeforeEntry && Rs2Player.getWorldLocation().distanceTo(bossLocation) < 12) {
+                        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+                        if (playerLocation == null) break;
+                        if (!pausedBeforeEntry && playerLocation.distanceTo(bossLocation) < 12) {
                             pausedBeforeEntry = true;
                             humanPause("before entering the room");
                         }

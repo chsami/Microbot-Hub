@@ -73,8 +73,8 @@ public class HerbiboarScript extends Script {
     }
     
     
-    private boolean isNearBank() {
-        return Rs2Player.getWorldLocation().distanceTo(BANK_LOCATION) <= 5;
+    static boolean isNearBank(WorldPoint playerLocation) {
+        return playerLocation != null && playerLocation.distanceTo(BANK_LOCATION) <= 5;
     }
 
     /** Check if the player's run energy is below the configured threshold.
@@ -439,12 +439,14 @@ public class HerbiboarScript extends Script {
                 if (!super.run()) return;
                 if (BreakHandlerScript.isMicroBreakActive()) return;
                 if (BreakHandlerScript.isBreakActive()) return;
+                final WorldPoint playerLocation = Rs2Player.getWorldLocation();
+                if (playerLocation == null) return;
 
 
                 // Keep checking for time of last movement, if more than 1 minute, set state to RESET
-                if (getLastLocation() != null && !getLastLocation().equals(Rs2Player.getWorldLocation())) {
+                if (getLastLocation() != null && !getLastLocation().equals(playerLocation)) {
                     setLastMove(Instant.now());
-                    setLastLocation(Rs2Player.getWorldLocation());
+                    setLastLocation(playerLocation);
                 } else if (config.resetIfStuck() && getLastMove() != null
                         && Instant.now().isAfter(getLastMove().plusSeconds(60))
                         && state != HerbiboarState.RESET && state != HerbiboarState.INITIALIZING
@@ -455,7 +457,7 @@ public class HerbiboarScript extends Script {
                     setState(HerbiboarState.RESET);
                 } else if (getLastMove() == null || getLastLocation() == null) {
                     setLastMove(Instant.now());
-                    setLastLocation(Rs2Player.getWorldLocation());
+                    setLastLocation(playerLocation);
                 }
 
                 if (!Rs2Player.isMoving() && !Rs2Player.isInteracting()) {
@@ -468,7 +470,7 @@ public class HerbiboarScript extends Script {
                     if (needsToBank(config)) {
                         Microbot.log(Level.INFO,"Need to bank, switching to BANK state");
                         setState(HerbiboarState.BANK);
-                    } else if (hasRequiredInventorySetup(config) && isNearBank() && 
+                    } else if (hasRequiredInventorySetup(config) && isNearBank(playerLocation) &&
                               (getState() == HerbiboarState.START)) {
                         Microbot.log(Level.INFO,"Returning to island, switching to RETURN_FROM_ISLAND state");
                         setState(HerbiboarState.RETURN_FROM_ISLAND);
@@ -535,12 +537,12 @@ public class HerbiboarScript extends Script {
                         Microbot.log(Level.INFO,"Finding start location");
                         if (herbiboarPlugin.getCurrentGroup() == null) {
                             TileObject start = herbiboarPlugin.getStarts().values().stream()
-                                .min(Comparator.comparing(s -> Rs2Player.getWorldLocation().distanceTo(s.getWorldLocation())))
+                                .min(Comparator.comparing(s -> playerLocation.distanceTo(s.getWorldLocation())))
                                 .orElse(null);
                             if (start != null) {
                                 WorldPoint loc = start.getWorldLocation();
                                 LocalPoint localPoint = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), loc);
-                                if (localPoint == null || Rs2Player.getWorldLocation().distanceTo(loc) >= config.interactionDistance()) {
+                                if (localPoint == null || playerLocation.distanceTo(loc) >= config.interactionDistance()) {
                                     Rs2Walker.walkTo(loc);
                                 } else {
                                     Rs2Camera.turnTo(localPoint);
@@ -566,7 +568,7 @@ public class HerbiboarScript extends Script {
                             WorldPoint loc = path.get(path.size() - 1).getLocation();
                             LocalPoint localPoint = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), loc);
                             TileObject object = herbiboarPlugin.getTrailObjects().get(loc);
-                            if (localPoint == null || Rs2Player.getWorldLocation().distanceTo(loc) >= config.interactionDistance()){
+                            if (localPoint == null || playerLocation.distanceTo(loc) >= config.interactionDistance()){
                                 Rs2Walker.walkTo(loc);
                             } else {
                                 Rs2Camera.turnTo(localPoint);
@@ -586,7 +588,7 @@ public class HerbiboarScript extends Script {
                                 WorldPoint finishLoc = herbiboarPlugin.getEndLocations().get(finishId - 1);
                                 LocalPoint localPoint = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), finishLoc);
                                 TileObject tunnel = herbiboarPlugin.getTunnels().get(finishLoc);
-                                if (localPoint == null || Rs2Player.getWorldLocation().distanceTo(finishLoc) >= config.interactionDistance()) {
+                                if (localPoint == null || playerLocation.distanceTo(finishLoc) >= config.interactionDistance()) {
                                     Rs2Walker.walkTo(finishLoc);
                                 } else {
                                     Rs2Camera.turnTo(localPoint);
@@ -608,18 +610,18 @@ public class HerbiboarScript extends Script {
                         Rs2NpcModel herb = Microbot.getRs2NpcCache().query().withName("Herbiboar").nearestOnClientThread();
                         if (herb != null) {
                             WorldPoint loc = herb.getWorldLocation();
-                            if (Rs2Player.getWorldLocation().distanceTo(loc) <= 8) {
+                            if (playerLocation.distanceTo(loc) <= 8) {
                                 herb.click("Harvest");
                                 Rs2Player.waitForAnimation();
                                 sleepUntil(() -> !Rs2Player.isAnimating() && !Rs2Player.isInteracting() && !Rs2Player.isMoving(), 5000);
                                 incrementHerbisCaught();
                                 TileObject start = herbiboarPlugin.getStarts().values().stream()
-                                    .min(Comparator.comparing(s -> Rs2Player.getWorldLocation().distanceTo(s.getWorldLocation())))
+                                    .min(Comparator.comparing(s -> playerLocation.distanceTo(s.getWorldLocation())))
                                     .orElse(null);
                                 if (start != null) {
                                     WorldPoint startLoc = start.getWorldLocation();
                                     LocalPoint localPoint = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), startLoc);
-                                    if (localPoint == null || Rs2Player.getWorldLocation().distanceTo(startLoc) >= config.interactionDistance()) {
+                                    if (localPoint == null || playerLocation.distanceTo(startLoc) >= config.interactionDistance()) {
                                         Rs2Walker.walkTo(startLoc);
                                     } else {
                                         Rs2Camera.turnTo(localPoint);
@@ -645,7 +647,7 @@ public class HerbiboarScript extends Script {
                         Microbot.log(Level.INFO,"Banking items");
 
                         LocalPoint bankLocalPoint = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), BANK_LOCATION);
-                        if (bankLocalPoint == null || Rs2Player.getWorldLocation().distanceTo(BANK_LOCATION) >= 5) {
+                        if (bankLocalPoint == null || playerLocation.distanceTo(BANK_LOCATION) >= 5) {
                             Microbot.log(Level.INFO,"Walking to bank");
                             Rs2Walker.walkTo(BANK_LOCATION);
                         } else if (!Rs2Bank.isOpen()) {
@@ -768,7 +770,7 @@ public class HerbiboarScript extends Script {
                         LocalPoint returnLocalPoint = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), RETURN_LOCATION);
                         if (returnLocalPoint == null) {
                             Rs2Walker.walkTo(RETURN_LOCATION);
-                        } else if (Rs2Player.getWorldLocation().distanceTo(RETURN_LOCATION) >= 5) {
+                        } else if (playerLocation.distanceTo(RETURN_LOCATION) >= 5) {
                             Rs2Walker.walkTo(RETURN_LOCATION);
                         } else {
                             setState(HerbiboarState.START);

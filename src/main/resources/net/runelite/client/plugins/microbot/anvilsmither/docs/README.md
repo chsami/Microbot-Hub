@@ -2,9 +2,10 @@
 
 Smiths bars into items at an anvil next to a bank, at **Varrock west** or **Prifddinas south**, banking every load. Makes Sailing keel parts too.
 
-Authors: **StickToTheScript**, **chsami**, **Igor**, **George M**, **irkedMATT**
-
 ![Panel](assets/panel.png)
+
+## Credits
+Built on the Varrock Anvil plugin, with work from StickToTheScript, chsami, Igor and George M. I did the rework.
 
 ## What you need
 - The Smithing level for the item you pick. It is checked when you start, and the message tells you the level you need.
@@ -84,6 +85,9 @@ Shows what it is doing, items made and the load in progress, items per hour with
 For the Microbot RuneLite client only. Automation is against Jagex's rules and can get an account banned. Use at your own risk.
 
 ## Changelog
+### 1.0.1
+New card picture, shorter description and tags, and credits in their own section.
+
 ### 1.0.0
 First release as Anvil Smither, built on the Varrock Anvil plugin.
 - Prifddinas south added beside Varrock west.

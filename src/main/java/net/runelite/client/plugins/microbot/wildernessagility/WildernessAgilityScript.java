@@ -516,13 +516,15 @@ public final class WildernessAgilityScript extends Script {
         return Microbot.getRs2TileObjectCache().query().withId(UNDERGROUND_OBJECT_ID).nearest() != null;
     }
     void recoverFromPit() {
+        WorldPoint playerLoc = Rs2Player.getWorldLocation();
+        if (playerLoc == null) return;
         // First check if we're still in the pit using game object detection
         if (isInUndergroundPit()) {
             // Immediately refresh ladder object before attempting to interact
             List<Rs2TileObjectModel> ladders = Microbot.getRs2TileObjectCache().query().withId(17385).toList();
             Rs2TileObjectModel ladderObj = ladders.isEmpty() ? null : ladders.get(0);
             long now = System.currentTimeMillis();
-            if (ladderObj != null && Rs2Player.getWorldLocation().distanceTo(ladderObj.getWorldLocation()) <= 50) {
+            if (ladderObj != null && playerLoc.distanceTo(ladderObj.getWorldLocation()) <= 50) {
                 // Only attempt to interact with the ladder every 2 seconds
                 if (now - lastLadderInteractTime > 2000) {
                     // Refresh ladder object again just before interaction
@@ -548,7 +550,7 @@ public final class WildernessAgilityScript extends Script {
                         Rs2Walker.walkFastCanvas(ropePoint);
                         ropeRecoveryWalked = true;
                     }
-                    if (Rs2Player.getWorldLocation().distanceTo(ropePoint) > 1) {
+                    if (playerLoc.distanceTo(ropePoint) > 1) {
                         // Not close enough yet? wait for main loop to walk
                         return;
                     }
@@ -615,6 +617,7 @@ public final class WildernessAgilityScript extends Script {
             return;
         }
         WorldPoint loc = Rs2Player.getWorldLocation();
+        if (loc == null) return;
         if (!Rs2Player.isAnimating() && !Rs2Player.isMoving()) {
             // Player must be within 4 tiles of (3004, 3937, 0) to interact with the pipe at (3004, 3938, 0)
             WorldPoint pipeTile = new WorldPoint(3004, 3938, 0);
