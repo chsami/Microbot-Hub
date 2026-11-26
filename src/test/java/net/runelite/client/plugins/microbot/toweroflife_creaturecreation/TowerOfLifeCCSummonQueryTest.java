@@ -4,6 +4,7 @@ import net.runelite.api.Actor;
 import net.runelite.api.Client;
 import net.runelite.api.NPC;
 import net.runelite.api.Player;
+import net.runelite.api.gameval.NpcID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.api.npc.Rs2NpcCache;
 import net.runelite.client.plugins.microbot.api.npc.Rs2NpcQueryable;
@@ -16,8 +17,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -27,43 +30,106 @@ import static org.mockito.Mockito.when;
 
 class TowerOfLifeCCSummonQueryTest {
 
+    private static final int HOMUNCULUS_ID = NpcID.TOL_HOMONCULUS;
+
     private final AtomicBoolean onClientThread = new AtomicBoolean(false);
     private final Player localPlayer = mock(Player.class);
 
     @Test
     void summonQueryEvaluatesInteractingOnClientThread() {
-        Rs2NpcModel idle = npc(null);
+        Rs2NpcModel idle = npc(NpcID.TOL_UNICOW, null);
         try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class)) {
             Rs2NpcQueryable query = stubQuery(microbot, List.of(idle));
 
-            assertSame(idle, new TowerOfLifeCCScript().findSummonedCreature());
+            assertSame(idle, new TowerOfLifeCCScript().findSummonedCreature(ToLCreature.UNICOW));
             verify(query, never()).nearest();
         }
     }
 
     @Test
     void summonQueryAcceptsCreatureTargetingLocalPlayer() {
-        Rs2NpcModel busy = npc(mock(Actor.class));
-        Rs2NpcModel mine = npc(localPlayer);
+        Rs2NpcModel busy = npc(NpcID.TOL_UNICOW, mock(Actor.class));
+        Rs2NpcModel mine = npc(NpcID.TOL_UNICOW, localPlayer);
         try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class)) {
             stubQuery(microbot, List.of(busy, mine));
 
-            assertSame(mine, new TowerOfLifeCCScript().findSummonedCreature());
+            assertSame(mine, new TowerOfLifeCCScript().findSummonedCreature(ToLCreature.UNICOW));
         }
     }
 
     @Test
     void summonQueryRejectsCreatureTargetingSomeoneElse() {
-        Rs2NpcModel busy = npc(mock(Actor.class));
+        Rs2NpcModel busy = npc(NpcID.TOL_UNICOW, mock(Actor.class));
         try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class)) {
             stubQuery(microbot, List.of(busy));
 
-            assertNull(new TowerOfLifeCCScript().findSummonedCreature());
+            assertNull(new TowerOfLifeCCScript().findSummonedCreature(ToLCreature.UNICOW));
         }
     }
 
-    private Rs2NpcModel npc(Actor interacting) {
+    @Test
+    void summonQueryIgnoresHomunculusAndOtherCreatures() {
+        Rs2NpcModel homunculus = npc(HOMUNCULUS_ID, null);
+        Rs2NpcModel spidine = npc(NpcID.TOL_SPIDINE, null);
+        Rs2NpcModel unicow = npc(NpcID.TOL_UNICOW, null);
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class)) {
+            stubQuery(microbot, List.of(homunculus, spidine, unicow));
+
+            assertSame(unicow, new TowerOfLifeCCScript().findSummonedCreature(ToLCreature.UNICOW));
+        }
+    }
+
+    @Test
+    void summonQueryFindsNothingWhenOnlyHomunculusIsNearby() {
+        Rs2NpcModel homunculus = npc(HOMUNCULUS_ID, null);
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class)) {
+            stubQuery(microbot, List.of(homunculus));
+
+            assertNull(new TowerOfLifeCCScript().findSummonedCreature(ToLCreature.SPIDINE));
+        }
+    }
+
+    @Test
+    void summonedCreatureIsPresentWhileItsNpcIsInTheScene() {
+        Rs2NpcModel unicow = npc(NpcID.TOL_UNICOW, null);
+        NPC unicowNpc = unicow.getNpc();
+        Rs2NpcModel refreshed = mock(Rs2NpcModel.class);
+        when(refreshed.getNpc()).thenReturn(unicowNpc);
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class)) {
+            stubQuery(microbot, List.of(refreshed));
+            TowerOfLifeCCScript script = new TowerOfLifeCCScript();
+            script.summonedCreature = unicow;
+
+            assertTrue(script.isSummonedCreaturePresent());
+        }
+    }
+
+    @Test
+    void despawnedSummonedCreatureIsNotPresent() {
+        Rs2NpcModel despawned = npc(NpcID.TOL_UNICOW, null);
+        Rs2NpcModel other = npc(NpcID.TOL_UNICOW, null);
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class)) {
+            stubQuery(microbot, List.of(other));
+            TowerOfLifeCCScript script = new TowerOfLifeCCScript();
+            script.summonedCreature = despawned;
+
+            assertFalse(script.isSummonedCreaturePresent());
+        }
+    }
+
+    @Test
+    void noSummonedCreatureIsNotPresent() {
+        assertFalse(new TowerOfLifeCCScript().isSummonedCreaturePresent());
+    }
+
+    private Rs2NpcModel npc(int id, Actor interacting) {
         NPC npc = mock(NPC.class);
+        when(npc.getId()).thenAnswer(invocation -> {
+            if (!onClientThread.get()) {
+                throw new IllegalStateException("must be called on client thread");
+            }
+            return id;
+        });
         when(npc.getInteracting()).thenAnswer(invocation -> {
             if (!onClientThread.get()) {
                 throw new IllegalStateException("must be called on client thread");
@@ -87,6 +153,7 @@ class TowerOfLifeCCSummonQueryTest {
             filter.set(filter.get().and(invocation.getArgument(0)));
             return query;
         });
+        when(query.first()).thenAnswer(invocation -> first(npcs, filter.get()));
         when(query.nearest()).thenAnswer(invocation -> first(npcs, filter.get()));
         when(query.nearestOnClientThread()).thenAnswer(invocation -> {
             onClientThread.set(true);
