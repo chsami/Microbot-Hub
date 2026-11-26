@@ -178,6 +178,7 @@ final class NetworkTransportSupport
     // let the NPC interaction server-walk the final few tiles instead of waiting on the catalogue
     // origin or letting the generic object executor see Elkoy's synthetic id=-1 edge.
     private static final int ELKOY_INTERACT_RADIUS = 6;
+    private static final int TRANSPORT_NPC_HANDOFF_RADIUS = 4;
     private static final int ELKOY_NPC_WALK_RADIUS = 20;
     private static final long ELKOY_LOAD_WAIT_MS = 4_000L;
     private static final long ELKOY_LANDING_WAIT_MS = 10_000L;
@@ -5190,6 +5191,8 @@ final class NetworkTransportSupport
             // A nearby ladder/portal can be in the next room. Let the native walker
             // open intervening doors and execute earlier obstacles before taking ownership.
             if (transport.getOrigin() != null && !sharedApproachReachable(player, transport)) return false;
+            if (awaitTransportNpc(transport.getType(), player, transport.getOrigin(),
+                () -> sharedTransportTargetLoaded(transport))) return false;
             actionStartedAt = System.currentTimeMillis();
             actionFuture = actionExecutor().submit(() -> executeSharedTransport(transport));
             return true;
@@ -5232,6 +5235,25 @@ final class NetworkTransportSupport
         installedKey = null;
         if (goal != null) replanTarget = goal;
         return true;
+    }
+
+    static boolean awaitTransportNpc(TransportType type, WorldPoint player, WorldPoint origin, BooleanSupplier targetLoaded)
+    {
+        return (type == TransportType.NPC || type == TransportType.SHIP || type == TransportType.BOAT)
+            && origin != null && !near(player, origin, TRANSPORT_NPC_HANDOFF_RADIUS) && !targetLoaded.getAsBoolean();
+    }
+
+    private boolean sharedTransportTargetLoaded(Transport transport)
+    {
+        return transport.getType() != TransportType.NPC && findCatalogObject(transport) != null
+            || findTransportNpc(transport) != null;
+    }
+
+    private static Rs2NpcModel findTransportNpc(Transport transport)
+    {
+        Rs2NpcModel npc = Rs2Npc.getNpc(transport.getObjectId());
+        if (npc == null && transport.getName() != null) npc = Rs2Npc.getNpc(transport.getName());
+        return npc;
     }
 
     private void suppressSharedEdge(Transport transport, boolean timedOut)
@@ -5607,8 +5629,7 @@ final class NetworkTransportSupport
                 }
                 else
                 {
-                    Rs2NpcModel npc = Rs2Npc.getNpc(transport.getObjectId());
-                    if (npc == null && transport.getName() != null) npc = Rs2Npc.getNpc(transport.getName());
+                    Rs2NpcModel npc = findTransportNpc(transport);
                     if (npc == null) return false;
                     String action = Rs2Npc.getAvailableAction(npc, Collections.singletonList(transport.getAction()));
                     if (action.isEmpty()) action = Rs2Npc.getAvailableAction(npc, List.of("Travel", "Talk-to", "Quick-Travel"));
