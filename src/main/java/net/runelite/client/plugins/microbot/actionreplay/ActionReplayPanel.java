@@ -46,6 +46,7 @@ public class ActionReplayPanel extends PluginPanel
 {
 	private static final Color MUTED = new Color(160, 160, 160);
 	private static final String NO_SCRIPTS_PLACEHOLDER = "(no scripts)";
+	static final int MAX_EDIT_DELAY_TICKS = 1000;
 
 	private ActionReplayPlugin plugin;
 
@@ -521,9 +522,7 @@ public class ActionReplayPanel extends PluginPanel
 		}
 		RecordedAction a = r.getActions().get(idx);
 
-		int currentTicks = a.getDelayTicksBefore() != null ? a.getDelayTicksBefore() : 0;
-		SpinnerNumberModel spinnerModel = new SpinnerNumberModel(currentTicks, 0, 1000, 1);
-		JSpinner ticksSpinner = new JSpinner(spinnerModel);
+		JSpinner ticksSpinner = new JSpinner(delaySpinnerModel(a.getDelayTicksBefore()));
 
 		String[] typeOptions = {"None", "HP", "Prayer", "NPC nearby", "Object nearby", "Inventory"};
 		JComboBox<String> typeCombo = new JComboBox<>(typeOptions);
@@ -798,6 +797,12 @@ public class ActionReplayPanel extends PluginPanel
 		}
 		viewedRecording = null;
 		refresh();
+	}
+
+	static SpinnerNumberModel delaySpinnerModel(Integer delayTicks)
+	{
+		int value = delayTicks != null ? Math.max(0, delayTicks) : 0;
+		return new SpinnerNumberModel(value, 0, Math.max(MAX_EDIT_DELAY_TICKS, value), 1);
 	}
 
 	private static String format(int idx, RecordedAction a)
