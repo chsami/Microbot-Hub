@@ -28,3 +28,10 @@ If the plugin reports a failure, fix the cause, enable **Recovery → Clear fail
 Built against Microbot 2.6.59. The local build has completed herb runs and maple rounds. Verify the full fruit picking, gardener clearing, and replanting cycle and the Brimhaven recovery behavior in-game before treating those flows as tested.
 
 Original AutoFarmer credit: Mocrosoft. Fork additions: Scoots. The BSD 2-Clause notice is included with the plugin.
+
+
+### Random-event rewards (1.10.42)
+
+Under Random events, **XP lamp skill** replaces the old Use XP on Farming checkbox. Choose any supported skill or **Keep lamp** for manual use. The new default is **Farming**, including profiles that previously left the old checkbox off; select Keep lamp to retain rewards. Standard random-event lamps and Books of knowledge use this setting; unrelated reward items remain protected. Successful use requires both item consumption and an observed XP gain in the selected skill.
+
+Claimed random events now dispatch through Microbot's existing blocking executor from GameTick, without waiting for a long farming/travel operation to return. No blocking event work runs directly on the client thread. Existing pause controls, standalone-helper ownership and dismissal limits remain in effect. The mime invitation recognition was already present; this fixes the handoff that could leave it recognized but not acted on during travel. Live validation of a subsequent mime encounter is still pending.

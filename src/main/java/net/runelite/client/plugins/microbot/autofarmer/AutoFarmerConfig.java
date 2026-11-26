@@ -89,10 +89,10 @@ public interface AutoFarmerConfig extends Config {
     @ConfigItem(keyName = "dropEventFood", name = "Drop event food", description = "Drop only ordinary food newly received from a completed built-in random event; preserve existing food, money, gems, outfits and rare items", position = 2, section = eventsSection)
     default boolean dropEventFood() { return true; }
 
-    @ConfigItem(keyName = "useLampsOnFarming", name = "Use XP on Farming", description = "Spend standard random-event lamps and Books of knowledge on Farming. Other reward items remain protected.", position = 1, section = eventsSection)
-    default boolean useLampsOnFarming() { return false; }
+    @ConfigItem(keyName = "xpLampSkill", name = "XP lamp skill", description = "Spend standard random-event lamps and Books of knowledge on this skill, or keep them for manual use. Farming is the default. Other reward items remain protected.", position = 1, section = eventsSection)
+    default XpLampSkill xpLampSkill() { return XpLampSkill.FARMING; }
 
-    @ConfigItem(keyName = "builtInRandomEvents", name = "Handle random events", description = "Accept Genie/Count Check XP rewards and dismiss other invitations. Spending lamps/books on Farming requires its own setting. Disable the standalone Local helper so this policy is in control.", position = 0, section = eventsSection)
+    @ConfigItem(keyName = "builtInRandomEvents", name = "Handle random events", description = "Accept Genie/Count Check XP rewards and dismiss other invitations. Choose XP lamp skill below to spend or keep lamps/books. Disable the standalone Local helper so this policy is in control.", position = 0, section = eventsSection)
     default boolean builtInRandomEvents() { return true; }
 
     @ConfigItem(keyName = "useAirBattlestaff", name = "Use air battlestaff", description = "Equip a banked air battlestaff when usable and omit air rune withdrawals while equipped", position = 3, section = advancedSection)

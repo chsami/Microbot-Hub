@@ -137,6 +137,12 @@ public final class RandomEventSupport {
         if(!(change.getSource() instanceof NPC)) return;
         claim((NPC)change.getSource(),change.getTarget());
     }
+    // shouldBlockAndProcess only dispatches to Microbot's blocking executor;
+    // never execute a blocking handler directly on the client/GameTick thread.
+    void dispatchClaimedEvent() {
+        if(isHandling() && manager!=null && !Microbot.pauseAllScripts.get()
+                && !ScriptPauseController.isPaused()) manager.shouldBlockAndProcess();
+    }
     @Subscribe public void onGameTick(GameTick tick){
         externalHelperActive=hasExternalHelper();
         if (externalHelperActive) {
@@ -144,6 +150,7 @@ public final class RandomEventSupport {
             status="Using standalone Local Random Event Helper";
             return;
         }
+        dispatchClaimedEvent();
         if(!enabled || owner!=null || client.getGameState()!=GameState.LOGGED_IN || client.getTopLevelWorldView()==null) return;
         for(NPC npc:client.getTopLevelWorldView().npcs()) {
             if((npc.getId()==3235 || PuzzleEventSolver.arenaNpc(npc.getId(),PuzzleEventSolver.region(client))) && owner==null) claim(npc,client.getLocalPlayer());
