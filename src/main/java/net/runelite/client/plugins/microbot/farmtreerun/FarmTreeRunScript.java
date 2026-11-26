@@ -131,8 +131,11 @@ public class FarmTreeRunScript extends Script {
                     return;
                 }
                 reportLoopStatus("Running state=" + botStatus);
-                if(!config.travelTablets() && !config.preferHouseTravel() && !Rs2Magic.isSpellbook(Rs2Spellbook.MODERN)){
-                    Microbot.log("Not on modern spell book");
+                String spellbookStopReason = spellbookStopReason(config.travelTablets(), config.preferHouseTravel(),
+                        () -> Rs2Magic.isSpellbook(Rs2Spellbook.MODERN));
+                if (spellbookStopReason != null) {
+                    Microbot.log(spellbookStopReason);
+                    Microbot.showMessage(spellbookStopReason);
                     shutdown();
                     return;
                 }
@@ -406,6 +409,16 @@ public class FarmTreeRunScript extends Script {
             }
         }, 0, 600, TimeUnit.MILLISECONDS);
         return true;
+    }
+
+    static final String SPELLBOOK_STOP_REASON = "Farm tree runner teleports with runes from the standard spellbook. "
+            + "Switch to the standard spellbook, or enable 'Tablets instead of runes' or 'Prefer Nexus / house fairy ring' under Travel supplies. Shut down.";
+
+    static String spellbookStopReason(boolean travelTablets, boolean preferHouseTravel, BooleanSupplier onStandardSpellbook) {
+        if (travelTablets || preferHouseTravel || onStandardSpellbook.getAsBoolean()) {
+            return null;
+        }
+        return SPELLBOOK_STOP_REASON;
     }
 
     private void calculatePatches(FarmTreeRunConfig config) {

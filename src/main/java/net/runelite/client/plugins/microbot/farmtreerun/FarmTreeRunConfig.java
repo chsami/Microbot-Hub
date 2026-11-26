@@ -44,10 +44,10 @@ import net.runelite.client.plugins.microbot.farmtreerun.enums.TreeEnums;
 public interface FarmTreeRunConfig extends Config {
     @ConfigSection(name = "Travel supplies", description = "Prepare transport items; routes follow WebWalker settings", position = 12)
     String travelSection = "travelSupplies";
-    @ConfigItem(keyName = "preferHouseTravel", name = "Prefer Nexus / house fairy ring", description = "Bring 10 house tablets. Prefer a saved Nexus exit within 120 tiles of the patch, then a house fairy ring exit. Requires PoH Web Config detection.", position = 4, section = travelSection)
+    @ConfigItem(keyName = "preferHouseTravel", name = "Prefer Nexus / house fairy ring", description = "Bring 10 house tablets. Prefer a saved Nexus exit within 120 tiles of the patch, then a house fairy ring exit. Requires PoH Web Config detection. Lets the run start on any spellbook.", position = 4, section = travelSection)
     default boolean preferHouseTravel() { return false; }
 
-    @ConfigItem(keyName = "travelTablets", name = "Tablets instead of runes", description = "Bank teleport tablets instead of the five rune stacks. Enable item teleports in WebWalker.", position = 0, section = travelSection)
+    @ConfigItem(keyName = "travelTablets", name = "Tablets instead of runes", description = "Bank teleport tablets instead of the five rune stacks. Enable item teleports in WebWalker. Required unless you are on the standard spellbook or use Nexus / house travel.", position = 0, section = travelSection)
     default boolean travelTablets() { return false; }
 
     @ConfigItem(keyName = "travelKourendBook", name = "Book of the Dead / memoirs", description = "Bring Book of the Dead, or Kharedst's memoirs when the book is unavailable. Requires charges and unlocked destinations.", position = 1, section = travelSection)
