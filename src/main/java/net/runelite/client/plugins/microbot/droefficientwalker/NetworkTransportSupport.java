@@ -5199,7 +5199,7 @@ final class NetworkTransportSupport
             if (System.currentTimeMillis() - actionStartedAt < EXECUTION_TIMEOUT_MS) return true;
             cancelFuture();
             clearCompleteRoute();
-            failedSharedEdges.add(sharedEdgeKey(transport));
+            suppressSharedEdge(transport);
             WorldPoint goal = engineDestination();
             currentSharedTransport = null;
             resetExecution(false);
@@ -5217,7 +5217,7 @@ final class NetworkTransportSupport
             stickySwampBankRetry = stickySwampBankJourney && StickySwampExit.zipline(transport)
                 && StickySwampExit.bankTarget(goal);
             clearCompleteRoute();
-            failedSharedEdges.add(sharedEdgeKey(transport));
+            suppressSharedEdge(transport);
             debug("shared transport failed and was suppressed for the session: {} {} -> {}",
                 transport.getType(), transport.getOrigin(), transport.getDestination());
         }
@@ -5226,6 +5226,17 @@ final class NetworkTransportSupport
         installedKey = null;
         if (goal != null) replanTarget = goal;
         return true;
+    }
+
+    private void suppressSharedEdge(Transport transport)
+    {
+        failedSharedEdges.add(sharedEdgeKey(transport));
+        if (transport.getType() != TransportType.CANOE) return;
+        for (Transport source : sharedCatalog)
+        {
+            if (source.getType() == TransportType.CANOE && Objects.equals(source.getOrigin(), transport.getOrigin()))
+                failedSharedEdges.add(sharedEdgeKey(source));
+        }
     }
 
     private boolean sharedApproachReachable(WorldPoint player, Transport transport)
@@ -5340,6 +5351,20 @@ final class NetworkTransportSupport
                 handle.setAccessible(true);
                 started = Boolean.TRUE.equals(handle.invoke(null, edge));
             }
+            else if (transport.getType() == TransportType.CANOE)
+            {
+                Class<?> executor = Class.forName("net.runelite.client.plugins.microbot.droefficientwalker.support.Rs2WalkerTransports");
+                Method handle = executor.getDeclaredMethod(method, Transport.class);
+                handle.setAccessible(true);
+                BooleanSupplier landed = () -> sharedTransportLanded(playerLocation(), transport);
+                return CanoeTrip.travel(landed,
+                    () -> sharedCanStartFrom(playerLocation(), transport),
+                    () -> !Thread.currentThread().isInterrupted() && !Microbot.pauseAllScripts.get()
+                        && !net.runelite.client.plugins.microbot.util.input.InputArbiter.isHuman(),
+                    () -> invokeCanoeStep(handle, transport),
+                    () -> awaitSharedLanding(transport, landed, sharedLandingTimeout(transport)))
+                    ? ExecutionResult.SUCCESS : ExecutionResult.FAILED;
+            }
             else if (method != null)
             {
                 Class<?> executor = Class.forName("net.runelite.client.plugins.microbot.droefficientwalker.support.Rs2WalkerTransports");
@@ -5360,6 +5385,18 @@ final class NetworkTransportSupport
             debug("shared transport execution error type={} {} -> {}: {}", transport.getType(),
                 transport.getOrigin(), transport.getDestination(), ex.getMessage());
             return ExecutionResult.FAILED;
+        }
+    }
+
+    private static boolean invokeCanoeStep(Method handle, Transport transport)
+    {
+        try
+        {
+            return Boolean.TRUE.equals(handle.invoke(null, transport));
+        }
+        catch (ReflectiveOperationException ex)
+        {
+            throw new IllegalStateException(ex);
         }
     }
 

@@ -4,6 +4,8 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Set;
 import net.runelite.api.Client;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.config.ConfigItem;
@@ -100,6 +102,36 @@ public class CanoeRoutingTest
         engine.selected.destination = POND;
         when(config.allowWildernessTravel()).thenReturn(true);
         assertTrue((Boolean) allowed.invoke(bridge, engine.selected));
+    }
+
+    @Test public void aFailedCanoeSuppressesEveryCanoeFromThatStationOnly() throws Exception
+    {
+        NetworkTransportSupport bridge = new NetworkTransportSupport(mock(Client.class), mock(EfficientWalkerConfig.class),
+            getClass().getClassLoader(), Engine.class, new Engine(), "unused", mock(CatalogTeleportSupport.class));
+        WorldPoint lumbridge = new WorldPoint(3243, 3237, 0);
+        Transport failed = canoe(FEROX, EDGEVILLE);
+        Transport sibling = canoe(FEROX, lumbridge);
+        Transport elsewhere = canoe(lumbridge, EDGEVILLE);
+        Transport other = mock(Transport.class);
+        when(other.getType()).thenReturn(TransportType.MAGIC_CARPET);
+        when(other.getOrigin()).thenReturn(FEROX);
+        when(other.getDestination()).thenReturn(lumbridge);
+        field(NetworkTransportSupport.class, "sharedCatalog").set(bridge, List.of(failed, sibling, elsewhere, other));
+        method(NetworkTransportSupport.class, "suppressSharedEdge", Transport.class).invoke(bridge, failed);
+        @SuppressWarnings("unchecked")
+        Set<String> suppressed = (Set<String>) field(NetworkTransportSupport.class, "failedSharedEdges").get(bridge);
+        Method key = method(NetworkTransportSupport.class, "sharedEdgeKey", Transport.class);
+        assertEquals(Set.of(key.invoke(null, failed), key.invoke(null, sibling)), suppressed);
+    }
+
+    private static Transport canoe(WorldPoint from, WorldPoint to)
+    {
+        Transport row = mock(Transport.class);
+        when(row.getType()).thenReturn(TransportType.CANOE);
+        when(row.getOrigin()).thenReturn(from);
+        when(row.getDestination()).thenReturn(to);
+        when(row.getAction()).thenReturn("Paddle Canoe");
+        return row;
     }
 
     private static final class Edge
