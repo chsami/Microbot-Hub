@@ -11,8 +11,8 @@ import net.runelite.api.MenuAction;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.api.widgets.Widget;
-import net.runelite.client.dro.Dro;
-import net.runelite.client.plugins.microbot.shortestpath.CaveAccessRequirements;
+import net.runelite.client.plugins.microbot.Microbot;
+import net.runelite.client.plugins.microbot.droefficientwalker.support.CaveAccessRequirements;
 import net.runelite.client.plugins.microbot.shortestpath.PurchasableItemCatalog;
 import net.runelite.client.plugins.microbot.shortestpath.Transport;
 import net.runelite.client.plugins.microbot.util.Global;
@@ -59,7 +59,7 @@ final class ShantayPassAccess
 
     static boolean hasDesertDiaryElite()
     {
-        return Dro.getVarbitValue(CaveAccessRequirements.DESERT_DIARY_ELITE_VARBIT) == 1;
+        return Microbot.getVarbitValue(CaveAccessRequirements.DESERT_DIARY_ELITE_VARBIT) == 1;
     }
 
     static boolean isDesertTarget(WorldPoint target)
@@ -247,7 +247,7 @@ final class ShantayPassAccess
         {
             return false;
         }
-        Dro.doInvoke(fresh.menu(), fresh.bounds);
+        Microbot.doInvoke(fresh.menu(), fresh.bounds);
         return true;
     }
 

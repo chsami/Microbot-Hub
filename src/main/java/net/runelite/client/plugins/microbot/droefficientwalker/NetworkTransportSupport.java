@@ -10,7 +10,7 @@ import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.droefficientwalker.support.banking.Rs2WalkerBankingPlanner;
 import net.runelite.client.plugins.microbot.globval.enums.InterfaceTab;
-import net.runelite.client.plugins.microbot.shortestpath.CaveAccessRequirements;
+import net.runelite.client.plugins.microbot.droefficientwalker.support.CaveAccessRequirements;
 import net.runelite.client.plugins.microbot.shortestpath.Transport;
 import net.runelite.client.plugins.microbot.droefficientwalker.support.Rs2TransportEdge;
 import net.runelite.client.plugins.microbot.droefficientwalker.support.TransportResources;
@@ -1880,14 +1880,14 @@ final class NetworkTransportSupport
         if (LumbridgeSwampCaveAccess.isEntrance(source))
         {
             if (!(planning ? caveLightAvailable : CaveLightSource.hasLight())
-                || Dro.getVarbitValue(CaveAccessRequirements.SWAMP_CAVES_ROPED_VARBIT) != 1)
+                || Microbot.getVarbitValue(CaveAccessRequirements.SWAMP_CAVES_ROPED_VARBIT) != 1)
             {
                 return false;
             }
         }
         if (CaveAccessRequirements.isKalphiteLairRopeEdge(source)
-            && Dro.getVarbitValue(CaveAccessRequirements.KALPHITE_ROPE_1_VARBIT) != 1
-            && Dro.getVarbitValue(CaveAccessRequirements.DESERT_DIARY_HARD_VARBIT) != 1)
+            && Microbot.getVarbitValue(CaveAccessRequirements.KALPHITE_ROPE_1_VARBIT) != 1
+            && Microbot.getVarbitValue(CaveAccessRequirements.DESERT_DIARY_HARD_VARBIT) != 1)
         {
             return false;
         }

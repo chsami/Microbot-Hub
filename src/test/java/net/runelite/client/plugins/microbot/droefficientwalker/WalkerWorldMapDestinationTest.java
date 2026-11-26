@@ -114,6 +114,25 @@ class WalkerWorldMapDestinationTest
         assertEquals(new WorldPoint(640, 1280, 2), WalkerWorldMapDestination.resolve(client, display));
     }
 
+    @Test void surfaceTileKeepsTheMenuWhenTheAreaCannotBeResolved()
+    {
+        Client client = mock(Client.class);
+        WorldMap map = mock(WorldMap.class);
+        WorldMapData data = mock(WorldMapData.class);
+        when(client.getWorldMap()).thenReturn(map);
+        when(map.getWorldMapData()).thenReturn(data);
+        when(data.surfaceContainsPosition(3222, 3218)).thenReturn(true);
+        WorldPoint display = new WorldPoint(3222, 3218, 0);
+        // No selection widget, then an unmatched selection: both fall back to the clicked surface tile.
+        assertEquals(display, WalkerWorldMapDestination.resolve(client, display));
+        Widget selection = mock(Widget.class);
+        when(selection.getText()).thenReturn("Unknown");
+        when(client.getWidget(InterfaceID.Worldmap.MAPLIST_DISPLAY)).thenReturn(selection);
+        IndexDataBase cache = index(area("Area", region()));
+        when(client.getIndex(19)).thenReturn(cache);
+        assertEquals(display, WalkerWorldMapDestination.resolve(client, display));
+    }
+
     @Test void rejectedMapClickDoesNotCancelJourney() throws Exception
     {
         EfficientWalkerPlugin plugin = new EfficientWalkerPlugin();
