@@ -776,8 +776,8 @@ public class AutoFarmerScript extends Script {
                 }
             }
             if (!super.run()) return;
-            if (config.smoothMouse() && Microbot.naturalMouse != null) mouseFeel.enable(Microbot.naturalMouse.nature);
-            else mouseFeel.restore();
+            mouseFeel.apply(Microbot.naturalMouse == null ? null : Microbot.naturalMouse.nature,
+                    config.mouseMotionMode());
             if (System.currentTimeMillis() < nextRunAt) {
                 AutoFarmerPlugin.status = waitReason + "; next check in " + ((nextRunAt - System.currentTimeMillis()) / 1000) + "s";
                 return;
