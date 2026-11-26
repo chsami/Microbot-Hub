@@ -415,7 +415,8 @@ public final class CombatActivity extends WalkingActivity {
         if (n.isDead() || n.getHealthRatio() == 0) return false;
         if (othersTargets.contains(n.getNpc())) return false;
         Actor with = n.getInteracting();
-        Player me = Microbot.getClient().getLocalPlayer();
+        Player me = Microbot.getClientThread().runOnClientThreadOptional(() -> Microbot.getClient().getLocalPlayer()).orElse(null);
+        if (with == null || me == null) return with == null && n.getHealthRatio() == -1;
         if (with == me) return true;
         return with == null && n.getHealthRatio() == -1;
     }
