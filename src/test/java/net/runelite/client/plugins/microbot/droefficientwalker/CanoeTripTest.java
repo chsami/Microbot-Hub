@@ -15,7 +15,7 @@ class CanoeTripTest
         List<String> done = new ArrayList<>();
         AtomicBoolean landed = new AtomicBoolean();
         AtomicInteger landingWaits = new AtomicInteger();
-        assertTrue(CanoeTrip.travel(landed::get, () -> !landed.get(), () -> true,
+        assertEquals(CanoeTrip.Outcome.LANDED, CanoeTrip.travel(landed::get, () -> !landed.get(), () -> true,
             () -> {
                 done.add(stages.get(done.size()));
                 if (done.size() == stages.size()) landed.set(true);
@@ -30,26 +30,52 @@ class CanoeTripTest
     {
         AtomicBoolean away = new AtomicBoolean();
         AtomicInteger steps = new AtomicInteger();
-        assertTrue(CanoeTrip.travel(() -> false, () -> !away.get(), () -> true,
+        assertEquals(CanoeTrip.Outcome.LANDED, CanoeTrip.travel(() -> false, () -> !away.get(), () -> true,
             () -> { if (steps.incrementAndGet() == 4) away.set(true); return true; },
             () -> true));
         assertEquals(4, steps.get());
     }
 
-    @Test void aFailedStepEndsTheTripWithoutFurtherClicks()
+    @Test void aSlowStageIsRepeatedFromTheCurrentStageInsteadOfFailingTheTrip()
+    {
+        List<Boolean> results = List.of(false, true, false, true, true, true);
+        AtomicInteger steps = new AtomicInteger();
+        AtomicInteger finished = new AtomicInteger();
+        AtomicBoolean landed = new AtomicBoolean();
+        assertEquals(CanoeTrip.Outcome.LANDED, CanoeTrip.travel(landed::get, () -> true, () -> true,
+            () -> {
+                boolean ok = results.get(steps.getAndIncrement());
+                if (ok && finished.incrementAndGet() == 4) landed.set(true);
+                return ok;
+            },
+            () -> { fail("No landing wait while the canoe is still at the station"); return true; }));
+        assertEquals(results.size(), steps.get());
+    }
+
+    @Test void aStageThatKeepsFailingIsRetriedABoundedNumberOfTimes()
     {
         AtomicInteger steps = new AtomicInteger();
-        assertFalse(CanoeTrip.travel(() -> false, () -> true, () -> true,
-            () -> steps.incrementAndGet() < 2, () -> { fail("No landing wait after a failed step"); return true; }));
+        assertEquals(CanoeTrip.Outcome.FAILED, CanoeTrip.travel(() -> false, () -> true, () -> true,
+            () -> { steps.incrementAndGet(); return false; }, () -> false));
+        assertEquals(CanoeTrip.MAX_STEPS, steps.get());
+    }
+
+    @Test void pausingOrTakingControlInterruptsWithoutFailing()
+    {
+        assertEquals(CanoeTrip.Outcome.INTERRUPTED, CanoeTrip.travel(() -> false, () -> true, () -> false,
+            () -> { fail("Held input clicked"); return true; }, () -> true));
+        AtomicBoolean human = new AtomicBoolean();
+        AtomicInteger steps = new AtomicInteger();
+        assertEquals(CanoeTrip.Outcome.INTERRUPTED, CanoeTrip.travel(() -> false, () -> true, () -> !human.get(),
+            () -> { if (steps.incrementAndGet() == 2) human.set(true); return false; },
+            () -> { fail("No landing wait after an interruption"); return true; }));
         assertEquals(2, steps.get());
     }
 
-    @Test void heldInputOrAStuckStationIsBounded()
+    @Test void aStuckStationIsBounded()
     {
-        assertFalse(CanoeTrip.travel(() -> false, () -> true, () -> false,
-            () -> { fail("Held input clicked"); return true; }, () -> true));
         AtomicInteger steps = new AtomicInteger();
-        assertFalse(CanoeTrip.travel(() -> false, () -> true, () -> true,
+        assertEquals(CanoeTrip.Outcome.FAILED, CanoeTrip.travel(() -> false, () -> true, () -> true,
             () -> { steps.incrementAndGet(); return true; }, () -> false));
         assertEquals(CanoeTrip.MAX_STEPS, steps.get());
     }

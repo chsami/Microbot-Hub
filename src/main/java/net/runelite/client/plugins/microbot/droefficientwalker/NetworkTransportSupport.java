@@ -5199,7 +5199,7 @@ final class NetworkTransportSupport
             if (System.currentTimeMillis() - actionStartedAt < EXECUTION_TIMEOUT_MS) return true;
             cancelFuture();
             clearCompleteRoute();
-            suppressSharedEdge(transport);
+            suppressSharedEdge(transport, true);
             WorldPoint goal = engineDestination();
             currentSharedTransport = null;
             resetExecution(false);
@@ -5212,12 +5212,18 @@ final class NetworkTransportSupport
         ExecutionResult result = consumeFutureResult();
         WorldPoint goal = engineDestination();
         if(result==ExecutionResult.BANK_OPEN){currentSharedTransport=null;resetExecution(false);return true;}
+        if (result == ExecutionResult.INTERRUPTED)
+        {
+            currentSharedTransport = null;
+            resetExecution(false);
+            return true;
+        }
         if (result != ExecutionResult.SUCCESS)
         {
             stickySwampBankRetry = stickySwampBankJourney && StickySwampExit.zipline(transport)
                 && StickySwampExit.bankTarget(goal);
             clearCompleteRoute();
-            suppressSharedEdge(transport);
+            suppressSharedEdge(transport, false);
             debug("shared transport failed and was suppressed for the session: {} {} -> {}",
                 transport.getType(), transport.getOrigin(), transport.getDestination());
         }
@@ -5228,15 +5234,25 @@ final class NetworkTransportSupport
         return true;
     }
 
-    private void suppressSharedEdge(Transport transport)
+    private void suppressSharedEdge(Transport transport, boolean timedOut)
     {
-        failedSharedEdges.add(sharedEdgeKey(transport));
+        boolean newlySuppressed = failedSharedEdges.add(sharedEdgeKey(transport));
         if (transport.getType() != TransportType.CANOE) return;
         for (Transport source : sharedCatalog)
         {
             if (source.getType() == TransportType.CANOE && Objects.equals(source.getOrigin(), transport.getOrigin()))
-                failedSharedEdges.add(sharedEdgeKey(source));
+                newlySuppressed |= failedSharedEdges.add(sharedEdgeKey(source));
         }
+        if (newlySuppressed) Microbot.log(canoeStationSuppressedMessage(transport.getOrigin(), timedOut));
+    }
+
+    static String canoeStationSuppressedMessage(WorldPoint station, boolean timedOut)
+    {
+        String where = station == null ? "this station" : "the station at " + station.getX() + ", " + station.getY();
+        return "Efficient Walker: the canoe trip at " + where
+            + (timedOut ? " took too long" : " did not finish")
+            + ", so the walker will not use canoes from this station until you hop, log out or restart it."
+            + " Canoes need 12 Woodcutting and an axe.";
     }
 
     private boolean sharedApproachReachable(WorldPoint player, Transport transport)
@@ -5357,13 +5373,14 @@ final class NetworkTransportSupport
                 Method handle = executor.getDeclaredMethod(method, Transport.class);
                 handle.setAccessible(true);
                 BooleanSupplier landed = () -> sharedTransportLanded(playerLocation(), transport);
-                return CanoeTrip.travel(landed,
+                CanoeTrip.Outcome outcome = CanoeTrip.travel(landed,
                     () -> sharedCanStartFrom(playerLocation(), transport),
                     () -> !Thread.currentThread().isInterrupted() && !Microbot.pauseAllScripts.get()
                         && !net.runelite.client.plugins.microbot.util.input.InputArbiter.isHuman(),
                     () -> invokeCanoeStep(handle, transport),
-                    () -> awaitSharedLanding(transport, landed, sharedLandingTimeout(transport)))
-                    ? ExecutionResult.SUCCESS : ExecutionResult.FAILED;
+                    () -> awaitSharedLanding(transport, landed, sharedLandingTimeout(transport)));
+                if (outcome == CanoeTrip.Outcome.INTERRUPTED) return ExecutionResult.INTERRUPTED;
+                return outcome == CanoeTrip.Outcome.LANDED ? ExecutionResult.SUCCESS : ExecutionResult.FAILED;
             }
             else if (method != null)
             {
@@ -5883,6 +5900,7 @@ final class NetworkTransportSupport
     private enum ExecutionResult
     {
         BANK_OPEN,
+        INTERRUPTED,
         SUCCESS,
         FAILED,
         CHARTER_MENU_UNAVAILABLE,
