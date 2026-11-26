@@ -25,4 +25,30 @@ class HerbrunHarvestActionTest {
     void flowerPatchOfferingPickIsPicked() {
         assertEquals("Pick", HerbrunScript.harvestAction(patchWith("Pick", "Inspect", null, "Guide")));
     }
+
+    @Test
+    void grownHerbPatchOfferingPickIsHarvestableEvenWhenVarbitReadsWeeds() {
+        assertEquals("Harvestable", HerbrunScript.herbPatchState(patchWith("Pick", "Inspect", null, "Guide"), () -> 0));
+    }
+
+    @Test
+    void herbPatchOfferingRakeIsWeedsEvenWhenVarbitReadsGrown() {
+        assertEquals("Weeds", HerbrunScript.herbPatchState(patchWith("Rake", "Inspect", null, "Guide"), () -> 36));
+    }
+
+    @Test
+    void deadHerbPatchOfferingClearIsDead() {
+        assertEquals("Dead", HerbrunScript.herbPatchState(patchWith("Clear", "Inspect", null, "Guide"), () -> 0));
+    }
+
+    @Test
+    void diseasedHerbPatchOfferingCureIsDiseased() {
+        assertEquals("Diseased", HerbrunScript.herbPatchState(patchWith("Cure", "Inspect", null, "Guide"), () -> 0));
+    }
+
+    @Test
+    void herbPatchWithoutDecidingActionFallsBackToVarbit() {
+        assertEquals("Empty", HerbrunScript.herbPatchState(patchWith("Inspect", null, "Guide"), () -> 3));
+        assertEquals("Growing", HerbrunScript.herbPatchState(patchWith("Inspect", null, "Guide"), () -> 32));
+    }
 }

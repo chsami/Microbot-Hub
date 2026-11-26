@@ -31,6 +31,8 @@ import net.runelite.api.coords.WorldPoint;
 import javax.inject.Inject;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.function.IntSupplier;
+import java.util.function.Predicate;
 
 import static net.runelite.client.plugins.microbot.Microbot.log;
 
@@ -353,9 +355,22 @@ public class HerbrunScript extends Script {
     }
 
     private static String getHerbPatchState(TileObject rs2TileObject) {
-        var game_obj = Rs2TileObjectModel.compositionOf(rs2TileObject.getId(), true);
-        var varbitValue = Microbot.getVarbitValue(game_obj.getVarbitId());
+        Rs2TileObjectModel patch = new Rs2TileObjectModel(rs2TileObject);
+        return herbPatchState(patch::hasActionContaining, () -> {
+            var game_obj = Rs2TileObjectModel.compositionOf(rs2TileObject.getId(), true);
+            return Microbot.getVarbitValue(game_obj.getVarbitId());
+        });
+    }
 
+    static String herbPatchState(Predicate<String> hasAction, IntSupplier varbit) {
+        if (hasAction.test("Pick") || hasAction.test("Harvest")) return "Harvestable";
+        if (hasAction.test("Rake")) return "Weeds";
+        if (hasAction.test("Clear")) return "Dead";
+        if (hasAction.test("Cure")) return "Diseased";
+        return herbPatchStateFromVarbit(varbit.getAsInt());
+    }
+
+    static String herbPatchStateFromVarbit(int varbitValue) {
         if ((varbitValue >= 0 && varbitValue < 3) ||
                 (varbitValue >= 60 && varbitValue <= 67) ||
                 (varbitValue >= 173 && varbitValue <= 191) ||
