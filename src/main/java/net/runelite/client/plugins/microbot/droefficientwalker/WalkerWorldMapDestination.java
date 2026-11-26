@@ -19,13 +19,16 @@ final class WalkerWorldMapDestination
     static WorldPoint resolve(Client client, WorldPoint display)
     {
         Widget selection = client.getWidget(InterfaceID.Worldmap.MAPLIST_DISPLAY);
-        if (display == null || selection == null || client.getWorldMap() == null
+        if (display == null || client.getWorldMap() == null
             || client.getWorldMap().getWorldMapData() == null
             || !client.getWorldMap().getWorldMapData().surfaceContainsPosition(display.getX(), display.getY()))
         {
             return null;
         }
-        return resolve(client.getIndex(19), selection.getText(), display.getX(), display.getY());
+        if (selection == null) return display;
+        WorldPoint source = resolve(client.getIndex(19), selection.getText(), display.getX(), display.getY());
+        // The surface map's single section is identity-mapped; never drop the menu over a resolver miss.
+        return source != null ? source : display;
     }
 
     static WorldPoint resolve(IndexDataBase index, String selectedName, int x, int y)
