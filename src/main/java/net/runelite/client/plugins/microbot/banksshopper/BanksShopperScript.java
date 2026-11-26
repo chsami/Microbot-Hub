@@ -1,8 +1,11 @@
 package net.runelite.client.plugins.microbot.banksshopper;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 import lombok.Setter;
 import net.runelite.api.TileObject;
@@ -33,6 +36,8 @@ enum ShopperState {
 }
 
 public class BanksShopperScript extends Script {
+
+    private static final List<String> BANK_ACTIONS = Arrays.asList("Bank", "Use", "Deposit", "Deposit-all");
 
     private final BanksShopperPlugin plugin;
     private ShopperState state = ShopperState.SHOPPING;
@@ -208,24 +213,34 @@ public class BanksShopperScript extends Script {
         // Closest in-scene Rs2BankID-matched object — booths use "Bank", chests use "Use",
         // deposit boxes use "Deposit". Same gate the agent server uses ("reachable" = same
         // WorldView as player): if the tile object cache has it, it's in scene. Clicking
-        // the default left-click action lets the server walk the player to an adjacent tile
+        // the bank action lets the server walk the player to an adjacent tile
         // and open the appropriate UI (bank widget or deposit-box widget).
         boolean alreadyOpen = Rs2Bank.isOpen() || Rs2DepositBox.isOpen();
         if (!alreadyOpen) {
             WorldPoint playerLocation = Rs2Player.getWorldLocation();
-            TileObject bankObject = playerLocation == null ? null : Microbot.getRs2TileObjectCache().query()
+            List<Rs2TileObjectModel> candidates = playerLocation == null ? Collections.emptyList() : Microbot.getRs2TileObjectCache().query()
                     .fromWorldView()
                     .where(o -> Rs2BankID.BANK_ID_SET.contains(o.getId()))
                     .toList().stream()
-                    .map(Rs2TileObjectModel::getTileObject)
-                    .min(Comparator.comparingInt(o -> o.getWorldLocation().distanceTo(playerLocation)))
-                    .orElse(null);
+                    .sorted(Comparator.comparingInt(o -> o.getTileObject().getWorldLocation().distanceTo(playerLocation)))
+                    .collect(Collectors.toList());
+
+            TileObject bankObject = null;
+            String bankAction = null;
+            for (Rs2TileObjectModel candidate : candidates) {
+                bankAction = bankActionOf(candidate);
+                if (bankAction != null) {
+                    bankObject = candidate.getTileObject();
+                    break;
+                }
+            }
 
             if (bankObject != null) {
                 Microbot.log("[BanksShopper] direct-click bank id=" + bankObject.getId()
+                        + " (" + bankAction + ")"
                         + " at " + bankObject.getWorldLocation()
                         + " from " + Rs2Player.getWorldLocation());
-                if (!new Rs2TileObjectModel(bankObject).click()) return false;
+                if (!new Rs2TileObjectModel(bankObject).click(bankAction)) return false;
                 if (!sleepUntil(() -> Rs2Bank.isOpen() || Rs2DepositBox.isOpen(), 15_000)) {
                     Microbot.log("[BanksShopper] click sent but no bank/deposit UI opened");
                     return false;
@@ -262,6 +277,13 @@ public class BanksShopperScript extends Script {
         // NPC is missing from the loaded scene, then cancel + await so the visual route
         // disappears immediately and the next SHOPPING tick can issue a clean Trade click.
         return true;
+    }
+
+    static String bankActionOf(Rs2TileObjectModel object) {
+        for (String action : BANK_ACTIONS) {
+            if (object.hasAction(action)) return action;
+        }
+        return null;
     }
 
     /**
