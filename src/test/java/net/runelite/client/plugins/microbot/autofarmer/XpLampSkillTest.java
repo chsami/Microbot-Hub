@@ -20,8 +20,9 @@ class XpLampSkillTest {
   for (Skill skill : Skill.values()) if (skill != Skill.OVERALL) assertTrue(skills.contains(skill), skill.name());
   assertFalse(skills.contains(Skill.OVERALL));
  }
- @Test void defaultIsFarming() {
-  assertEquals(XpLampSkill.FARMING, new AutoFarmerConfig() {}.xpLampSkill());
+ @Test void defaultKeepsRewardsUntilSkillSelected() {
+  assertEquals(XpLampSkill.KEEP_LAMP, new AutoFarmerConfig() {}.xpLampSkill());
+  assertFalse(new FarmingLamp().handle(new AutoFarmerConfig() {}.xpLampSkill()));
  }
 }
 
