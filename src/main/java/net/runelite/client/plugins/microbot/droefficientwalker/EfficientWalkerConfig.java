@@ -11,25 +11,10 @@ public interface EfficientWalkerConfig extends EfficientSailingConfig
 {
     String GROUP = "efficientwalker";
 
-    @ConfigItem(keyName = "namedDestination", name = "Named destination",
-        description = "Choose a destination, then press Walk to named destination or its hotkey. Selecting alone leaves your route unchanged.",
-        position = 1, section = generalSection)
-    default WalkerDestination namedDestination() { return WalkerDestination.NONE; }
-
-    @ConfigItem(keyName = "walkToNamedDestination", name = "Walk to named destination",
-        description = "Start Efficient Walker to the selected named destination using your normal transport settings and account requirements.",
-        position = 2, section = generalSection)
-    default ConfigButton walkToNamedDestination() { return new ConfigButton(); }
-
-    @ConfigItem(keyName = "walkToNamedDestinationHotkey", name = "Walk to named destination",
-        description = "Start Efficient Walker to the selected named destination. Cancel walk stops travel.",
-        position = 3, section = hotkeysSection)
-    default Keybind walkToNamedDestinationHotkey() { return Keybind.NOT_SET; }
-
     @ConfigItem(keyName = "useMicrobotMouse", name = "Use Microbot mouse",
         description = "Use Dro mouse timing and clickbox variation through Microbot input. Minimap targets stay exact. Cancelled or stale queued clicks are discarded.",
         position = 22, section = generalSection)
-    default boolean useMicrobotMouse() { return false; }
+    default boolean useMicrobotMouse() { return true; }
 
 
     @ConfigItem(keyName = "walkerMouseActivity", name = "Mouse activity",
@@ -460,7 +445,7 @@ public interface EfficientWalkerConfig extends EfficientSailingConfig
     )
     default boolean useItemsFromBank()
     {
-        return false;
+        return true;
     }
 
     @ConfigItem(

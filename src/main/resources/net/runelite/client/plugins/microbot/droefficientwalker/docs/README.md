@@ -8,8 +8,9 @@ Efficient Walker is a webwalker for Microbot. It plans routes with teleports, fa
 
 1. Install **[Dro] Efficient Walker** from the Microbot Hub and enable it.
 2. To walk somewhere, right-click a tile in the game or a spot on the world map and choose **Test walk**. **Dry-run walk** plans and previews the route without walking, so you can check it first. **Cancel walk** stops it.
-3. You can also pick a **Named destination** in the settings and press **Walk to named destination**, or bind hotkeys for a named destination, the nearest bank and cancelling.
-4. Under **Route modification**, choose which teleports and transports it may use, such as fairy rings, spirit trees, charters or your POH. It only uses what your account has unlocked and the items you carry or keep in the bank.
+3. Hotkeys can walk to the nearest bank, follow the current Quest Helper step, or cancel the walk.
+4. To sail, turn on **Enable sailing**, stand on your boat, right-click the world map and choose **Sail here**. It is only offered while you are on a boat.
+5. Under **Route modification**, choose which teleports and transports it may use, such as fairy rings, spirit trees, charters or your POH. It only uses what your account has unlocked and the items you carry or keep in the bank (**Use items from bank** is on by default). **Use Microbot mouse** is also on by default.
 
 ## Wilderness safety
 

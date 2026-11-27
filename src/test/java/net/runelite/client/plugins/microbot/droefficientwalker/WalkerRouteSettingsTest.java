@@ -21,7 +21,7 @@ class WalkerRouteSettingsTest {
     @Test void transportAndNetworkEditsInvalidateRoutingWhilePresentationAndActionButtonsDoNot() {
         for (String key : new String[] {"useTeleportations", "useItemsFromBank", "useFairyRings", "useSpiritTrees", "spiritTreeFarmingGuild", "useMaxPoh", "useFeroxTeleport", "allowWildernessTravel"})
             assertTrue(WalkerRouteSettings.affectsRoute(EfficientWalkerConfig.GROUP, key), key);
-        for (String key : new String[] {"showStatusOverlay", "useMicrobotMouse", "walkToNamedDestination", "namedDestination", "exportDiagnostics", "wildernessThreatRadius"})
+        for (String key : new String[] {"showStatusOverlay", "useMicrobotMouse", "exportDiagnostics", "wildernessThreatRadius"})
             assertFalse(WalkerRouteSettings.affectsRoute(EfficientWalkerConfig.GROUP, key), key);
         assertFalse(WalkerRouteSettings.affectsRoute("Herbrun", "useTeleportations"));
     }
