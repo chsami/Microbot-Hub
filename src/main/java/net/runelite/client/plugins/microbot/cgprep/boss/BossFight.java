@@ -142,6 +142,11 @@ public final class BossFight
 	private int ticksLogged;
 	private boolean warnedSlowBow;
 	private String holdReason;
+	static final long RUN_RETRY_MS = 1800;
+	private volatile boolean runOn = true;
+	private volatile int runEnergy;
+	private long lastRunToggleMs;
+	private boolean runRestoreSent;
 
 	/** New run / new fight: forget everything. Any thread. */
 	public void reset()
@@ -160,6 +165,7 @@ public final class BossFight
 			model = new FightModel();
 			brain = new HunllefBrain(brainConfig);
 			exec.reset();
+			runRestoreSent = false;
 		});
 		lastObs = null;
 		lastPlan = null;
@@ -439,6 +445,8 @@ public final class BossFight
 		doseSlot = dSlot;
 		doseId = dId;
 		clientRef = client;
+		runOn = client.getVarpValue(173) == 1;
+		runEnergy = client.getEnergy();
 		o.swung = swung;
 		o.attacking = p.getInteracting() == boss;
 		o.prayersDisabled = disabledMsg;
@@ -573,6 +581,7 @@ public final class BossFight
 			}
 			send(clicks, plan, o.tick, ht);
 			warnStalls();
+			keepRunOn();
 		}
 		catch (InterruptedException e)
 		{
@@ -620,6 +629,39 @@ public final class BossFight
 		catch (Exception e)
 		{
 			log.accept("FIGHT", "WARN prepare: " + e);
+		}
+	}
+
+	static boolean shouldRestoreRun(boolean runOn, int rawEnergy, int rawThreshold, long nowMs, long lastToggleMs)
+	{
+		return !runOn && rawEnergy > Math.max(0, rawThreshold) && nowMs - lastToggleMs > RUN_RETRY_MS;
+	}
+
+	private void keepRunOn()
+	{
+		if (runOn)
+		{
+			if (runRestoreSent)
+			{
+				runRestoreSent = false;
+				log.accept("FIGHT", "run on (energy " + runEnergy / 100 + "%)");
+			}
+			return;
+		}
+		long now = System.currentTimeMillis();
+		if (!shouldRestoreRun(false, runEnergy, Microbot.runEnergyThreshold, now, lastRunToggleMs))
+		{
+			return;
+		}
+		lastRunToggleMs = now;
+		if (net.runelite.client.plugins.microbot.util.player.Rs2Player.toggleRunEnergy(true))
+		{
+			runRestoreSent = false;
+			log.accept("FIGHT", "run on (energy " + runEnergy / 100 + "%)");
+		}
+		else
+		{
+			runRestoreSent = true;
 		}
 	}
 
@@ -857,7 +899,7 @@ public final class BossFight
 				t = QuickClicks.walk(clientRef, new WorldPoint(originX + c.x, originY + c.y, plane));
 				if (t == null)
 				{
-					return Rs2Walker.walkFastCanvas(new WorldPoint(originX + c.x, originY + c.y, plane), false);
+					return Rs2Walker.walkFastCanvas(new WorldPoint(originX + c.x, originY + c.y, plane), true);
 				}
 				break;
 			case ATTACK:
@@ -925,7 +967,7 @@ public final class BossFight
 			{
 				WorldPoint wp = new WorldPoint(originX + c.x, originY + c.y, plane);
 				// The tile is nearly always in view (we step at most 2 tiles); otherwise Microbot's walker.
-				return QuickClicks.sendQuick(QuickClicks.walk(clientRef, wp)) || Rs2Walker.walkFastCanvas(wp, false);
+				return QuickClicks.sendQuick(QuickClicks.walk(clientRef, wp)) || Rs2Walker.walkFastCanvas(wp, true);
 			}
 			case ATTACK:
 				return QuickClicks.sendQuick(QuickClicks.attack(clientRef, bossIndex));
