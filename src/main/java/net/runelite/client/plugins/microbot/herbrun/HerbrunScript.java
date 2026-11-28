@@ -57,8 +57,8 @@ public class HerbrunScript extends Script {
     private enum LocationPhase { HERB, FLOWER, ALLOTMENT, DONE }
     private LocationPhase currentPhase = LocationPhase.HERB;
 
-    private static final Set<String> ALLOTMENT_FLOWER_REGIONS = Set.of(
-            "Ardougne", "Catherby", "Civitas illa Fortis", "Falador", "Kourend", "Morytania"
+    static final Set<String> ALLOTMENT_FLOWER_REGIONS = Set.of(
+            "Ardougne", "Catherby", "Civitas illa Fortis", "Falador", "Farming Guild", "Kourend", "Morytania"
     );
 
     @Inject
@@ -269,7 +269,7 @@ public class HerbrunScript extends Script {
         }
     }
 
-    private static final int[] ALLOTMENT_PATCH_IDS = {
+    static final int[] ALLOTMENT_PATCH_IDS = {
             ObjectID.FARMING_VEG_PATCH_1, ObjectID.FARMING_VEG_PATCH_2,
             ObjectID.FARMING_VEG_PATCH_3, ObjectID.FARMING_VEG_PATCH_4,
             ObjectID.FARMING_VEG_PATCH_5, ObjectID.FARMING_VEG_PATCH_6,
@@ -436,7 +436,7 @@ public class HerbrunScript extends Script {
 
     // --- Flower patch handling ---
 
-    private static final int[] FLOWER_PATCH_IDS = {
+    static final int[] FLOWER_PATCH_IDS = {
             ObjectID.FARMING_FLOWER_PATCH_1, ObjectID.FARMING_FLOWER_PATCH_2,
             ObjectID.FARMING_FLOWER_PATCH_3, ObjectID.FARMING_FLOWER_PATCH_4,
             ObjectID.FARMING_FLOWER_PATCH_5, ObjectID.FARMING_FLOWER_PATCH_6,
@@ -792,7 +792,8 @@ public class HerbrunScript extends Script {
         Rs2Inventory.waitForInventoryChanges(5000);
 
         int herbPatchCount = (int) herbPatches.stream().filter(HerbPatch::isEnabled).count();
-        int allotmentLocationCount = countEnabledAllotmentFlowerLocations();
+        List<String> allotmentLocations = enabledAllotmentFlowerLocations();
+        int allotmentLocationCount = allotmentLocations.size();
 
         boolean toolsOk = true;
         toolsOk &= Rs2Bank.withdrawX(ItemID.RAKE, 1);
@@ -832,7 +833,8 @@ public class HerbrunScript extends Script {
             }
         } else {
             if (!withdrawSpecificSeeds(seedType.getItemId(), seedType.getSeedName(), herbPatchCount,
-                    seedType.getLevelRequired(), config.allowPartialRuns())) {
+                    seedType.getLevelRequired(), config.allowPartialRuns(),
+                    "Failed to withdraw " + herbPatchCount + " " + seedType.getSeedName())) {
                 return false;
             }
         }
@@ -843,12 +845,13 @@ public class HerbrunScript extends Script {
             AllotmentSeedType allotmentSeed = config.allotmentSeedType();
             if (allotmentSeed == AllotmentSeedType.BEST) {
                 if (!withdrawBestAvailableAllotmentSeeds(allotmentSeedsNeeded)) {
-                    log("Failed to withdraw allotment seeds");
+                    log(allotmentSeedShortfall("allotment seeds", allotmentLocations, config.allowPartialRuns()));
                     if (!config.allowPartialRuns()) return false;
                 }
             } else {
                 if (!withdrawSpecificSeeds(allotmentSeed.getItemId(), allotmentSeed.getSeedName(),
-                        allotmentSeedsNeeded, allotmentSeed.getLevelRequired(), config.allowPartialRuns())) {
+                        allotmentSeedsNeeded, allotmentSeed.getLevelRequired(), config.allowPartialRuns(),
+                        allotmentSeedShortfall(allotmentSeed.getSeedName(), allotmentLocations, config.allowPartialRuns()))) {
                     if (!config.allowPartialRuns()) return false;
                 }
             }
@@ -859,7 +862,8 @@ public class HerbrunScript extends Script {
             FlowerSeedType flowerSeed = config.flowerSeedType();
             int flowerSeedsNeeded = allotmentLocationCount;
             if (!withdrawSpecificSeeds(flowerSeed.getItemId(), flowerSeed.getSeedName(),
-                    flowerSeedsNeeded, flowerSeed.getLevelRequired(), config.allowPartialRuns())) {
+                    flowerSeedsNeeded, flowerSeed.getLevelRequired(), config.allowPartialRuns(),
+                    flowerSeedShortfall(flowerSeed.getSeedName(), allotmentLocations, config.allowPartialRuns()))) {
                 if (!config.allowPartialRuns()) return false;
             }
         }
@@ -880,7 +884,8 @@ public class HerbrunScript extends Script {
         return true;
     }
 
-    private boolean withdrawSpecificSeeds(int itemId, String seedName, int count, int levelRequired, boolean allowPartial) {
+    private boolean withdrawSpecificSeeds(int itemId, String seedName, int count, int levelRequired, boolean allowPartial,
+                                          String shortfallMessage) {
         int farmingLevel = Microbot.getClient().getRealSkillLevel(Skill.FARMING);
         if (farmingLevel < levelRequired) {
             log("Cannot plant " + seedName + " - requires Farming level " + levelRequired + " (you have " + farmingLevel + ")");
@@ -889,7 +894,7 @@ public class HerbrunScript extends Script {
 
         if (!Rs2Bank.withdrawX(itemId, count)) {
             if (!allowPartial) {
-                log("Failed to withdraw " + count + " " + seedName);
+                log(shortfallMessage);
                 return false;
             }
             int available = Rs2Bank.count(itemId);
@@ -964,15 +969,32 @@ public class HerbrunScript extends Script {
         return seedsWithdrawn > 0;
     }
 
-    private int countEnabledAllotmentFlowerLocations() {
-        int count = 0;
-        if (config.enableArdougne()) count++;
-        if (config.enableCatherby()) count++;
-        if (config.enableVarlamore()) count++;
-        if (config.enableFalador()) count++;
-        if (config.enableHosidius()) count++;
-        if (config.enableMorytania()) count++;
-        return count;
+    List<String> enabledAllotmentFlowerLocations() {
+        List<String> locations = new ArrayList<>();
+        if (config.enableArdougne()) locations.add("Ardougne");
+        if (config.enableCatherby()) locations.add("Catherby");
+        if (config.enableFalador()) locations.add("Falador");
+        if (config.enableGuild()) locations.add("Farming Guild");
+        if (config.enableHosidius()) locations.add("Hosidius");
+        if (config.enableMorytania()) locations.add("Morytania");
+        if (config.enableVarlamore()) locations.add("Varlamore");
+        return locations;
+    }
+
+    static String allotmentSeedShortfall(String seedName, List<String> locations, boolean allowPartial) {
+        String where = locations.size() + (locations.size() == 1 ? " location: " : " locations: ") + String.join(", ", locations);
+        return seedShortfall(seedName, 3 * 2 * locations.size(), "3 per patch, 2 patches at each of " + where, allowPartial);
+    }
+
+    static String flowerSeedShortfall(String seedName, List<String> locations, boolean allowPartial) {
+        return seedShortfall(seedName, locations.size(), "1 per location: " + String.join(", ", locations), allowPartial);
+    }
+
+    private static String seedShortfall(String seedName, int needed, String breakdown, boolean allowPartial) {
+        String options = allowPartial
+                ? "Bank more seeds or turn off a location in the Location toggles section."
+                : "Bank more seeds, turn off a location in the Location toggles section, or turn on Allow Partial Runs.";
+        return "Not enough " + seedName + " in the bank: need " + needed + " (" + breakdown + "). " + options;
     }
 
     @Override

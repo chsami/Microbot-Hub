@@ -38,6 +38,13 @@ The **Herbrun Plugin** is a RuneLite plugin for the Microbot framework that auto
 
 ---
 
+## Changelog
+### 1.2.6
+- Farming Guild allotments and flower patch are now included when Enable Farming Guild Patch is on. With Allotments or Flowers enabled, auto banking now withdraws seeds for the guild too (6 more allotment seeds and 1 more flower seed).
+- When the bank is short on allotment or flower seeds, the log now shows how many are needed, which locations they are for, and what you can change.
+
+---
+
 ## Disclaimer
 
 - This plugin is for educational and research purposes only.
