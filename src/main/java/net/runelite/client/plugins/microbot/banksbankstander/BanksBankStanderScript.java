@@ -105,29 +105,33 @@ public class BanksBankStanderScript extends Script {
         // Check first item if needed
         if (config.firstItemQuantity() > 0) {
             System.out.println("Checking first item.");
-            firstOK = Rs2Inventory.hasItem(firstItemId);
+            firstOK = hasItem(firstItemId, config.firstItemIdentifier());
         }
 
         // Check second item if needed
         if (config.secondItemQuantity() > 0) {
             System.out.println("Checking second item.");
-            secondOK = Rs2Inventory.hasItem(secondItemId);
+            secondOK = hasItem(secondItemId, config.secondItemIdentifier());
         }
 
         // Check third item if needed
         if (config.thirdItemQuantity() > 0) {
             System.out.println("Checking third item.");
-            thirdOK = Rs2Inventory.hasItem(thirdItemId);
+            thirdOK = hasItem(thirdItemId, config.thirdItemIdentifier());
         }
 
         // Check fourth item if needed
         if (config.fourthItemQuantity() > 0) {
             System.out.println("Checking fourth item.");
-            fourthOK = Rs2Inventory.hasItem(fourthItemId);
+            fourthOK = hasItem(fourthItemId, config.fourthItemIdentifier());
         }
 
         // Only return true if all required items were found
         return firstOK && secondOK && thirdOK && fourthOK;
+    }
+
+    static boolean hasItem(Integer itemId, String itemName) {
+        return itemId != null ? Rs2Inventory.hasItem(itemId) : Rs2Inventory.hasItem(itemName);
     }
 
 
@@ -220,7 +224,7 @@ public class BanksBankStanderScript extends Script {
 
         // using our items from the config string and the selected interaction order.
         timeValue = System.currentTimeMillis();
-        interactOrder(firstItemId);
+        interactOrder(firstItemId, config.firstItemIdentifier());
         randomNum = calculateSleepDuration(0.5);
         if (System.currentTimeMillis() - timeValue < randomNum) {
             sleep((int) (randomNum - (System.currentTimeMillis() - timeValue)));
@@ -229,7 +233,7 @@ public class BanksBankStanderScript extends Script {
         }
         if (config.secondItemQuantity() > 0) {
             timeValue = System.currentTimeMillis();
-            interactOrder(secondItemId);
+            interactOrder(secondItemId, config.secondItemIdentifier());
             randomNum = calculateSleepDuration(0.5);
             if (System.currentTimeMillis() - timeValue < randomNum) {
                 sleep((int) (randomNum - (System.currentTimeMillis() - timeValue)));
@@ -266,9 +270,14 @@ public class BanksBankStanderScript extends Script {
         return true;
     }
 
-    public void interactOrder(Integer itemId) {
-        if (itemId == null) return;
-        if (secondItemId == null && thirdItemId == null && fourthItemId == null && Rs2Inventory.hasItemAmount(itemId, config.firstItemQuantity())) {
+    public void interactOrder(Integer itemId, String itemName) {
+        if (itemId == null) {
+            if (!itemName.isBlank()) {
+                Rs2Inventory.interact(itemName, config.menu());
+            }
+            return;
+        }
+        if (config.secondItemIdentifier().isBlank() && config.thirdItemIdentifier().isBlank() && config.fourthItemIdentifier().isBlank() && Rs2Inventory.hasItemAmount(itemId, config.firstItemQuantity())) {
             //Process inventory quickly (cleaning herbs)
             for (Rs2ItemModel itemToInteract : inventorySlots) {
                 if (itemToInteract != null) {
@@ -482,7 +491,12 @@ public class BanksBankStanderScript extends Script {
             return Integer.parseInt(text);
         } catch (NumberFormatException ex) {
             System.out.println("Could not Parse Int from Item, lookup item and return id");
-            return Microbot.getItemManager().search(text).stream().map(ItemPrice::getId).findFirst().orElse(null);
+            String name = text.trim();
+            return Microbot.getItemManager().search(name).stream()
+                    .filter(item -> item.getName().equalsIgnoreCase(name))
+                    .map(ItemPrice::getId)
+                    .findFirst()
+                    .orElse(null);
         }
     }
 
