@@ -95,6 +95,33 @@ class TrollStrongholdRouteTest {
         }
     }
 
+    @Test void secretEntranceStillRequiresNativeVarbitWhenQuestIsFinished() throws Exception {
+        try (var f = new Graph()) {
+            List<Transport> entrances = f.catalog.stream()
+                    .filter(NetworkTransportSupport::isTrollStrongholdSecretEntrance)
+                    .collect(java.util.stream.Collectors.toList());
+            assertEquals(2, entrances.size());
+            // 2.6.66 adds this native gate; older catalogues did not contain it.
+            org.junit.jupiter.api.Assumptions.assumeTrue(entrances.stream()
+                    .anyMatch(row -> row.getVarbits().stream()
+                            .anyMatch(requirement -> requirement.getVarbitId() == 1)),
+                    "This client catalogue predates the secret-door varbit requirement");
+            Method allowed = method(NetworkTransportSupport.class,
+                    "sharedRequirementsSatisfiedNow", Transport.class);
+            f.varbits.put(1, 0);
+            for (Transport entrance : entrances)
+                assertEquals(false, allowed.invoke(f.bridge, entrance),
+                        "Finished quest must not bypass the native varbit requirement");
+            List<Object> denied = new ArrayList<>(f.original);
+            f.installShared(denied);
+            assertEquals(0, denied.stream().filter(value -> id(value) == 3762).count(),
+                    "Denied maintained route must not leave an ungated preserved copy");
+            f.varbits.put(1, 1);
+            for (Transport entrance : entrances)
+                assertEquals(true, allowed.invoke(f.bridge, entrance));
+        }
+    }
+
     @Test void nativeBootAndAgilityRequirementsStayOnTheirRecordedEdges() throws Exception {
         try (var f = new Graph()) {
             Object mountain = LONG_ROUTE.get(3).find(f.original);
@@ -212,6 +239,8 @@ class TrollStrongholdRouteTest {
         final MockedStatic<Microbot> dro = mockStatic(Microbot.class);
         final MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class);
         final AtomicReference<QuestState> quest = new AtomicReference<>(QuestState.FINISHED);
+        // A fully eligible baseline must satisfy the 2.6.66 secret-door varbit too.
+        final Map<Integer, Integer> varbits = new java.util.HashMap<>(Map.of(1, 1));
         final ClassLoader loader;
         final NetworkTransportSupport bridge;
         final List<Object> original;
@@ -224,6 +253,8 @@ class TrollStrongholdRouteTest {
             player.when(() -> Rs2Player.getQuestState(any(Quest.class))).thenReturn(QuestState.FINISHED);
             player.when(() -> Rs2Player.getQuestState(Quest.TROLL_STRONGHOLD)).thenAnswer(call -> quest.get());
             player.when(() -> Rs2Player.getRealSkillLevel(any(Skill.class))).thenReturn(99);
+            dro.when(() -> Microbot.getVarbitValue(anyInt()))
+                    .thenAnswer(call -> varbits.getOrDefault(call.getArgument(0), 0));
             NetworkGraphRegressionTest fixture = new NetworkGraphRegressionTest();
             fixture.setup();
             loader = (ClassLoader) field(fixture, "loader");
@@ -278,7 +309,7 @@ class TrollStrongholdRouteTest {
                         "sharedRequirementsSatisfiedNow", Transport.class).invoke(bridge, source)) return false;
                 ToIntFunction<Skill> skills = skill -> skill == Skill.AGILITY ? agility : 99;
                 BiPredicate<String, Integer> items = (name, quantity) -> !"CLIMBING_BOOTS".equals(name) || boots;
-                IntUnaryOperator variables = id -> 0;
+                IntUnaryOperator variables = id -> varbits.getOrDefault(id, 0);
                 Predicate<Quest> quests = value -> value != Quest.TROLL_STRONGHOLD || quest.get() == QuestState.FINISHED;
                 return (boolean) method(edge.getClass(), "meetsRequirements", ToIntFunction.class, BiPredicate.class,
                         IntUnaryOperator.class, IntUnaryOperator.class, Predicate.class)

@@ -735,9 +735,9 @@ public class AutoFarmerScript extends Script {
             }
             if (Microbot.isLoggedIn() && !Microbot.pauseAllScripts.get()
                     && !net.runelite.client.plugins.microbot.ScriptPauseController.isPaused()
-                    && config.useLampsOnFarming() && farmingLamp.handle()) {
+                    && farmingLamp.handle(config.xpLampSkill())) {
                 if (patchWorkStarted) patchStartedAt = System.currentTimeMillis();
-                AutoFarmerPlugin.status = "Using event XP reward on Farming";
+                AutoFarmerPlugin.status = "Using event XP reward on " + config.xpLampSkill();
                 return;
             }
             if (handlePreposition()) return;
