@@ -56,7 +56,7 @@ public interface BanksBankStanderConfig extends Config {
     @ConfigItem(
             keyName = "First Item",
             name = "First Item",
-            description = "Sets First Item, use either Item ID or Item Name",
+            description = "Item ID or the full in-game item name, e.g. Knife, Chocolate bar, Grimy guam leaf",
             position = 1,
             section = itemSection
     )
@@ -84,7 +84,7 @@ public interface BanksBankStanderConfig extends Config {
     @ConfigItem(
             keyName = "Second Item",
             name = "Second Item",
-            description = "Sets Second Item, use either Item ID or Item Name",
+            description = "Item ID or the full in-game item name, e.g. Knife, Chocolate bar, Grimy guam leaf",
             position = 3,
             section = itemSection
     )
@@ -112,7 +112,7 @@ public interface BanksBankStanderConfig extends Config {
     @ConfigItem(
             keyName = "Third Item",
             name = "Third Item",
-            description = "Sets Third Item, use either Item ID or Item Name",
+            description = "Item ID or the full in-game item name, e.g. Knife, Chocolate bar, Grimy guam leaf",
             position = 5,
             section = itemSection
     )
@@ -140,7 +140,7 @@ public interface BanksBankStanderConfig extends Config {
     @ConfigItem(
             keyName = "Fourth Item",
             name = "Fourth Item",
-            description = "Sets Fourth Item, use either Item ID or Item Name",
+            description = "Item ID or the full in-game item name, e.g. Knife, Chocolate bar, Grimy guam leaf",
             position = 7,
             section = itemSection
     )
