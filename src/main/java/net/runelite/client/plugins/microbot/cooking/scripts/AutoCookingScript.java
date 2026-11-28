@@ -81,6 +81,10 @@ public class AutoCookingScript extends Script {
                         }
                     }
 
+                    if (!Microbot.isLoggedIn() || Rs2Player.getWorldLocation() == null) {
+                        return;
+                    }
+
                     if (location == null) {
                         Microbot.showMessage("No suitable cooking location found");
                         shutdown();
