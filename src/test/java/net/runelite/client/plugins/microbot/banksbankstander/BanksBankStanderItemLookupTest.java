@@ -16,8 +16,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
 class BanksBankStanderItemLookupTest {
@@ -68,6 +71,32 @@ class BanksBankStanderItemLookupTest {
         try (MockedStatic<Rs2Inventory> inventory = mockStatic(Rs2Inventory.class)) {
             inventory.when(() -> Rs2Inventory.hasItem(946)).thenReturn(false);
             assertFalse(BanksBankStanderScript.hasItem(946, "Knife"));
+        }
+    }
+
+    @Test
+    void partialNameLogsOnceWithFullNameSuggestion() {
+        ItemManager itemManager = mock(ItemManager.class);
+        when(itemManager.search("Grimy guam")).thenReturn(Collections.singletonList(price(199, "Grimy guam leaf")));
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class)) {
+            microbot.when(Microbot::getItemManager).thenReturn(itemManager);
+            assertNull(BanksBankStanderScript.resolveItemId("First Item", "Grimy guam"));
+            microbot.verify(() -> Microbot.log("First Item 'Grimy guam' is not an exact item name, so any item whose name contains it will be used. For best results type the full name (e.g. 'Grimy guam leaf') or the item ID."), times(1));
+        }
+    }
+
+    @Test
+    void exactUntradeableAndNumericNamesDoNotLog() {
+        ItemManager itemManager = mock(ItemManager.class);
+        when(itemManager.search("Knife")).thenReturn(Arrays.asList(price(863, "Iron knife"), price(946, "Knife")));
+        when(itemManager.search("Incomplete stew")).thenReturn(Collections.emptyList());
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class)) {
+            microbot.when(Microbot::getItemManager).thenReturn(itemManager);
+            assertEquals(946, BanksBankStanderScript.resolveItemId("First Item", "Knife"));
+            assertNull(BanksBankStanderScript.resolveItemId("Second Item", "Incomplete stew"));
+            assertEquals(1973, BanksBankStanderScript.resolveItemId("Third Item", " 1973 "));
+            assertNull(BanksBankStanderScript.resolveItemId("Fourth Item", ""));
+            microbot.verify(() -> Microbot.log(anyString()), never());
         }
     }
 
