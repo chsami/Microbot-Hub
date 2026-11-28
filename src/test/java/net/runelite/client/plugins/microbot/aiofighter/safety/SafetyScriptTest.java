@@ -17,6 +17,7 @@ import org.slf4j.event.Level;
 import java.util.Collections;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -86,6 +87,13 @@ public final class SafetyScriptTest {
     }
 
     @Test
+    void lowHealthReasonTellsPlayerWhatHappensAndHowToTurnItOff() {
+        assertEquals("Low health (20%) and no food left. Walking to the bank and logging out. Turn off 'Low Health' in the Safety settings if you don't want this.",
+                SafetyScript.lowHealthReason(20.0));
+        assertTrue(SafetyScript.lowHealthReason(33.333333333333336).startsWith("Low health (33%)"));
+    }
+
+    @Test
     void lowHealthReasonWithPercentSignStillLogsOutAndStops() {
         try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
              MockedStatic<AIOFighterPlugin> plugin = mockStatic(AIOFighterPlugin.class);
@@ -96,10 +104,11 @@ public final class SafetyScriptTest {
             Plugin aioFighter = mock(Plugin.class);
             microbot.when(() -> Microbot.getPlugin(AIOFighterPlugin.class.getName())).thenReturn(aioFighter);
 
-            new SafetyScript().stopAndLog("Low health: 20%");
+            String reason = SafetyScript.lowHealthReason(20.0);
+            new SafetyScript().stopAndLog(reason);
 
-            microbot.verify(() -> Microbot.log("Low health: 20%", Level.WARN));
-            microbot.verify(() -> Microbot.log(eq("Low health: 20%"), any(Object[].class)), never());
+            microbot.verify(() -> Microbot.log(reason, Level.WARN));
+            microbot.verify(() -> Microbot.log(eq(reason), any(Object[].class)), never());
             bank.verify(Rs2Bank::walkToBank);
             player.verify(Rs2Player::logout);
             microbot.verify(() -> Microbot.stopPlugin(aioFighter));
