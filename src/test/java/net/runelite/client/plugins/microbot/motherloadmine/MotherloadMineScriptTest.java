@@ -172,6 +172,14 @@ public final class MotherloadMineScriptTest {
     }
 
     @Test
+    void setupLoadFailureNamesTheSetupAndTheFailedPart() {
+        assertEquals("Could not load inventory setup 'MLM': some equipment items are missing from your bank. Bank the missing items, or turn off Enable Inventory Setup.",
+                MotherloadMineScript.inventorySetupLoadFailedMessage("MLM", false, true));
+        assertTrue(MotherloadMineScript.inventorySetupLoadFailedMessage("MLM", true, false).contains("some inventory items"));
+        assertTrue(MotherloadMineScript.inventorySetupLoadFailedMessage("MLM", false, false).contains("some equipment and inventory items"));
+    }
+
+    @Test
     void depositKeepsSetupItemsButNotEmptySlotsPayDirtOrOre() {
         List<InventorySetupsItem> setupItems = Arrays.asList(
                 setupItem(ItemID.JEWL_NECKLACE_OF_SKILLS_6, "Skills necklace(6)", true),

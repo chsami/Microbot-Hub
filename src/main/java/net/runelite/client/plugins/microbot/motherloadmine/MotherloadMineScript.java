@@ -312,6 +312,12 @@ public class MotherloadMineScript extends Script
         return !hasRequiredTools || (useInventorySetup && !inventorySetupChecked);
     }
 
+    static String inventorySetupLoadFailedMessage(String setupName, boolean equipmentMatch, boolean inventoryMatch)
+    {
+        String part = !equipmentMatch && !inventoryMatch ? "equipment and inventory" : !equipmentMatch ? "equipment" : "inventory";
+        return "Could not load inventory setup '" + setupName + "': some " + part + " items are missing from your bank. Bank the missing items, or turn off Enable Inventory Setup.";
+    }
+
     private boolean hasRequiredTools()
     {
 		return Pickaxe.hasItem();
@@ -642,7 +648,7 @@ public class MotherloadMineScript extends Script
 
 		} else {
 			if (config.getInventorySetup() == null) {
-				Microbot.showMessage("Enable Inventory Setup is on but no inventory setup is selected. Please select one in the plugin settings.");
+				Microbot.showMessage("Enable Inventory Setup is on, but no setup is chosen. Pick one in the Inventory Setup dropdown under General, or turn off Enable Inventory Setup.");
 				log.warn("Inventory setup enabled without a selected setup, stopping plugin");
 				Microbot.stopPlugin(plugin);
 				return;
@@ -660,9 +666,15 @@ public class MotherloadMineScript extends Script
 			}
 
 			if (!doesEquipmentMatch || !doesInventoryMatch) {
-				Microbot.showMessage("Failed to load inventory setup. Please check your settings.");
+				Microbot.showMessage(inventorySetupLoadFailedMessage(config.getInventorySetup().getName(), doesEquipmentMatch, doesInventoryMatch));
                 log.warn("Inventory setup failed (equipmentMatch={}, inventoryMatch={}), stopping plugin",
                         doesEquipmentMatch, doesInventoryMatch);
+				Microbot.stopPlugin(plugin);
+				return;
+			}
+			if (!Pickaxe.hasItem()) {
+				Microbot.showMessage("Your inventory setup '" + config.getInventorySetup().getName() + "' has no pickaxe you can use. Add one to the setup, or turn off Enable Inventory Setup.");
+				log.warn("Inventory setup has no usable pickaxe, stopping plugin");
 				Microbot.stopPlugin(plugin);
 				return;
 			}
