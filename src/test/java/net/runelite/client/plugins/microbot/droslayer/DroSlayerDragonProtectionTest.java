@@ -47,7 +47,7 @@ class DroSlayerDragonProtectionTest {
 
     @Test void obsoleteAntifireRowsAreRemovedOnlyFromTheRuntimeCopy() {
         InventorySetup saved = saved();
-        saved.getInventory().add(row(2452,"Antifire(4)"));
+        saved.getInventory().add(row(2452,"Antifire potion(4)"));
         saved.getInventory().add(row(12697,"Super combat potion(3)"));
         saved.getAdditionalFilteredItems().put(21978,row(21978,"Extended super antifire(3)"));
         InventorySetup copy = DroSlayerLoadout.copyForFoodOverlay(saved);
@@ -63,14 +63,22 @@ class DroSlayerDragonProtectionTest {
 
     @Test void dragonLoadoutsRetainAllSupportedAntifireDoses() {
         var requirements = DroSlayerTaskRequirements.forTask("Green dragons", "");
-        for (String family : List.of("Antifire", "Extended antifire", "Super antifire", "Extended super antifire"))
+        var accepted = requirements.stream()
+                .filter(row -> row.getLabel().equals("dragonfire protection potion"))
+                .flatMap(row -> Arrays.stream(row.getAcceptedNames()))
+                .collect(java.util.stream.Collectors.toList());
+        for (String family : List.of("Antifire potion", "Extended antifire", "Super antifire potion", "Extended super antifire"))
             for (int dose=1;dose<=4;dose++) {
                 String name=family+"("+dose+")";
+                assertTrue(accepted.contains(name),name);
                 assertTrue(DroSlayerBankSupplies.isAntifire(name),name);
+                assertTrue(DroSlayerBankSupplies.keep(name,false,false,null,requirements),name);
                 InventorySetup copy=saved();copy.getInventory().add(row(1,name));
                 DroSlayerLoadout.removeUnneededAntifire(copy,requirements);
                 assertEquals(1,copy.getInventory().get(0).getId());
             }
+        assertFalse(accepted.contains("Antifire(4)"));
+        assertFalse(accepted.contains("Super antifire(4)"));
         assertFalse(DroSlayerBankSupplies.isAntifire("Dragonfire shield"));
         assertFalse(DroSlayerBankSupplies.isAntifire("Super combat potion(4)"));
     }
@@ -78,7 +86,7 @@ class DroSlayerDragonProtectionTest {
     @Test void departureWaitsUntilAntifireDepositIsActuallyObserved() throws Exception {
         var script = new DroSlayerScript();
         Method bank = DroSlayerScript.class.getDeclaredMethod("bankUnneededAntifire",List.class);bank.setAccessible(true);
-        Rs2ItemModel potion=mock(Rs2ItemModel.class);when(potion.getId()).thenReturn(2452);when(potion.getName()).thenReturn("Antifire(4)");
+        Rs2ItemModel potion=mock(Rs2ItemModel.class);when(potion.getId()).thenReturn(2452);when(potion.getName()).thenReturn("Antifire potion(4)");
         AtomicReference<Rs2ItemModel> carried=new AtomicReference<>(potion);
         try (var inventory=mockStatic(Rs2Inventory.class);var banking=mockStatic(Rs2Bank.class);var runtime=mockStatic(DroSlayerRuntime.class)) {
             inventory.when(() -> Rs2Inventory.get(any(Predicate.class))).thenAnswer(call -> {
