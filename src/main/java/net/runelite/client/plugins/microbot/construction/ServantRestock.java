@@ -31,6 +31,19 @@ public class ServantRestock {
         }
     }
 
+    public enum CallStep {
+        CONTROLS_TAB,
+        HOUSE_OPTIONS,
+        CALL_SERVANT
+    }
+
+    public static CallStep callStep(boolean houseOptionsVisible, boolean callServantVisible) {
+        if (callServantVisible) {
+            return CallStep.CALL_SERVANT;
+        }
+        return houseOptionsVisible ? CallStep.HOUSE_OPTIONS : CallStep.CONTROLS_TAB;
+    }
+
     private boolean away;
     private boolean departed;
     private long sentAt;

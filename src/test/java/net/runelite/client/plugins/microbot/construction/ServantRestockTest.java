@@ -162,6 +162,14 @@ class ServantRestockTest {
     }
 
     @Test
+    void callServantOpensControlsTabWhenHouseOptionsIsHidden() {
+        assertEquals(ServantRestock.CallStep.CONTROLS_TAB, ServantRestock.callStep(false, false));
+        assertEquals(ServantRestock.CallStep.HOUSE_OPTIONS, ServantRestock.callStep(true, false));
+        assertEquals(ServantRestock.CallStep.CALL_SERVANT, ServantRestock.callStep(false, true));
+        assertEquals(ServantRestock.CallStep.CALL_SERVANT, ServantRestock.callStep(true, true));
+    }
+
+    @Test
     void everyProblemHasAMessage() {
         for (Problem problem : Problem.values()) {
             assertEquals(problem == Problem.NONE, problem.getMessage().isEmpty());
