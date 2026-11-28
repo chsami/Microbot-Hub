@@ -77,6 +77,9 @@ public class VorkathScript extends Script {
     private final int acidRedProjectileId = 1482;
     @Getter
     private final HashSet<WorldPoint> acidPools = new HashSet<>();
+    private WorldPoint acidWalkTarget;
+    private WorldPoint lastAcidPlayerLoc;
+    private int lastAcidTick = -1;
     public int vorkathSessionKills = 0;
     public int tempVorkathKills = 0;
     public int kcPerTrip = 0;
@@ -325,6 +328,7 @@ public class VorkathScript extends Script {
                             Rs2Tab.switchToMagicTab();
                         }
                         if ((doesProjectileExistById(acidProjectileId) || doesProjectileExistById(acidRedProjectileId))) {
+                            resetAcidWalk();
                             state = State.ACID;
                         }
                         if (vorkath.getHealthRatio() < 60 && vorkath.getHealthRatio() != -1) {
@@ -666,12 +670,64 @@ public class VorkathScript extends Script {
 
         List<WorldPoint> safeTiles = wooxWalkArea.toWorldPointList().stream().filter(this::isTileSafe).collect(Collectors.toList());
 
-        return safeTiles.stream().min(Comparator.comparingInt(tile -> Math.abs(tile.getX() - playerLoc.getX()))).orElse(null);
+        Comparator<WorldPoint> closestX = Comparator.comparingInt(tile -> Math.abs(tile.getX() - playerLoc.getX()));
+        return safeTiles.stream()
+                .filter(tile -> isPathSafe(playerLoc, tile))
+                .min(closestX)
+                .orElseGet(() -> safeTiles.stream().min(closestX).orElse(null));
     }
 
     boolean isTileSafe(WorldPoint tile) {
         return !acidPools.contains(tile)
                 && !acidPools.contains(new WorldPoint(tile.getX(), tile.getY() + 1, tile.getPlane()));
+    }
+
+    boolean isPathSafe(WorldPoint from, WorldPoint to) {
+        int x = from.getX();
+        int y = from.getY();
+        while (x != to.getX() || y != to.getY()) {
+            x += Integer.signum(to.getX() - x);
+            y += Integer.signum(to.getY() - y);
+            if (acidPools.contains(new WorldPoint(x, y, to.getPlane()))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    WorldPoint wooxWalkTarget(WorldPoint vorkathLoc, WorldPoint playerLoc, WorldPoint currentTarget) {
+        int rowY = vorkathLoc.getY() - 8;
+        int minX = vorkathLoc.getX() + 1;
+        int maxX = vorkathLoc.getX() + 5;
+        boolean inLane = playerLoc.getX() >= minX && playerLoc.getX() <= maxX
+                && (playerLoc.getY() == rowY || playerLoc.getY() == rowY + 1);
+        WorldPoint rowTile = new WorldPoint(playerLoc.getX(), rowY, 0);
+        if (!inLane || !isTileSafe(rowTile)) {
+            return findSafeTile(vorkathLoc, playerLoc);
+        }
+
+        int west = rowTile.getX();
+        while (west - 1 >= minX && isTileSafe(new WorldPoint(west - 1, rowY, 0))) {
+            west--;
+        }
+        int east = rowTile.getX();
+        while (east + 1 <= maxX && isTileSafe(new WorldPoint(east + 1, rowY, 0))) {
+            east++;
+        }
+
+        if (currentTarget != null && !currentTarget.equals(rowTile) && currentTarget.getY() == rowY
+                && currentTarget.getX() >= west && currentTarget.getX() <= east) {
+            return currentTarget;
+        }
+        int farX = east - rowTile.getX() >= rowTile.getX() - west ? east : west;
+        return new WorldPoint(farX, rowY, 0);
+    }
+
+    private void resetAcidWalk() {
+        acidPools.clear();
+        acidWalkTarget = null;
+        lastAcidPlayerLoc = null;
+        lastAcidTick = -1;
     }
 
     private void handleAcidWalk() {
@@ -702,21 +758,41 @@ public class VorkathScript extends Script {
         if (!hasAcidProj && !hasRedAcidProj && acidTiles.isEmpty()) {
             vorkath.click("Attack");
             state = State.FIGHT_VORKATH;
-            acidPools.clear();
+            resetAcidWalk();
             return;
         }
 
         acidPools.addAll(acidTiles);
 
-        WorldPoint safeTile = findSafeTile(vorkathLoc, playerLocation);
+        int tick = Microbot.getClient().getTickCount();
+        if (tick == lastAcidTick) {
+            return;
+        }
+        lastAcidTick = tick;
 
-        if (safeTile != null) {
-            if (playerLocation.equals(safeTile)) {
-                vorkath.click("Attack");
-            } else {
-                Rs2Player.eatAt(60);
-                Rs2Walker.walkFastLocal(LocalPoint.fromWorld(Microbot.getClient(), safeTile));
-            }
+        Rs2Player.eatAt(60);
+
+        boolean moved = !playerLocation.equals(lastAcidPlayerLoc);
+        lastAcidPlayerLoc = playerLocation;
+
+        if (playerLocation.equals(acidWalkTarget) && isTileSafe(acidWalkTarget)) {
+            acidWalkTarget = null;
+            vorkath.click("Attack");
+            return;
+        }
+
+        WorldPoint target = wooxWalkTarget(vorkathLoc, playerLocation, acidWalkTarget);
+        if (target == null) {
+            return;
+        }
+        if (target.equals(playerLocation)) {
+            acidWalkTarget = null;
+            vorkath.click("Attack");
+            return;
+        }
+        if (!target.equals(acidWalkTarget) || !moved) {
+            acidWalkTarget = target;
+            Rs2Walker.walkFastLocal(LocalPoint.fromWorld(Microbot.getClient(), target));
         }
     }
 

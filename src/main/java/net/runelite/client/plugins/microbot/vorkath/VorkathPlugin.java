@@ -32,7 +32,7 @@ import java.awt.*;
 @Slf4j
 public class VorkathPlugin extends Plugin {
 
-    public static final String version = "1.3.15";
+    public static final String version = "1.3.16";
 
     @Inject
     Client client;
