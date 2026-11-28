@@ -33,7 +33,7 @@ import net.runelite.client.plugins.microbot.Microbot;
 	tags = {"bank", "organizer", "tabs", "sort"},
 	authors = {"bgatfa"},
 	version = BankOrganizerPlugin.version,
-	minClientVersion = "2.0.61",
+	minClientVersion = "2.6.24",
 	iconUrl = "",
 	cardUrl = "",
 	enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -44,7 +44,9 @@ public class BankOrganizerPlugin extends Plugin
 {
 	public static final String version = "1.0.2";
 	private static final String INPUT_YIELD_TIMEOUT_MESSAGE =
-		"You kept using the mouse or keyboard. Leave them idle for a few seconds and restart Bank Organizer.";
+		"You kept using the mouse or keyboard. Leave them idle for a few seconds, then turn Bank Organizer off and on again.";
+	private static final String BANK_OPEN_FAILED_MESSAGE =
+		"Could not open the bank. Stand next to a bank booth or banker and turn Bank Organizer off and on again.";
 
 	@Inject
 	private BankOrganizerConfig config;
@@ -60,7 +62,21 @@ public class BankOrganizerPlugin extends Plugin
 
 	private final BankTagLayoutParser layoutParser = new BankTagLayoutParser();
 	private final BankTagLayoutPlanner layoutPlanner = new BankTagLayoutPlanner();
-	private final InputYieldRetry inputYieldRetry = new InputYieldRetry();
+	private final InputYieldRetry inputYieldRetry = new InputYieldRetry(new InputYieldRetry.Listener()
+	{
+		@Override
+		public void waitingForIdle()
+		{
+			log.info("Waiting for you to stop using the mouse and keyboard before organizing the bank...");
+		}
+
+		@Override
+		public void retrying(int attempt, int maxAttempts)
+		{
+			log.info("You used the mouse or keyboard while Bank Organizer was working. Retrying (attempt {} of {})...",
+				attempt, maxAttempts);
+		}
+	});
 
 	private ExecutorService executor;
 	private Future<?> task;
@@ -144,7 +160,10 @@ public class BankOrganizerPlugin extends Plugin
 			BankActuator.FullOrganizeResult result = inputYieldRetry.run(
 				() -> organizeBank(tabs),
 				attempt -> attempt == null || attempt.success(),
-				() -> BankActuator.FullOrganizeResult.fail(INPUT_YIELD_TIMEOUT_MESSAGE, null, 0, 0));
+				() -> BankActuator.FullOrganizeResult.fail(INPUT_YIELD_TIMEOUT_MESSAGE, null, 0, 0),
+				last -> BankActuator.FullOrganizeResult.fail(
+					INPUT_YIELD_TIMEOUT_MESSAGE + " (last step: " + last.message() + ")",
+					last.finalSnapshot(), last.createdTabs(), last.movedStacks()));
 			if (result == null)
 			{
 				return;
@@ -178,7 +197,7 @@ public class BankOrganizerPlugin extends Plugin
 		log.info("Opening bank.");
 		if (!actuator.ensureBankOpen())
 		{
-			return BankActuator.FullOrganizeResult.fail("Could not open bank.", null, 0, 0);
+			return BankActuator.FullOrganizeResult.fail(BANK_OPEN_FAILED_MESSAGE, null, 0, 0);
 		}
 		if (stopRequested)
 		{
