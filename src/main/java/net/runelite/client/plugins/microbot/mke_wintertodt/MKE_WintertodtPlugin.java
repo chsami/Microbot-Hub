@@ -42,7 +42,7 @@ import java.time.Instant;
 )
 @Slf4j
 public class MKE_WintertodtPlugin extends Plugin {
-    static final String version = "2.2.7";
+    static final String version = "2.2.8";
 
     // Core plugin components
     @Inject
