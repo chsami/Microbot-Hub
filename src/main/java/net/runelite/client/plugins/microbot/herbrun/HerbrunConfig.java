@@ -206,7 +206,7 @@ public interface HerbrunConfig extends Config {
     @ConfigItem(
             keyName = "enableGuild",
             name = "Enable Farming Guild Patch",
-            description = "Enable Farming Guild patch in herb run",
+            description = "Farm the Farming Guild herb patch, plus its allotments and flower patch when Allotments or Flowers are enabled",
             position = 9,
             section = locationSection
     )
