@@ -29,7 +29,6 @@ import net.runelite.client.plugins.microbot.aiofighter.shop.ShopScript;
 import net.runelite.client.plugins.microbot.aiofighter.skill.AttackStyleScript;
 import net.runelite.client.plugins.microbot.inventorysetups.InventorySetup;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
-import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.skills.slayer.Rs2Slayer;
 import net.runelite.client.ui.JagexColors;
 import net.runelite.client.ui.overlay.OverlayManager;
@@ -62,7 +61,7 @@ import java.util.stream.Collectors;
 )
 @Slf4j
 public class AIOFighterPlugin extends Plugin {
-    public static final String version = "2.2.21";
+    public static final String version = "2.2.22";
     public static boolean needShopping = false;
     private static final String SET = "Set";
     private static final String CENTER_TILE = ColorUtil.wrapWithColorTag("Center Tile", JagexColors.MENU_TARGET);
@@ -486,11 +485,7 @@ public class AIOFighterPlugin extends Plugin {
             if (hitsplat.isMine() && event.getActor().getInteracting() instanceof NPC && config.togglePrayer()
                     && (config.prayerStyle() == PrayerStyle.LAZY_FLICK || config.prayerStyle() == PrayerStyle.PERFECT_LAZY_FLICK || config.prayerStyle() == PrayerStyle.MIXED_LAZY_FLICK)) {
                 flickerScript.resetLastAttack(true);
-                Rs2Prayer.disableAllPrayers();
-                if (config.toggleQuickPray())
-                    Rs2Prayer.toggleQuickPrayer(false);
-
-
+                FlickerScript.disableFlickPrayers(config.toggleQuickPray());
             }
         } catch (Exception e) {
             log.info("AIO Fighter Plugin onHitsplatApplied Error: " + e.getMessage());

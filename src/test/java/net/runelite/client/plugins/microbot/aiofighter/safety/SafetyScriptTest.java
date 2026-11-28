@@ -1,17 +1,30 @@
 package net.runelite.client.plugins.microbot.aiofighter.safety;
 
+import net.runelite.client.plugins.Plugin;
+import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.aiofighter.AIOFighterConfig;
+import net.runelite.client.plugins.microbot.aiofighter.AIOFighterPlugin;
+import net.runelite.client.plugins.microbot.aiofighter.enums.State;
 import net.runelite.client.plugins.microbot.inventorysetups.InventorySetup;
 import net.runelite.client.plugins.microbot.inventorysetups.InventorySetupsItem;
+import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.misc.Rs2Food;
+import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
+import org.slf4j.event.Level;
 
 import java.util.Collections;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 public final class SafetyScriptTest {
@@ -71,5 +84,34 @@ public final class SafetyScriptTest {
     @Test
     void bankingOffDoesNotRestockFood() {
         assertFalse(SafetyScript.bankRestocksFood(config(false, true), "Melee", foodSetups()));
+    }
+
+    @Test
+    void lowHealthReasonTellsPlayerWhatHappensAndHowToTurnItOff() {
+        assertEquals("Low health (20%) and no food left. Walking to the bank and logging out. Turn off 'Low Health' in the Safety settings if you don't want this.",
+                SafetyScript.lowHealthReason(20.0));
+        assertTrue(SafetyScript.lowHealthReason(33.333333333333336).startsWith("Low health (33%)"));
+    }
+
+    @Test
+    void lowHealthReasonWithPercentSignStillLogsOutAndStops() {
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<AIOFighterPlugin> plugin = mockStatic(AIOFighterPlugin.class);
+             MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class);
+             MockedStatic<Rs2Bank> bank = mockStatic(Rs2Bank.class)) {
+            plugin.when(AIOFighterPlugin::getState).thenReturn(State.COMBAT);
+            player.when(Rs2Player::isMoving).thenReturn(false);
+            Plugin aioFighter = mock(Plugin.class);
+            microbot.when(() -> Microbot.getPlugin(AIOFighterPlugin.class.getName())).thenReturn(aioFighter);
+
+            String reason = SafetyScript.lowHealthReason(20.0);
+            new SafetyScript().stopAndLog(reason);
+
+            microbot.verify(() -> Microbot.log(reason, Level.WARN));
+            microbot.verify(() -> Microbot.log(eq(reason), any(Object[].class)), never());
+            bank.verify(Rs2Bank::walkToBank);
+            player.verify(Rs2Player::logout);
+            microbot.verify(() -> Microbot.stopPlugin(aioFighter));
+        }
     }
 }

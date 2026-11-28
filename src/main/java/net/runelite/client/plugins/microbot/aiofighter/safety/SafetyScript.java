@@ -15,10 +15,10 @@ import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
+import org.slf4j.event.Level;
 
 import java.util.Collection;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Level;
 
 import static net.runelite.client.plugins.microbot.Microbot.log;
 
@@ -51,8 +51,9 @@ public class SafetyScript extends Script {
                     }
                 }
                 if (config.lowHealth() && Rs2Inventory.getInventoryFood().isEmpty() && !bankRestocksFood(config, setupName, MInventorySetupsPlugin.getInventorySetups())){
-                    if (Rs2Player.getHealthPercentage() < config.healthSafetyValue()){
-                        stopAndLog("Low health: " + Rs2Player.getHealthPercentage() + "%");
+                    double healthPercentage = Rs2Player.getHealthPercentage();
+                    if (healthPercentage < config.healthSafetyValue()){
+                        stopAndLog(lowHealthReason(healthPercentage));
                     }
                 }
             } catch(Exception ex) {
@@ -68,8 +69,12 @@ public class SafetyScript extends Script {
                 && BankerScript.setupRestocksFood(setups, setupName);
     }
 
+    static String lowHealthReason(double healthPercentage) {
+        return "Low health (" + (int) healthPercentage + "%) and no food left. Walking to the bank and logging out. Turn off 'Low Health' in the Safety settings if you don't want this.";
+    }
+
     public void stopAndLog(String reason) {
-        log(reason, Level.WARNING);
+        log(reason, Level.WARN);
         // Avoid competing with BankerScript's walker while it is already controlling movement.
         if (!isBankingOrWalking() && !Rs2Player.isMoving()) {
             Rs2Bank.walkToBank();

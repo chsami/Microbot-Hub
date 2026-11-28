@@ -140,6 +140,14 @@ public class FlickerScript extends Script {
         Rs2Prayer.toggle(prayerToToggle, true);
     }
 
+    public static void disableFlickPrayers(boolean flickQuickPrayer) {
+        if (flickQuickPrayer && Rs2Prayer.isQuickPrayerEnabled()) {
+            Rs2Prayer.toggleQuickPrayer(false);
+        } else {
+            Rs2Prayer.disableAllPrayers();
+        }
+    }
+
     @Override
     public void shutdown() {
         super.shutdown();
