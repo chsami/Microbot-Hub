@@ -394,22 +394,32 @@ public class ConstructionScript extends Script {
     }
 
     private boolean callServant() {
-        Rs2Tab.switchTo(InterfaceTab.SETTINGS);
-        if (!sleepUntil(() -> Rs2Widget.isWidgetVisible(InterfaceID.SettingsSide.HOUSEOPTIONS), Rs2Random.between(2000, 5000))) {
+        if (!Rs2Tab.switchTo(InterfaceTab.SETTINGS)) {
             return false;
         }
-        Widget houseOptions = Rs2Widget.getWidget(InterfaceID.SettingsSide.HOUSEOPTIONS);
-        if (houseOptions == null || !Rs2Widget.clickWidget(houseOptions)) {
-            return false;
+        for (int attempt = 0; attempt < ServantRestock.CallStep.values().length; attempt++) {
+            ServantRestock.CallStep step = ServantRestock.callStep(
+                    Rs2Widget.isWidgetVisible(InterfaceID.SettingsSide.HOUSEOPTIONS),
+                    Rs2Widget.isWidgetVisible(InterfaceID.PohOptions.CALL_SERVANT));
+            switch (step) {
+                case CALL_SERVANT:
+                    return Rs2Widget.clickWidget(InterfaceID.PohOptions.CALL_SERVANT)
+                            && sleepUntil(Rs2Dialogue::isInDialogue, Rs2Random.between(2000, 5000));
+                case HOUSE_OPTIONS:
+                    if (!Rs2Widget.clickWidget(InterfaceID.SettingsSide.HOUSEOPTIONS)
+                            || !sleepUntil(() -> Rs2Widget.isWidgetVisible(InterfaceID.PohOptions.CALL_SERVANT), Rs2Random.between(2000, 5000))) {
+                        return false;
+                    }
+                    break;
+                case CONTROLS_TAB:
+                    if (!Rs2Widget.clickWidget(InterfaceID.SettingsSide.TAB_1_1_BACKING)
+                            || !sleepUntil(() -> Rs2Widget.isWidgetVisible(InterfaceID.SettingsSide.HOUSEOPTIONS), Rs2Random.between(2000, 5000))) {
+                        return false;
+                    }
+                    break;
+            }
         }
-        if (!sleepUntil(() -> Rs2Widget.isWidgetVisible(InterfaceID.PohOptions.CALL_SERVANT), Rs2Random.between(2000, 5000))) {
-            return false;
-        }
-        Widget callServant = Rs2Widget.getWidget(InterfaceID.PohOptions.CALL_SERVANT);
-        if (callServant == null || !Rs2Widget.clickWidget(callServant)) {
-            return false;
-        }
-        return sleepUntil(Rs2Dialogue::isInDialogue, Rs2Random.between(2000, 5000));
+        return false;
     }
 
     private boolean hasRemoveInterfaceOpen(ConstructionConfig config) {
