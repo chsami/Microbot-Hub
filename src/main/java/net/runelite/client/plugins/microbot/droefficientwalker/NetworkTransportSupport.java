@@ -1875,7 +1875,8 @@ final class NetworkTransportSupport
         // This is the recorded long approach. The Trollheim teleport approach never
         // passes through this door and keeps its own spell/tablet requirements.
         if (isTrollStrongholdSecretEntrance(source)
-            && Rs2Player.getQuestState(Quest.TROLL_STRONGHOLD) != QuestState.FINISHED) return false;
+            && (Rs2Player.getQuestState(Quest.TROLL_STRONGHOLD) != QuestState.FINISHED
+                || !undergroundUnlocksSatisfied(source))) return false;
         if (source.getType() == TransportType.TELEPORTATION_LEVER
             && (!config.allowWildernessTravel() || !config.useWildernessLevers()
                 || !client.getWorldType().contains(WorldType.MEMBERS))) return false;
