@@ -44,9 +44,9 @@ public class KittenScript extends Script {
     }
 
     private void feedKitten() {
-        Rs2ItemModel food = Rs2Inventory.get(FeedKittenEvent.KITTEN_FOOD);
+        Rs2ItemModel food = FeedKittenEvent.findKittenFood();
         if (food == null) return;
-        Microbot.getRs2NpcCache().query().withName("Kitten").toListOnClientThread().stream().findFirst().ifPresent(kitten -> Rs2Inventory.useItemOnNpc(food.getId(), kitten.getNpc()));
+        FeedKittenEvent.feedKitten(food);
         sleep(1000, 2000);
     }
 

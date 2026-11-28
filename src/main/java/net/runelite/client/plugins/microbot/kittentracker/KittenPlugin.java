@@ -61,7 +61,7 @@ import java.util.List;
 @Slf4j
 @PluginDescriptor(
         name = PluginDescriptor.See1Duck + " Kitten Tracker",
-        description = "Automates the kitten growth process and provides notifications",
+        description = "Automates kitten growth (feeds raw karambwanji or other raw/cooked fish up to tuna from your inventory) and provides notifications",
         tags = {"cat", "kitten", "duck", "s1d", "see1duck", "microbot"},
         version = KittenPlugin.version,
         minClientVersion = "2.0.13",

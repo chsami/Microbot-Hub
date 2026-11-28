@@ -14,23 +14,52 @@ import javax.inject.Inject;
 
 public class FeedKittenEvent implements BlockingEvent {
     static final int[] KITTEN_FOOD = {
-            ItemID.TBWT_RAW_KARAMBWANJI, ItemID.TBWT_COOKED_KARAMBWANJI,
-            ItemID.RAW_SHRIMP, ItemID.SHRIMP,
-            ItemID.RAW_ANCHOVIES, ItemID.ANCHOVIES,
-            ItemID.RAW_SARDINE, ItemID.SARDINE, ItemID.SEASONED_SARDINE,
-            ItemID.RAW_HERRING, ItemID.HERRING,
-            ItemID.RAW_MACKEREL, ItemID.MACKEREL,
-            ItemID.RAW_TROUT, ItemID.TROUT,
-            ItemID.RAW_COD, ItemID.COD,
-            ItemID.RAW_PIKE, ItemID.PIKE,
-            ItemID.RAW_SALMON, ItemID.SALMON,
-            ItemID.RAW_TUNA, ItemID.TUNA
+            ItemID.TBWT_RAW_KARAMBWANJI,
+            ItemID.RAW_SHRIMP,
+            ItemID.RAW_ANCHOVIES,
+            ItemID.RAW_SARDINE,
+            ItemID.RAW_HERRING,
+            ItemID.RAW_MACKEREL,
+            ItemID.RAW_TROUT,
+            ItemID.RAW_COD,
+            ItemID.RAW_PIKE,
+            ItemID.RAW_SALMON,
+            ItemID.RAW_TUNA,
+            ItemID.TBWT_COOKED_KARAMBWANJI,
+            ItemID.SHRIMP,
+            ItemID.ANCHOVIES,
+            ItemID.SARDINE,
+            ItemID.SEASONED_SARDINE,
+            ItemID.HERRING,
+            ItemID.MACKEREL,
+            ItemID.TROUT,
+            ItemID.COD,
+            ItemID.PIKE,
+            ItemID.SALMON,
+            ItemID.TUNA
     };
 
     private final KittenPlugin kittenPlugin;
     @Inject
     public FeedKittenEvent(KittenPlugin kittenPlugin) {
         this.kittenPlugin = kittenPlugin;
+    }
+
+    static Rs2ItemModel findKittenFood() {
+        for (int id : KITTEN_FOOD) {
+            if (Rs2Inventory.contains(id)) {
+                return Rs2Inventory.get(id);
+            }
+        }
+        return null;
+    }
+
+    static void feedKitten(Rs2ItemModel food) {
+        Microbot.getRs2NpcCache().query().withName("Kitten").toListOnClientThread().stream().findFirst().ifPresent(kitten -> {
+            if (Rs2Inventory.useItemOnNpc(food.getId(), kitten.getNpc())) {
+                Microbot.log("Kitten Tracker: fed your kitten 1 " + food.getName() + " to stop it running away.");
+            }
+        });
     }
 
     @Override
@@ -42,11 +71,11 @@ public class FeedKittenEvent implements BlockingEvent {
 
     @Override
     public boolean execute() {
-        Rs2ItemModel food = Rs2Inventory.get(KITTEN_FOOD);
+        Rs2ItemModel food = findKittenFood();
         if (food == null) {
             return true;
         }
-        Microbot.getRs2NpcCache().query().withName("Kitten").toListOnClientThread().stream().findFirst().ifPresent(kitten -> Rs2Inventory.useItemOnNpc(food.getId(), kitten.getNpc()));
+        feedKitten(food);
         Global.sleepUntil(() -> (KittenPlugin.HUNGRY_FIRST_WARNING_TIME_LEFT_IN_SECONDS * 1000) < kittenPlugin.getTimeBeforeHungry());
         return true;
     }
