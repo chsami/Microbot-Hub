@@ -275,7 +275,6 @@ class TrollStrongholdRouteTest {
             when(thread.invoke(any(Supplier.class))).thenAnswer(call -> ((Supplier<?>) call.getArgument(0)).get());
             dro.when(Microbot::getClientThread).thenReturn(thread);
             dro.when(Microbot::getClient).thenReturn(client);
-            dro.when(() -> Microbot.getVarbitValue(anyInt())).thenAnswer(call -> (int) call.getArgument(0) == 1 ? 1 : 0);
             Class<?> edgeClass = (Class<?>) field(fixture, "transportClass");
             for (String[] binding : List.of(new String[] {"transportOriginField", "origin"},
                     new String[] {"transportDestinationField", "destination"}, new String[] {"transportActionField", "action"},
