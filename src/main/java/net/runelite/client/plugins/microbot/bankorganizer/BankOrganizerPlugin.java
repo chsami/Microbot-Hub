@@ -33,7 +33,7 @@ import net.runelite.client.plugins.microbot.Microbot;
 	tags = {"bank", "organizer", "tabs", "sort"},
 	authors = {"bgatfa"},
 	version = BankOrganizerPlugin.version,
-	minClientVersion = "2.0.61",
+	minClientVersion = "2.6.24",
 	iconUrl = "",
 	cardUrl = "",
 	enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -42,7 +42,11 @@ import net.runelite.client.plugins.microbot.Microbot;
 @Slf4j
 public class BankOrganizerPlugin extends Plugin
 {
-	public static final String version = "1.0.1";
+	public static final String version = "1.0.2";
+	private static final String INPUT_YIELD_TIMEOUT_MESSAGE =
+		"You kept using the mouse or keyboard. Leave them idle for a few seconds, then turn Bank Organizer off and on again.";
+	private static final String BANK_OPEN_FAILED_MESSAGE =
+		"Could not open the bank. Stand next to a bank booth or banker and turn Bank Organizer off and on again.";
 
 	@Inject
 	private BankOrganizerConfig config;
@@ -58,6 +62,21 @@ public class BankOrganizerPlugin extends Plugin
 
 	private final BankTagLayoutParser layoutParser = new BankTagLayoutParser();
 	private final BankTagLayoutPlanner layoutPlanner = new BankTagLayoutPlanner();
+	private final InputYieldRetry inputYieldRetry = new InputYieldRetry(new InputYieldRetry.Listener()
+	{
+		@Override
+		public void waitingForIdle()
+		{
+			log.info("Waiting for you to stop using the mouse and keyboard before organizing the bank...");
+		}
+
+		@Override
+		public void retrying(int attempt, int maxAttempts)
+		{
+			log.info("You used the mouse or keyboard while Bank Organizer was working. Retrying (attempt {} of {})...",
+				attempt, maxAttempts);
+		}
+	});
 
 	private ExecutorService executor;
 	private Future<?> task;
@@ -138,35 +157,29 @@ public class BankOrganizerPlugin extends Plugin
 				return;
 			}
 
-			log.info("Opening bank.");
-			if (!actuator.ensureBankOpen())
-			{
-				throw new IllegalStateException("Could not open bank.");
-			}
-			if (stopRequested)
-			{
-				return;
-			}
-
-			log.info("Checking bank rearrange mode.");
-			BankActuator.ActuatorResult insertMode = actuator.ensureBankInsertMode();
-			if (!insertMode.success())
-			{
-				throw new IllegalStateException(insertMode.message());
-			}
-			if (stopRequested)
+			BankActuator.FullOrganizeResult result = inputYieldRetry.run(
+				() -> organizeBank(tabs),
+				attempt -> attempt == null || attempt.success(),
+				() -> BankActuator.FullOrganizeResult.fail(INPUT_YIELD_TIMEOUT_MESSAGE, null, 0, 0),
+				last -> BankActuator.FullOrganizeResult.fail(
+					INPUT_YIELD_TIMEOUT_MESSAGE + " (last step: " + last.message() + ")",
+					last.finalSnapshot(), last.createdTabs(), last.movedStacks()));
+			if (result == null)
 			{
 				return;
 			}
-
-			log.info("Reading bank snapshot.");
-			BankSnapshot snapshot = snapshotReader.read();
-			if (stopRequested)
+			if (result.success())
 			{
-				return;
+				log.info("Bank Organizer completed: {}", result.message());
 			}
-
-			runBankTagLayoutPlanner(snapshot, tabs);
+			else
+			{
+				log.warn("Bank Organizer blocked: {}", result.message());
+			}
+		}
+		catch (InterruptedException e)
+		{
+			Thread.currentThread().interrupt();
 		}
 		catch (Throwable t)
 		{
@@ -174,38 +187,53 @@ public class BankOrganizerPlugin extends Plugin
 		}
 	}
 
-	private void runBankTagLayoutPlanner(BankSnapshot snapshot, List<BankTagLayoutTab> tabs)
+	private BankActuator.FullOrganizeResult organizeBank(List<BankTagLayoutTab> tabs)
 	{
+		if (stopRequested)
+		{
+			return null;
+		}
+
+		log.info("Opening bank.");
+		if (!actuator.ensureBankOpen())
+		{
+			return BankActuator.FullOrganizeResult.fail(BANK_OPEN_FAILED_MESSAGE, null, 0, 0);
+		}
+		if (stopRequested)
+		{
+			return null;
+		}
+
+		log.info("Checking bank rearrange mode.");
+		BankActuator.ActuatorResult insertMode = actuator.ensureBankInsertMode();
+		if (!insertMode.success())
+		{
+			return BankActuator.FullOrganizeResult.fail(insertMode.message(), null, 0, 0);
+		}
+		if (stopRequested)
+		{
+			return null;
+		}
+
+		log.info("Reading bank snapshot.");
+		BankSnapshot snapshot = snapshotReader.read();
+		if (stopRequested)
+		{
+			return null;
+		}
+
 		IntFunction<String> itemNameLookup = config.forceInsertVariants()
 			? itemNameLookup(tabs)
 			: this::itemName;
 		BankTagLayoutPlan plan = layoutPlanner.plan(snapshot, tabs, config.forceInsertVariants(), itemNameLookup);
 		if (stopRequested)
 		{
-			return;
+			return null;
 		}
 
 		log.info("Live layout delta organize requested: {} planned action(s).", plan.actions().size());
-		runLiveLayoutOrganizer(plan);
-	}
-
-	private void runLiveLayoutOrganizer(BankTagLayoutPlan plan)
-	{
-		if (stopRequested)
-		{
-			return;
-		}
-
 		log.info("Moving {} listed stack(s) into {} configured layout tab(s).", plan.actions().size(), plan.tabs().size());
-		BankActuator.FullOrganizeResult result = actuator.runBankTagLayoutDelta(plan, config.forceInsertVariants());
-		if (result.success())
-		{
-			log.info("Bank Organizer completed: {}", result.message());
-		}
-		else
-		{
-			log.warn("Bank Organizer blocked: {}", result.message());
-		}
+		return actuator.runBankTagLayoutDelta(plan, config.forceInsertVariants());
 	}
 
 	private IntFunction<String> itemNameLookup(List<BankTagLayoutTab> tabs)
