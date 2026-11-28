@@ -178,12 +178,17 @@ final class EfficientSailingModule implements AutoCloseable {
             }
             return;
         }
+        if (!onBoat()) return; // Sail here is offered only while standing on a boat's deck.
         for (MenuEntry e : client.getMenuEntries()) if (SAIL.equals(e.getOption()) && TARGET.equals(e.getTarget())) return;
         final WorldPoint target = mapPoint(mouse);
         if (target != null) client.createMenuEntry(-1).setOption(SAIL).setTarget(TARGET).setType(MenuAction.RUNELITE)
                 .setDeprioritized(true).onClick(e -> {
                     if (navigator == n) n.sailTo(target);
                 });
+    }
+    private boolean onBoat() {
+        net.runelite.api.Player player = client.getLocalPlayer();
+        return player != null && player.getWorldView() != null && !player.getWorldView().isTopLevel();
     }
     private WorldPoint mapPoint(Point mouse) {
         WorldMap map = client.getWorldMap();

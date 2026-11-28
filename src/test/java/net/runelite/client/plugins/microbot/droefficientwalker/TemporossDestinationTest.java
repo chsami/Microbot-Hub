@@ -7,7 +7,6 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiPredicate;
 import java.util.function.IntUnaryOperator;
 import java.util.function.Predicate;
@@ -16,12 +15,9 @@ import net.runelite.api.Quest;
 import net.runelite.api.QuestState;
 import net.runelite.api.Skill;
 import net.runelite.api.coords.WorldPoint;
-import net.runelite.client.config.Keybind;
-import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.plugins.microbot.droefficientwalker.support.TransportExecutionRegistry;
 import net.runelite.client.plugins.microbot.shortestpath.Transport;
 import net.runelite.client.plugins.microbot.shortestpath.TransportType;
-import net.runelite.client.util.HotkeyListener;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -34,32 +30,9 @@ class TemporossDestinationTest
     private static final WorldPoint FERRY = new WorldPoint(3272, 3143, 0);
     private static final String SHADOW = "net.runelite.client.plugins.microbot.droefficientwalker.engine";
 
-    @Test void namedDestinationIsSharedAndOnlyExplicitButtonOrHotkeyStartsTravel() throws Exception
+    @Test void lobbyBankStaysTheMaintainedApproach()
     {
-        EfficientWalkerConfig defaults = new EfficientWalkerConfig() {};
-        assertEquals(WalkerDestination.NONE, defaults.namedDestination());
-        assertEquals(Keybind.NOT_SET, defaults.walkToNamedDestinationHotkey());
         assertEquals(new WorldPoint(3156, 2836, 0), TemporossAccess.LOBBY_BANK);
-        assertSame(TemporossAccess.LOBBY_BANK, WalkerDestination.TEMPOROSS.getWorldPoint());
-        assertEquals("Tempoross (Ruins of Unkah)", WalkerDestination.TEMPOROSS.toString());
-        NamedTravel fixture = new NamedTravel();
-        when(fixture.config.namedDestination()).thenReturn(WalkerDestination.TEMPOROSS);
-        when(fixture.walker.walkTo(TemporossAccess.LOBBY_BANK)).thenReturn(true);
-        fixture.change(EfficientWalkerConfig.GROUP, "namedDestination");
-        fixture.change("unrelated", "walkToNamedDestination");
-        fixture.process();
-        verifyNoInteractions(fixture.walker);
-        fixture.change(EfficientWalkerConfig.GROUP, "walkToNamedDestination");
-        verifyNoInteractions(fixture.walker);
-        fixture.process();
-        fixture.process();
-        verify(fixture.walker).walkTo(TemporossAccess.LOBBY_BANK);
-        verifyNoMoreInteractions(fixture.walker);
-        clearInvocations(fixture.walker);
-        ((HotkeyListener)field(fixture.plugin, "destinationHotkey")).hotkeyPressed();
-        fixture.process();
-        verify(fixture.walker).walkTo(TemporossAccess.LOBBY_BANK);
-        verifyNoMoreInteractions(fixture.walker);
     }
 
     @Test void shortcutAdmissionRequiresExactMaintainedTypeActionIdAndEndpoints()
@@ -186,36 +159,5 @@ class TemporossDestinationTest
         Method method = WalkerTestReflection.declaredMethod(owner, name, types);
         method.setAccessible(true);
         return method;
-    }
-
-    private static final class NamedTravel
-    {
-        final EfficientWalkerPlugin plugin = new EfficientWalkerPlugin();
-        final EfficientWalkerConfig config = mock(EfficientWalkerConfig.class, CALLS_REAL_METHODS);
-        final EfficientWalker walker = mock(EfficientWalker.class);
-
-        NamedTravel() throws Exception
-        {
-            for (String name : List.of("config", "walker"))
-            {
-                Field field = WalkerTestReflection.declaredField(EfficientWalkerPlugin.class, name);
-                field.setAccessible(true);
-                field.set(plugin, name.equals("config") ? config : walker);
-            }
-        }
-
-        void change(String group, String key)
-        {
-            ConfigChanged event = new ConfigChanged();
-            event.setGroup(group);
-            event.setKey(key);
-            plugin.onConfigChanged(event);
-        }
-
-        void process() throws Exception
-        {
-            method(EfficientWalkerPlugin.class, "processHotkey").invoke(plugin);
-            assertNull(((AtomicReference<?>)field(plugin, "pendingHotkey")).get());
-        }
     }
 }

@@ -276,10 +276,15 @@ public final class Rs2WalkerBankingPlanner {
 				&& transport.getItemRequirements().isEmpty())
 			{
 				int currencyItemId = getCurrencyItemId(transport.getCurrencyName());
-				if (currencyItemId > 0)
+				if (currencyItemId > 0
+					&& !allocateConsumable(
+						Collections.singletonMap(currencyItemId, transport.getCurrencyAmount()),
+						consumed,
+						withdrawals,
+						carriedQuantityProvider,
+						bankQuantityProvider))
 				{
-					withdrawals.merge(
-						currencyItemId, transport.getCurrencyAmount(), Integer::sum);
+					return Rs2TransportLoadout.unavailable();
 				}
 				continue;
 			}
@@ -476,8 +481,17 @@ public final class Rs2WalkerBankingPlanner {
 				int requiredQuantity = alternatives.get(purchasable.itemId);
 				int itemsNeeded = isCurrencyBasedTransport(transportType)
 					? 1 : requiredQuantity;
-				requested.merge(
-					currencyItemId, purchasable.costAmount * itemsNeeded, Integer::sum);
+				int totalCurrency = purchasable.costAmount * itemsNeeded;
+				int alreadyCarried = safeQuantity(carriedQuantityProvider, currencyItemId);
+				int currencyDeficit = Math.max(0, totalCurrency - alreadyCarried);
+				if (safeQuantity(bankQuantityProvider, currencyItemId) < currencyDeficit)
+				{
+					return false;
+				}
+				if (currencyDeficit > 0)
+				{
+					requested.merge(currencyItemId, currencyDeficit, Integer::sum);
+				}
 				return true;
 			}
 			return false;

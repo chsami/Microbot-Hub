@@ -58,6 +58,12 @@ final class CollisionRoutePlanner {
    private static final int SEARCH_RETRY_NODE_LIMIT = 2500000;
    private static final long SEARCH_RETRY_BUDGET_FACTOR = 3L;
    public static volatile WorldPoint aioTravelTarget;
+   /**
+    * Extra cost for entering a tile in an aggressive NPC's melee ring (shared dangerous_tiles.tsv,
+    * e.g. Draynor Manor undead trees) so routes keep two tiles away when a detour exists. Step cost
+    * plus this must stay below the 29 distance buckets of {@link SearchFrontier}.
+    */
+   static final int DANGEROUS_RING_STEP_COST = 27;
 
    private CollisionRoutePlanner(Int2ObjectOpenHashMap<long[]> collisionRegions,
       List<TransportCatalog.TransportEdge> transports, Predicate<TransportCatalog.TransportEdge> transportPredicate) {
@@ -179,6 +185,8 @@ final class CollisionRoutePlanner {
       Predicate<TransportCatalog.TransportEdge> canUseTransport, long budgetNanos, int nodeLimit) {
       SearchFrontier forward = new SearchFrontier(starts);
       SearchFrontier reverse = new SearchFrontier(targets);
+      IntOpenHashSet targetTiles = new IntOpenHashSet();
+      for (WorldPoint target : targets) if (target != null) targetTiles.add(packWorldPoint(target));
       long deadline = System.nanoTime() + budgetNanos;
       int bestDistance = Integer.MAX_VALUE;
       int meetingTile = -1;
@@ -221,7 +229,10 @@ final class CollisionRoutePlanner {
                   int transportOrigin = expandingReverse ? tile : nextTile;
                   traversable = this.hasUsableOutgoingTransport(transportOrigin, excludedTransports, canUseTransport);
                }
-               if (traversable) frontier.enqueueIfShorter(nextTile, tile, distance + 1);
+               if (traversable) {
+                  int enteredTile = expandingReverse ? tile : nextTile;
+                  frontier.enqueueIfShorter(nextTile, tile, distance + 1 + dangerousRingCost(enteredTile, targetTiles));
+               }
             }
          }
 
@@ -251,6 +262,13 @@ final class CollisionRoutePlanner {
       return new RouteSearchResult(Collections.emptyList(),
          exhausted ? WalkerEngine.PlanningFailure.ROUTE_UNSUPPORTED : WalkerEngine.PlanningFailure.SEARCH_LIMIT,
          Integer.MAX_VALUE);
+   }
+
+   /** Targets are exempt so a destination next to a hazard stays reachable at plain cost. */
+   static int dangerousRingCost(int packedTile, IntOpenHashSet targetTiles) {
+      return net.runelite.client.plugins.microbot.droefficientwalker.support.pathfinder.PathfinderConfig.isDangerousRingTile(
+            unpackX(packedTile), unpackY(packedTile), unpackPlane(packedTile))
+         && !targetTiles.contains(packedTile) ? DANGEROUS_RING_STEP_COST : 0;
    }
 
    private static boolean relaxSearchNode(int tile, int parent, int distance, Int2IntOpenHashMap parents,

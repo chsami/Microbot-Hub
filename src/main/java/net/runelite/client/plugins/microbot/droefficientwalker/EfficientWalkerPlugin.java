@@ -45,7 +45,7 @@ import java.util.function.Supplier;
     tags = {"walking", "pathfinding", "microbot"},
     authors = {"droplugins"},
     enabledByDefault = PluginConstants.DEFAULT_ENABLED,
-    version = "1.12.73",
+    version = "1.12.75",
     iconUrl = "https://chsami.github.io/Microbot-Hub/EfficientWalkerPlugin/assets/icon.png",
     cardUrl = "https://chsami.github.io/Microbot-Hub/EfficientWalkerPlugin/assets/card.png",
     isExternal = PluginConstants.IS_EXTERNAL
@@ -113,7 +113,6 @@ public class EfficientWalkerPlugin extends Plugin
     private final HotkeyListener bankHotkey = hotkey(this::bankKeybind, HotkeyAction.BANK);
     private final HotkeyListener questHotkey = hotkey(this::questKeybind, HotkeyAction.QUEST);
     private final HotkeyListener cancelHotkey = hotkey(this::cancelKeybind, HotkeyAction.CANCEL);
-    private final HotkeyListener destinationHotkey = hotkey(() -> config.walkToNamedDestinationHotkey(), HotkeyAction.DESTINATION);
 
     private HotkeyListener hotkey(Supplier<Keybind> supplier, HotkeyAction action)
     {
@@ -132,8 +131,6 @@ public class EfficientWalkerPlugin extends Plugin
     {
         if (walker != null && WalkerRouteSettings.affectsRoute(event.getGroup(), event.getKey()))
             walker.routeSettingsChanged();
-        if (EfficientWalkerConfig.GROUP.equals(event.getGroup()) && "walkToNamedDestination".equals(event.getKey()))
-            pendingHotkey.set(HotkeyAction.DESTINATION);
         if (EfficientWalkerConfig.GROUP.equals(event.getGroup()) && ("useMicrobotMouse".equals(event.getKey()) || "walkerMouseActivity".equals(event.getKey()) || "walkerMouseParkSide".equals(event.getKey())))
             WalkerMouseControl.configure(config);
     }
@@ -233,7 +230,6 @@ public class EfficientWalkerPlugin extends Plugin
         keyManager.registerKeyListener(bankHotkey);
         keyManager.registerKeyListener(questHotkey);
         keyManager.registerKeyListener(cancelHotkey);
-        keyManager.registerKeyListener(destinationHotkey);
         overlayManager.add(overlay);
         overlayManager.add(mapOverlay);
         statusOverlay.reset();
@@ -267,11 +263,9 @@ public class EfficientWalkerPlugin extends Plugin
         keyManager.unregisterKeyListener(bankHotkey);
         keyManager.unregisterKeyListener(questHotkey);
         keyManager.unregisterKeyListener(cancelHotkey);
-        keyManager.unregisterKeyListener(destinationHotkey);
         bankHotkey.focusLost();
         questHotkey.focusLost();
         cancelHotkey.focusLost();
-        destinationHotkey.focusLost();
         pendingHotkey.set(null);
         overlayManager.remove(overlay);
         overlayManager.remove(mapOverlay);
@@ -461,6 +455,11 @@ public class EfficientWalkerPlugin extends Plugin
 
         if (walker.getStatus() == EfficientWalker.Status.BLOCKED)
         {
+            String reason = walker.getFailureReason();
+            if (ShantayPassAccess.MISSING_WATERSKIN_MESSAGE.equals(reason))
+            {
+                Microbot.status = reason;
+            }
             clearQuestAutomation();
             pendingWorldMapWalk = null;
             return;
@@ -473,13 +472,6 @@ public class EfficientWalkerPlugin extends Plugin
         HotkeyAction action = pendingHotkey.getAndSet(null);
         if (action == null)
         {
-            return;
-        }
-
-        WalkerDestination selected = action == HotkeyAction.DESTINATION ? config.namedDestination() : null;
-        if (action == HotkeyAction.DESTINATION && (selected == null || selected.getWorldPoint() == null))
-        {
-            Microbot.status = "Choose a named destination in Efficient Walker settings first.";
             return;
         }
 
@@ -503,12 +495,6 @@ public class EfficientWalkerPlugin extends Plugin
                     return;
                 case QUEST:
                     startQuestStep();
-                    return;
-                case DESTINATION:
-                    clearQuestAutomation();
-                    pendingWorldMapWalk = null;
-                    if (!walker.walkTo(selected.getWorldPoint()))
-                        reportError("No reachable route to " + selected + " was found.");
                     return;
                 default:
                     return;
@@ -875,7 +861,6 @@ public class EfficientWalkerPlugin extends Plugin
     {
         BANK,
         QUEST,
-        DESTINATION,
         CANCEL
     }
 }

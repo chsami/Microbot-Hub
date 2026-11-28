@@ -132,13 +132,13 @@
 3224 9600 0	3224 9604 0	Squeeze-through Hole 6912				538=1		4	
 									
 # Lumbridge swamp									
-3169 3171 0	3169 9571 0	Climb-down Dark hole 5947						2	
+3169 3171 0	3169 9571 0	Climb-down Dark hole 5947				279=1		2	Climb-down Dark hole
 3169 9571 0	3169 3171 0	Climb Climbing rope 5946						2	
-3168 3172 0	3168 9572 0	Climb-down Dark hole 5947						2	
+3168 3172 0	3168 9572 0	Climb-down Dark hole 5947				279=1		2	Climb-down Dark hole
 3168 9572 0	3168 3172 0	Climb Climbing rope 5946						2	
-3170 3172 0	3170 9572 0	Climb-down Dark hole 5947						2	
+3170 3172 0	3170 9572 0	Climb-down Dark hole 5947				279=1		2	Climb-down Dark hole
 3170 9572 0	3170 3172 0	Climb Climbing rope 5946						2	
-3169 3173 0	3167 9573 0	Climb-down Dark hole 5947						2	
+3169 3173 0	3167 9573 0	Climb-down Dark hole 5947				279=1		2	Climb-down Dark hole
 									
 # Lumbridge Swamp Caves									
 3225 9542 0	3219 9532 2	Enter Tunnel 6659						2	
@@ -1007,18 +1007,24 @@
 3268 3227 0	3267 3227 0	Open Gate 44050						1	
 3298 3124 0	3297 3124 0	Open Prison door 2692							
 3297 3124 0	3298 3124 0	Open Prison door 2692							
-3303 3117 0	3304 3115 0	Go-through Shantay pass 4031		SHANTAY_PASS=1|COINS=5				2	
-3304 3117 0	3304 3115 0	Go-through Shantay pass 4031		SHANTAY_PASS=1|COINS=5				2	
+3303 3117 0	3304 3115 0	Go-through Shantay pass 4031		SHANTAY_PASS=1|COINS=5				2	Go-through Shantay pass
+3303 3117 0	3304 3115 0	Go-through Shantay pass 4031				4486=1		2	Go-through Shantay pass
+3304 3117 0	3304 3115 0	Go-through Shantay pass 4031		SHANTAY_PASS=1|COINS=5				2	Go-through Shantay pass
+3304 3117 0	3304 3115 0	Go-through Shantay pass 4031				4486=1		2	Go-through Shantay pass
 3304 3115 0	3304 3117 0	Go-through Shantay pass 4031						2	
 3303 3115 0	3304 3117 0	Go-through Shantay pass 4031						2	
-3193 2843 0	3196 2843 0	Go-through Shantay pass 41863		SHANTAY_PASS=1|COINS=5				3	
-3193 2842 0	3196 2842 0	Go-through Shantay pass 41863		SHANTAY_PASS=1|COINS=5				3	
-3196 2843 0	3193 2843 0	Go-through Shantay pass 41863						3	
-3196 2842 0	3193 2842 0	Go-through Shantay pass 41863						3	
-3167 2819 0	3167 2816 0	Go-through Shantay pass 41863		SHANTAY_PASS=1|COINS=5				3	
-3168 2819 0	3168 2816 0	Go-through Shantay pass 41863		SHANTAY_PASS=1|COINS=5				3	
-3167 2816 0	3167 2819 0	Go-through Shantay pass 41863						3	
-3168 2816 0	3168 2819 0	Go-through Shantay pass 41863						3	
+3193 2843 0	3196 2843 0	Go-through Shantay pass 41326		SHANTAY_PASS=1				3	Go-through Shantay pass
+3193 2843 0	3196 2843 0	Go-through Shantay pass 41326				4486=1		3	Go-through Shantay pass
+3193 2842 0	3196 2842 0	Go-through Shantay pass 41326		SHANTAY_PASS=1				3	Go-through Shantay pass
+3193 2842 0	3196 2842 0	Go-through Shantay pass 41326				4486=1		3	Go-through Shantay pass
+3196 2843 0	3193 2843 0	Go-through Shantay pass 41326						3	Go-through Shantay pass
+3196 2842 0	3193 2842 0	Go-through Shantay pass 41326						3	Go-through Shantay pass
+3167 2819 0	3167 2816 0	Go-through Shantay pass 41326		SHANTAY_PASS=1				3	Go-through Shantay pass
+3167 2819 0	3167 2816 0	Go-through Shantay pass 41326				4486=1		3	Go-through Shantay pass
+3168 2819 0	3168 2816 0	Go-through Shantay pass 41326		SHANTAY_PASS=1				3	Go-through Shantay pass
+3168 2819 0	3168 2816 0	Go-through Shantay pass 41326				4486=1		3	Go-through Shantay pass
+3167 2816 0	3167 2819 0	Go-through Shantay pass 41326						3	Go-through Shantay pass
+3168 2816 0	3168 2819 0	Go-through Shantay pass 41326						3	Go-through Shantay pass
 3322 3138 0	3322 3138 1	Climb-up Ladder 21781							
 3322 3138 1	3322 3138 0	Climb-down Ladder 21782							
 3312 3184 0	3314 3185 1	Climb-up Staircase 16671							
@@ -3423,10 +3429,10 @@
 3229 3108 0	3483 9510 2	Climb-down Tunnel entrance 3827							
 3484 9510 2	3226 3108 0	Climb-up Rope 3829							
 3483 9509 2	3226 3108 0	Climb-up Rope 3829							
-3514 9521 2	2711 5206 0	Enter Tunnel 23596							
-2711 5206 0	3514 9521 2	Enter Blocked tunnel 22656							
-3514 9520 2	2711 5206 0	Enter Tunnel 23596							
-2711 5207 0	3514 9520 2	Enter Blocked tunnel 22657							
+3514 9521 2	2711 5206 0	Enter Tunnel 23596			Death to the Dorgeshuun				Enter Tunnel
+2711 5206 0	3514 9521 2	Enter Blocked tunnel 22656			Death to the Dorgeshuun				Enter Blocked tunnel
+3514 9520 2	2711 5206 0	Enter Tunnel 23596			Death to the Dorgeshuun				Enter Tunnel
+2711 5207 0	3514 9520 2	Enter Blocked tunnel 22657			Death to the Dorgeshuun				Enter Blocked tunnel
 3508 9498 2	3508 9493 0	Climb-down Tunnel entrance 23609							
 3508 9493 0	3508 9497 2	Climb-up Rope 3832							
 3508 9497 2	3508 9493 0	Climb-down Tunnel entrance 23609							
@@ -3450,8 +3456,9 @@
 2721 5361 1	2720 5358 0	Climb-down Stairs 22940						1	
 2747 5374 0	3317 9603 0	Open Bone door 22945						1	
 2748 5374 0	3317 9603 0	Open Bone door 22945						1	
-3317 9602 0	2747 5374 0	Open Door 6919						1	
-3318 9602 0	2748 5374 0	Open Door 6919						1	
+3317 9602 0	2747 5374 0	Open Door 6919			Death to the Dorgeshuun			1	Open Door
+3318 9602 0	2748 5374 0	Open Door 6919			Death to the Dorgeshuun			1	Open Door
+3317 9603 0	2748 5374 0	Open Door 6919			Death to the Dorgeshuun				Open Door
 2736 5352 0	2733 5351 1	Climb-up Stairs 22931						1	
 2736 5351 0	2733 5351 1	Climb-up Stairs 22931						1	
 2733 5351 1	2736 5351 0	Climb-down Stairs 22933						1	
@@ -3701,6 +3708,7 @@
 3502 3425 0	3502 3432 0	Cross-bridge Tree 5003							
 3503 3431 0	3502 3425 0	Cross-bridge Tree 5003							
 3501 3426 0	3502 3432 0	Cross-bridge Tree 5003							
+3502 3430 0	3502 3432 0	Cross-bridge Tree 5003							Cross-bridge Tree
 									
 # Burgh de Rott									
 3484 3244 0	3484 3243 0	Open Gate 12817							
@@ -4763,10 +4771,10 @@
 2713 9564 0	2745 3152 0	Leave exit 20878						2	
 									
 # Second Brimhaven Dungeon entrance									
-2760 3064 0	2734 9478 0	Climb Rope 30200				5629>0		2	
-2761 3063 0	2734 9478 0	Climb Rope 30200				5629>0		2	
-2761 3062 0	2734 9478 0	Climb Rope 30200				5629>0		2	
-2760 3061 0	2734 9478 0	Climb Rope 30200				5629>0		2	
+2760 3064 0	2734 9478 0	Climb Rope 66				5629>0		2	Climb Rope
+2761 3063 0	2734 9478 0	Climb Rope 66				5629>0		2	Climb Rope
+2761 3062 0	2734 9478 0	Climb Rope 66				5629>0		2	Climb Rope
+2760 3061 0	2734 9478 0	Climb Rope 66				5629>0		2	Climb Rope
 2734 9478 0	2760 3061 0	Use Crevice 30201				5629>0		2	
 									
 # Brimhaven Dungeon Vines									
@@ -5649,3 +5657,9 @@
 # Legends Guild Ladder									
 2893 3507 0	2893 9907 0	Climb-down Ladder 17374						1	
 2893 9907 0	2893 3507 0	Climb-up Ladder 17387						1	
+
+# Khazard Battlefield tower (Tree Gnome Village)
+2509 3252 0	2509 3254 0	Climb-over Crumbled wall 2185					111>4	3
+2509 3254 0	2509 3252 0	Climb-over Crumbled wall 2185						3
+2502 3252 0	2502 3252 1	Climb-up Ladder 16683						2
+2502 3252 1	2502 3252 0	Climb-down Ladder 16679						2

@@ -6,17 +6,11 @@ import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 import java.util.function.Predicate;
 import net.runelite.api.Quest;
 import net.runelite.api.QuestState;
 import net.runelite.api.coords.WorldPoint;
-import net.runelite.client.config.ConfigButton;
-import net.runelite.client.config.ConfigItem;
-import net.runelite.client.config.Keybind;
-import net.runelite.client.events.ConfigChanged;
-import net.runelite.client.util.HotkeyListener;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import org.junit.jupiter.api.Test;
 
@@ -25,60 +19,17 @@ import static org.mockito.Mockito.*;
 
 class TearsOfGuthixDestinationTest
 {
-    @Test void destinationIsDiscoverableAndOptInThroughNativeSettings() throws Exception
+    @Test void junaApproachIsTheMaintainedDestination()
     {
-        EfficientWalkerConfig config = new EfficientWalkerConfig() {};
-        assertEquals(WalkerDestination.NONE, config.namedDestination());
-        assertNull(config.namedDestination().getWorldPoint());
-        assertEquals(Keybind.NOT_SET, config.walkToNamedDestinationHotkey());
-        assertEquals(new WorldPoint(3250, 9516, 2), WalkerDestination.TEARS_OF_GUTHIX.getWorldPoint());
-        assertEquals(TearsOfGuthixLocation.JUNA_APPROACH, WalkerDestination.TEARS_OF_GUTHIX.getWorldPoint());
-        assertEquals("Tears of Guthix (Juna)", WalkerDestination.TEARS_OF_GUTHIX.toString());
+        assertEquals(new WorldPoint(3250, 9516, 2), TearsOfGuthixLocation.JUNA_APPROACH);
+    }
+
+    @Test void namedDestinationControlsAreGoneBecauseTestWalkCoversThem()
+    {
         for (String name : List.of("namedDestination", "walkToNamedDestination", "walkToNamedDestinationHotkey"))
         {
-            ConfigItem item = EfficientWalkerConfig.class.getMethod(name).getAnnotation(ConfigItem.class);
-            assertNotNull(item, name);
-            // Main keeps the walk-to-named-location controls visible in the panel.
-            assertFalse(item.hidden(), name);
+            assertThrows(NoSuchMethodException.class, () -> EfficientWalkerConfig.class.getMethod(name), name);
         }
-        assertEquals(ConfigButton.class, EfficientWalkerConfig.class.getMethod("walkToNamedDestination").getReturnType());
-    }
-
-    @Test void selectionAndUnrelatedButtonsNeverStartOrRetargetTravel() throws Exception
-    {
-        Fixture f = new Fixture();
-        f.change(EfficientWalkerConfig.GROUP, "namedDestination");
-        f.change("other-config-group", "walkToNamedDestination");
-        f.process();
-        verifyNoInteractions(f.walker);
-    }
-
-    @Test void buttonQueuesOneRequestAndDoesNotClaimArrival() throws Exception
-    {
-        Fixture f = new Fixture();
-        when(f.config.namedDestination()).thenReturn(WalkerDestination.TEARS_OF_GUTHIX);
-        when(f.walker.walkTo(TearsOfGuthixLocation.JUNA_APPROACH)).thenReturn(true);
-        f.change(EfficientWalkerConfig.GROUP, "walkToNamedDestination");
-        verifyNoInteractions(f.walker);
-        f.process();
-        f.process();
-        verify(f.walker).walkTo(TearsOfGuthixLocation.JUNA_APPROACH);
-        verifyNoMoreInteractions(f.walker);
-    }
-
-    @Test void hotkeyUsesSameRequestAndDefaultSelectionPreservesExistingRoute() throws Exception
-    {
-        Fixture f = new Fixture();
-        HotkeyListener listener = (HotkeyListener) field(f.plugin, "destinationHotkey");
-        listener.hotkeyPressed();
-        f.process();
-        verifyNoInteractions(f.walker);
-        when(f.config.namedDestination()).thenReturn(WalkerDestination.TEARS_OF_GUTHIX);
-        when(f.walker.walkTo(TearsOfGuthixLocation.JUNA_APPROACH)).thenReturn(true);
-        listener.hotkeyPressed();
-        f.process();
-        verify(f.walker).walkTo(TearsOfGuthixLocation.JUNA_APPROACH);
-        verifyNoMoreInteractions(f.walker);
     }
 
     @Test void existingGamesNecklaceLandingAndQuestRequirementRemainAvailable() throws Exception
@@ -126,38 +77,5 @@ class TearsOfGuthixDestinationTest
         Field field = WalkerTestReflection.declaredField(owner.getClass(), name);
         field.setAccessible(true);
         return field.get(owner);
-    }
-
-    private static final class Fixture
-    {
-        final EfficientWalkerPlugin plugin = new EfficientWalkerPlugin();
-        final EfficientWalkerConfig config = mock(EfficientWalkerConfig.class, CALLS_REAL_METHODS);
-        final EfficientWalker walker = mock(EfficientWalker.class);
-
-        Fixture() throws Exception
-        {
-            for (String name : List.of("config", "walker"))
-            {
-                Field field = WalkerTestReflection.declaredField(EfficientWalkerPlugin.class, name);
-                field.setAccessible(true);
-                field.set(plugin, name.equals("config") ? config : walker);
-            }
-        }
-
-        void change(String group, String key)
-        {
-            ConfigChanged event = new ConfigChanged();
-            event.setGroup(group);
-            event.setKey(key);
-            plugin.onConfigChanged(event);
-        }
-
-        void process() throws Exception
-        {
-            Method process = WalkerTestReflection.declaredMethod(EfficientWalkerPlugin.class, "processHotkey");
-            process.setAccessible(true);
-            process.invoke(plugin);
-            assertNull(((AtomicReference<?>) field(plugin, "pendingHotkey")).get());
-        }
     }
 }

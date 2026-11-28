@@ -148,9 +148,19 @@ public class PluginSettingsIntegrationTest {
         when(map.getWorldMapZoom()).thenReturn(2f);
         when(f.mapOverlay.mapWorldPointToGraphicsPoint(any(WorldPoint.class))).thenReturn(new Point(200, 150));
         when(navigator.isOceanDestination(new WorldPoint(2685, 3100, 0))).thenReturn(true);
-        when(f.client.createMenuEntry(-1)).thenReturn(entry); f.module.onMenuOpened(new MenuOpened());
+        when(f.client.createMenuEntry(-1)).thenReturn(entry);
+        onDeck(f.client, false); f.module.onMenuOpened(new MenuOpened());
+        verify(f.client, never()).createMenuEntry(-1); // Ashore: no Sail here.
+        onDeck(f.client, true); f.module.onMenuOpened(new MenuOpened());
         verify(entry).setOption("Sail here"); verify(entry, never()).setOption("Export sailing diagnostics");
         verify(f.client, times(1)).createMenuEntry(-1); verify(navigator, never()).sailTo(any()); verifyNoInteractions(f.walker);
+    }
+    private static void onDeck(net.runelite.api.Client client, boolean deck) {
+        net.runelite.api.Player player = mock(net.runelite.api.Player.class);
+        net.runelite.api.WorldView view = mock(net.runelite.api.WorldView.class);
+        when(view.isTopLevel()).thenReturn(!deck);
+        when(player.getWorldView()).thenReturn(view);
+        when(client.getLocalPlayer()).thenReturn(player);
     }
     @Test public void anUnchartedMapRequestStillGivesOnlyCancelWhileAVoyageIsActive() throws Exception {
         Fixture f = new Fixture(); EfficientSailingController navigator = mock(EfficientSailingController.class);
@@ -167,6 +177,7 @@ public class PluginSettingsIntegrationTest {
         when(f.mapOverlay.mapWorldPointToGraphicsPoint(any())).thenReturn(new Point(200, 150));
         MenuEntry requestEntry = mock(MenuEntry.class, RETURNS_SELF);
         when(f.client.createMenuEntry(-1)).thenReturn(requestEntry);
+        onDeck(f.client, true);
         f.module.onMenuOpened(new MenuOpened());
         verify(requestEntry).setOption("Sail here");
         MenuEntry entry = mock(MenuEntry.class, RETURNS_SELF);

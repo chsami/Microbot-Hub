@@ -652,6 +652,7 @@ public class PathfinderConfig {
             }
         }
         relevantItemIds.addAll(HARDCODED_USABILITY_ITEM_IDS);
+        relevantItemIds.addAll(net.runelite.client.plugins.microbot.droefficientwalker.support.CaveAccessRequirements.litLightSources());
         addSpellRuneItemIds(relevantItemIds);
         // Resolve currency to ids HERE, once, rather than comparing item names during fingerprinting —
         // reading an item's name loads its composition on the client thread. An unresolvable currency
@@ -1025,6 +1026,14 @@ public class PathfinderConfig {
         return DANGEROUS_ADJACENT_TILES_PACKED.contains(packedPoint);
     }
 
+    /**
+     * True if the tile lies in a listed hazard's melee-aggro ring, whether or not the
+     * "Avoid dangerous NPCs" option is on. Used by the engine's click capping and route costs.
+     */
+    public static boolean isDangerousRingTile(int x, int y, int plane) {
+        return DANGEROUS_ADJACENT_TILES_PACKED.contains(WorldPointUtil.packWorldPoint(x, y, plane));
+    }
+
     private static Set<Integer> loadDangerousTilesFromResources() {
         Set<Integer> tiles = new HashSet<>();
         final String prefixComment = "#";
@@ -1346,6 +1355,10 @@ public class PathfinderConfig {
             return false;
         }
 
+        if (!isCaveOrUndergroundShortcutAllowed(transport)) {
+            return false;
+        }
+
         // If you don't have the required currency & amount for transport
         int requiredCurrency = transportCurrencyAmount(transport);
         if (requiredCurrency > 0) {
@@ -1401,6 +1414,29 @@ public class PathfinderConfig {
             return hasRequiredItems;
         }
 
+        return true;
+    }
+
+    private boolean isCaveOrUndergroundShortcutAllowed(Transport transport) {
+        if (net.runelite.client.plugins.microbot.droefficientwalker.support.CaveAccessRequirements.isLumbridgeSwampDarkHole(transport)) {
+            if (Microbot.getVarbitValue(net.runelite.client.plugins.microbot.droefficientwalker.support.CaveAccessRequirements.SWAMP_CAVES_ROPED_VARBIT) != 1) {
+                return false;
+            }
+            return net.runelite.client.plugins.microbot.droefficientwalker.CaveLightSource.hasLight()
+                    || (useBankItems && net.runelite.client.plugins.microbot.droefficientwalker.CaveLightSource.canObtainLight(true));
+        }
+        if (net.runelite.client.plugins.microbot.droefficientwalker.support.CaveAccessRequirements.isKalphiteLairRopeEdge(transport)) {
+            return Microbot.getVarbitValue(net.runelite.client.plugins.microbot.droefficientwalker.support.CaveAccessRequirements.KALPHITE_ROPE_1_VARBIT) == 1
+                    || Microbot.getVarbitValue(net.runelite.client.plugins.microbot.droefficientwalker.support.CaveAccessRequirements.DESERT_DIARY_HARD_VARBIT) == 1;
+        }
+        if (net.runelite.client.plugins.microbot.droefficientwalker.support.CaveAccessRequirements.isDorgeshKaanKalphiteTunnel(transport)) {
+            return QuestState.FINISHED.equals(Rs2Player.getQuestState(Quest.DEATH_TO_THE_DORGESHUUN))
+                    && (net.runelite.client.plugins.microbot.droefficientwalker.CaveLightSource.hasLight()
+                        || (useBankItems && net.runelite.client.plugins.microbot.droefficientwalker.CaveLightSource.canObtainLight(true)));
+        }
+        if (net.runelite.client.plugins.microbot.droefficientwalker.support.CaveAccessRequirements.isDorgeshKaanDoor(transport)) {
+            return QuestState.FINISHED.equals(Rs2Player.getQuestState(Quest.DEATH_TO_THE_DORGESHUUN));
+        }
         return true;
     }
 

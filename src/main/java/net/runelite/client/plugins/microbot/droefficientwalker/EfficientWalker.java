@@ -1231,6 +1231,7 @@ public final class EfficientWalker
         if (motherlodeEntranceRockfalls.failure() != null) return Status.BLOCKED;
         if (isWildernessTravelPaused()) return Status.WALKING;
         if(networkTransportSupport.tzhaarDoorFailure()!=null)return Status.BLOCKED;
+        if (networkTransportSupport.shantayWaterskinFailure() != null) return Status.BLOCKED;
         if (bankTeleportBootstrap.isHousePortalPreview()) return Status.PREVIEW;
         if (doorActionBlocked) return Status.BLOCKED;
         if (fairyRingEquipmentRestore.failed()) return Status.BLOCKED;
@@ -1282,12 +1283,33 @@ public final class EfficientWalker
         return Status.valueOf(((Enum<?>) value).name());
     }
 
+    /**
+     * When the preserved engine rejects a carried-only preview via {@code failNavigation("plan-unavailable")},
+     * it resets its destination to {@code null} while keeping {@code BLOCKED} and {@code ROUTE_UNSUPPORTED}/
+     * {@code SEARCH_LIMIT}. Keep those blocks eligible for bank/route discovery instead of dropping to direct fallback.
+     */
+    static boolean isRecoverableBlockedPreview(Status status, Object engineDestination, PlanningFailure failure)
+    {
+        return status == Status.BLOCKED
+            && engineDestination == null
+            && (failure == PlanningFailure.ROUTE_UNSUPPORTED || failure == PlanningFailure.SEARCH_LIMIT);
+    }
+
     public String getFailureReason() {
         if (routeSubmissionFailure != null) return routeSubmissionFailure;
         if (caveLightFailure != null) return caveLightFailure;
         if(networkTransportSupport.tzhaarDoorFailure()!=null)return networkTransportSupport.tzhaarDoorFailure();
+        if (networkTransportSupport.shantayWaterskinFailure() != null) return networkTransportSupport.shantayWaterskinFailure();
         String reason=apeAtollGreegree.failure();
-        return reason!=null?reason:String.valueOf(getPlanningFailure());
+        if (reason != null) return reason;
+        PlanningFailure failure = getPlanningFailure();
+        if (failure == PlanningFailure.ROUTE_UNSUPPORTED
+            && ShantayPassAccess.needsSouthboundEntry(Rs2Player.getWorldLocation(), getDestination())
+            && !ShantayPassAccess.hasFilledWaterskin())
+        {
+            return ShantayPassAccess.MISSING_WATERSKIN_MESSAGE;
+        }
+        return String.valueOf(failure);
     }
 
     public PlanningFailure getPlanningFailure()
@@ -1305,6 +1327,7 @@ public final class EfficientWalker
         if (routeSubmissionFailure != null) return PlanningFailure.ROUTE_UNSUPPORTED;
         if (routeSubmission.isPending()) return PlanningFailure.NONE;
         if (caveLightFailure != null) return PlanningFailure.ROUTE_UNSUPPORTED;
+        if (networkTransportSupport.shantayWaterskinFailure() != null) return PlanningFailure.ROUTE_UNSUPPORTED;
         if (apeAtollGreegree.failure() != null) return PlanningFailure.ROUTE_UNSUPPORTED;
         if (apeAtollTabletTarget != null) return PlanningFailure.NONE;
         if (isWildernessTravelPaused()) return PlanningFailure.NONE;
@@ -1386,6 +1409,7 @@ public final class EfficientWalker
 
     private void tickWithMouseProfile()
     {
+        WalkerMouseControl.observePlayer(client);
         boolean inputHeld = Microbot.pauseAllScripts.get()
             || net.runelite.client.plugins.microbot.util.input.InputArbiter.isHuman();
         bankTeleportBootstrap.holdPreparationBudget(inputHeld);
@@ -3314,10 +3338,12 @@ public final class EfficientWalker
             }
 
             WorldPoint target = pendingTarget;
-            if (target == null || !target.equals(invokeEngine("getDestination", NO_TYPES)))
+            Object engineDestination = invokeEngine("getDestination", NO_TYPES);
+            if (target == null || (!target.equals(engineDestination)
+                && !isRecoverableBlockedPreview(status, engineDestination, rawPlanningFailure())))
             {
-                // A plan-unavailable block clears the engine destination; nothing more will arrive,
-                // so fall back now instead of idling out the full preview timeout.
+                // A plan-unavailable block clears the engine destination; only fall back when
+                // it is not a recoverable unsupported/search-limit block that bank discovery can solve.
                 if (status == Status.BLOCKED
                         || client.getTickCount() - stateStartedTick >= FINAL_PREVIEW_TIMEOUT_TICKS)
                     fallbackToDirect("initial preview unavailable");
@@ -3386,7 +3412,8 @@ public final class EfficientWalker
             if (!Objects.equals(weightedAnalyzedTarget, target) && bankMirrorKnown()
                 && routeCost >= MIN_ROUTE_COST_FOR_MINECART_BANK_PROBE
                 && (networkTransportSupport.hasBankBackedMinecartCandidate(target)
-                    || networkTransportSupport.hasBankBackedAlKharidTollCandidate(target)))
+                    || networkTransportSupport.hasBankBackedAlKharidTollCandidate(target)
+                    || networkTransportSupport.hasBankBackedShantayPassCandidate(target)))
             {
                 beginWeightedRouteAnalysis(target);
                 return;
@@ -4385,6 +4412,16 @@ public final class EfficientWalker
                 summary.append("Moonclan runes");
             }
 
+            Map<Integer, Integer> shantayPass =
+                networkTransportSupport.bankBackedShantayPassRequirements(target);
+            int shantayCoins = shantayPass.getOrDefault(ItemID.COINS, 0);
+            if (shantayPass.containsKey(ItemID.SHANTAY_PASS) && Rs2Bank.count(ItemID.SHANTAY_PASS) > 0)
+            {
+                withdrawals.merge(ItemID.SHANTAY_PASS, 1, Math::max);
+                if (summary.length() > 0) summary.append(" + ");
+                summary.append("Shantay pass");
+            }
+
             // Already standing at an open bank: let the bank-aware planner
             // compare providers once after supplying fares. Resolving another bank here
             // could spend the entire deadline searching for a bank hundreds of tiles away.
@@ -4396,7 +4433,7 @@ public final class EfficientWalker
             int minecartReserve = networkTransportSupport.bankBackedMinecartFareRequirement(target);
             int karamjaReserve = networkTransportSupport.bankBackedKaramjaFareRequirement(target);
             int tollReserve = networkTransportSupport.bankBackedAlKharidTollRequirement(target);
-            int coinReserve = Math.max(Math.max(Math.max(charterReserve, minecartReserve), karamjaReserve), tollReserve);
+            int coinReserve = Math.max(Math.max(Math.max(Math.max(charterReserve, minecartReserve), karamjaReserve), tollReserve), shantayCoins);
             if (coinReserve > 0)
             {
                 int missingCoins = Math.max(0, coinReserve - Rs2Inventory.itemQuantity(ItemID.COINS));
@@ -4430,6 +4467,14 @@ public final class EfficientWalker
                             summary.append(" + ");
                         }
                         summary.append("Al Kharid toll");
+                    }
+                    if (shantayCoins > 0)
+                    {
+                        if (summary.length() > 0)
+                        {
+                            summary.append(" + ");
+                        }
+                        summary.append("Shantay pass coins");
                     }
                 }
             }
