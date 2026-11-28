@@ -1231,6 +1231,7 @@ public final class EfficientWalker
         if (motherlodeEntranceRockfalls.failure() != null) return Status.BLOCKED;
         if (isWildernessTravelPaused()) return Status.WALKING;
         if(networkTransportSupport.tzhaarDoorFailure()!=null)return Status.BLOCKED;
+        if (networkTransportSupport.shantayWaterskinFailure() != null) return Status.BLOCKED;
         if (bankTeleportBootstrap.isHousePortalPreview()) return Status.PREVIEW;
         if (doorActionBlocked) return Status.BLOCKED;
         if (fairyRingEquipmentRestore.failed()) return Status.BLOCKED;
@@ -1298,8 +1299,17 @@ public final class EfficientWalker
         if (routeSubmissionFailure != null) return routeSubmissionFailure;
         if (caveLightFailure != null) return caveLightFailure;
         if(networkTransportSupport.tzhaarDoorFailure()!=null)return networkTransportSupport.tzhaarDoorFailure();
+        if (networkTransportSupport.shantayWaterskinFailure() != null) return networkTransportSupport.shantayWaterskinFailure();
         String reason=apeAtollGreegree.failure();
-        return reason!=null?reason:String.valueOf(getPlanningFailure());
+        if (reason != null) return reason;
+        PlanningFailure failure = getPlanningFailure();
+        if (failure == PlanningFailure.ROUTE_UNSUPPORTED
+            && ShantayPassAccess.needsSouthboundEntry(Rs2Player.getWorldLocation(), getDestination())
+            && !ShantayPassAccess.hasFilledWaterskin())
+        {
+            return ShantayPassAccess.MISSING_WATERSKIN_MESSAGE;
+        }
+        return String.valueOf(failure);
     }
 
     public PlanningFailure getPlanningFailure()
@@ -1317,6 +1327,7 @@ public final class EfficientWalker
         if (routeSubmissionFailure != null) return PlanningFailure.ROUTE_UNSUPPORTED;
         if (routeSubmission.isPending()) return PlanningFailure.NONE;
         if (caveLightFailure != null) return PlanningFailure.ROUTE_UNSUPPORTED;
+        if (networkTransportSupport.shantayWaterskinFailure() != null) return PlanningFailure.ROUTE_UNSUPPORTED;
         if (apeAtollGreegree.failure() != null) return PlanningFailure.ROUTE_UNSUPPORTED;
         if (apeAtollTabletTarget != null) return PlanningFailure.NONE;
         if (isWildernessTravelPaused()) return PlanningFailure.NONE;

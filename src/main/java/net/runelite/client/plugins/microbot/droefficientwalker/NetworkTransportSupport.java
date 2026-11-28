@@ -496,6 +496,7 @@ final class NetworkTransportSupport
             {
                 requestTarget = target;
                 tzhaarDoorFailure=null;
+                shantayWaterskinFailure = null;
                 // A failed house interaction is not a permanent account capability loss.
                 failedSharedEdges.removeIf(key -> key.contains(":Max POH:"));
                 wildernessObeliskHops = 0;
@@ -540,10 +541,12 @@ final class NetworkTransportSupport
      */
     private volatile String tzhaarDoorFailure;
     String tzhaarDoorFailure(){return tzhaarDoorFailure;}
+    private volatile String shantayWaterskinFailure;
+    String shantayWaterskinFailure() { return shantayWaterskinFailure; }
 
     boolean beforeEngineTick()
     {
-        if(tzhaarDoorFailure!=null)return true;
+        if(tzhaarDoorFailure!=null || shantayWaterskinFailure != null)return true;
         if (!installed)
         {
             return false;
@@ -902,6 +905,7 @@ final class NetworkTransportSupport
     void cancel()
     {
         tzhaarDoorFailure=null;
+        shantayWaterskinFailure = null;
         obeliskReplan = false;
         stickySwampBankRetry = false;
         stickySwampBankJourney = false;
@@ -1842,6 +1846,16 @@ final class NetworkTransportSupport
             || from.distanceTo2D(to) > 8;
     }
 
+    /**
+     * The shared rows gate the Troll Stronghold secret door on its back-exit unlock for the shared walker
+     * (upstream #2348). This walker keeps its own Troll Stronghold quest gate for that door instead.
+     */
+    static boolean ignoresSharedVarbit(Transport source, int varbitId)
+    {
+        return varbitId == net.runelite.api.gameval.VarbitID.TROLL_OPENED_BACK_EXIT
+            && isTrollStrongholdSecretEntrance(source);
+    }
+
     static boolean isTrollStrongholdSecretEntrance(Transport source)
     {
         if (source == null || source.getType() != TransportType.TRANSPORT
@@ -1854,7 +1868,8 @@ final class NetworkTransportSupport
     private boolean undergroundUnlocksSatisfied(Transport source)
     {
         for (var requirement : source.getVarbits())
-            if (!requirement.matches(Microbot.getVarbitValue(requirement.getVarbitId()))) return false;
+            if (!ignoresSharedVarbit(source, requirement.getVarbitId())
+                && !requirement.matches(Microbot.getVarbitValue(requirement.getVarbitId()))) return false;
         for (var requirement : source.getVarplayers())
             if (!requirement.matches(Microbot.getVarbitPlayerValue(requirement.getVarplayerId()))) return false;
         List<QuestState> states = List.of(QuestState.NOT_STARTED, QuestState.IN_PROGRESS, QuestState.FINISHED);
@@ -1908,7 +1923,8 @@ final class NetworkTransportSupport
                 source,
                 ShantayPassAccess.hasDesertDiaryElite(),
                 Rs2Inventory.itemQuantity(ItemID.SHANTAY_PASS),
-                Rs2Inventory.itemQuantity(COINS));
+                Rs2Inventory.itemQuantity(COINS),
+                ShantayPassAccess.hasFilledWaterskin());
         }
         if (source.getObjectId() == 2185 && !undergroundUnlocksSatisfied(source))
         {
@@ -2016,6 +2032,7 @@ final class NetworkTransportSupport
         ArrayList<Object> varbits = new ArrayList<>();
         for (var requirement : source.getVarbits())
         {
+            if (ignoresSharedVarbit(source, requirement.getVarbitId())) continue;
             char comparator = requirement.getOperator().name().contains("GREATER") ? '>' : '=';
             varbits.add(requirementCtor.newInstance(
                 requirement.getVarbitId(), requirement.getValue(), comparator));
@@ -2712,6 +2729,7 @@ final class NetworkTransportSupport
     Map<Integer, Integer> bankBackedShantayPassRequirements(WorldPoint target)
     {
         if (!ShantayPassAccess.needsSouthboundEntry(playerLocation(), target)
+            || !ShantayPassAccess.hasFilledWaterskin()
             || ShantayPassAccess.hasDesertDiaryElite())
         {
             return Map.of();
@@ -5647,6 +5665,12 @@ final class NetworkTransportSupport
         boolean caveWarningOpen = existingCaveWarning != null && existingCaveWarning.group >= 0;
 
         boolean shantayPass = ShantayPassAccess.isPass(transport);
+        if (shantayPass && ShantayPassAccess.isSouthboundPass(transport) && !ShantayPassAccess.hasFilledWaterskin())
+        {
+            shantayWaterskinFailure = ShantayPassAccess.MISSING_WATERSKIN_MESSAGE;
+            Microbot.status = shantayWaterskinFailure;
+            return false;
+        }
         ShantayPassAccess.Warning existingShantayWarning = shantayPass
             ? Microbot.getClientThread().runOnClientThreadOptional(() -> ShantayPassAccess.warning(client)).orElse(null) : null;
         boolean shantayWarningOpen = existingShantayWarning != null && existingShantayWarning.group >= 0;
@@ -5766,6 +5790,12 @@ final class NetworkTransportSupport
             if (shantayPass)
             {
                 if (!LumbridgeSwampCaveAccess.inputAllowed()) return false;
+                if (ShantayPassAccess.isSouthboundPass(transport) && !ShantayPassAccess.hasFilledWaterskin())
+                {
+                    shantayWaterskinFailure = ShantayPassAccess.MISSING_WATERSKIN_MESSAGE;
+                    Microbot.status = shantayWaterskinFailure;
+                    return false;
+                }
                 ShantayPassAccess.Warning warning = Microbot.getClientThread().runOnClientThreadOptional(() ->
                     ShantayPassAccess.warning(client)).orElse(null);
                 if (warning != null && warning.group >= 0)

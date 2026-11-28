@@ -32,9 +32,20 @@ final class ShantayPassAccess
     static final int WARNING_GROUP = CaveAccessRequirements.SHANTAY_WARNING_WIDGET_GROUP;
     static final int WARNING_YES_CHILD = CaveAccessRequirements.SHANTAY_WARNING_YES_CHILD;
     static final int PASS_COST = CaveAccessRequirements.SHANTAY_PASS_COST;
+    static final String MISSING_WATERSKIN_MESSAGE =
+        "Bring a filled waterskin to cross Shantay Pass into the desert.";
 
     private ShantayPassAccess()
     {
+    }
+
+    static boolean hasFilledWaterskin()
+    {
+        return Rs2Inventory.hasItem(
+            ItemID.WATER_SKIN4,
+            ItemID.WATER_SKIN3,
+            ItemID.WATER_SKIN2,
+            ItemID.WATER_SKIN1);
     }
 
     static boolean isPass(Transport transport)
@@ -72,17 +83,27 @@ final class ShantayPassAccess
         return CaveAccessRequirements.isNorthOfShantay(start) && CaveAccessRequirements.isDesertSouthOfShantay(target);
     }
 
-    static boolean requirementsSatisfied(Transport transport, boolean eliteDiary, int carriedPasses, int carriedCoins)
+    static boolean requirementsSatisfied(
+        Transport transport,
+        boolean eliteDiary,
+        int carriedPasses,
+        int carriedCoins,
+        boolean hasFilledWaterskin)
     {
         if (!isPass(transport))
         {
             return false;
         }
-        if (!isSouthboundPass(transport) || eliteDiary)
+        if (!isSouthboundPass(transport))
         {
             return true;
         }
-        if (carriedPasses > 0)
+        // Elite Desert Diary removes the pass fee, not desert heat.
+        if (!hasFilledWaterskin)
+        {
+            return false;
+        }
+        if (eliteDiary || carriedPasses > 0)
         {
             return true;
         }
@@ -227,13 +248,15 @@ final class ShantayPassAccess
     static boolean acceptWarning(Client client, Transport transport, Warning expected)
     {
         if (!isPass(transport) || expected == null || expected.group < 0 || expected.selection == null
-            || !LumbridgeSwampCaveAccess.inputAllowed())
+            || !LumbridgeSwampCaveAccess.inputAllowed()
+            || (isSouthboundPass(transport) && !hasFilledWaterskin()))
         {
             return false;
         }
         Selection fresh = Microbot.getClientThread().runOnClientThreadOptional(() -> {
             if (!LumbridgeSwampCaveAccess.inputAllowed() || client.getGameState() != GameState.LOGGED_IN
                 || client.getLocalPlayer() == null || client.getLocalPlayer().getWorldLocation() == null
+                || (isSouthboundPass(transport) && !hasFilledWaterskin())
                 || (transport.getOrigin() != null
                     && client.getLocalPlayer().getWorldLocation().distanceTo(transport.getOrigin()) > 12))
             {
@@ -257,7 +280,15 @@ final class ShantayPassAccess
      */
     static boolean ensurePassBeforeCrossing(Transport transport)
     {
-        if (!isSouthboundPass(transport) || hasDesertDiaryElite() || Rs2Inventory.hasItem(ItemID.SHANTAY_PASS))
+        if (!isSouthboundPass(transport))
+        {
+            return true;
+        }
+        if (!hasFilledWaterskin())
+        {
+            return false;
+        }
+        if (hasDesertDiaryElite() || Rs2Inventory.hasItem(ItemID.SHANTAY_PASS))
         {
             return true;
         }

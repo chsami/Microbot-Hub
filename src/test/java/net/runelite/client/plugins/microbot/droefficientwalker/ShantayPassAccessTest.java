@@ -24,6 +24,7 @@ import net.runelite.client.plugins.microbot.util.walker.Rs2TransportType;
 import net.runelite.client.plugins.microbot.droefficientwalker.support.banking.Rs2WalkerBankingPlanner;
 import net.runelite.client.plugins.microbot.shortestpath.Transport;
 import net.runelite.client.plugins.microbot.shortestpath.TransportType;
+import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.menu.NewMenuEntry;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
@@ -37,26 +38,31 @@ class ShantayPassAccessTest
 	private static final WorldPoint SOUTH = new WorldPoint(3304, 3115, 0);
 
 	@Test
-	void southboundPassRequiresCarriedPassFiveCoinsOrEliteDiary()
+	void southboundPassRequiresFilledWaterskinAndCarriedPassFiveCoinsOrEliteDiary()
 	{
 		Transport southMain = new Transport(NORTH, SOUTH, "Shantay", TransportType.TRANSPORT, false, "Go-through", "Shantay pass", 4031);
 		Transport northMain = new Transport(SOUTH, NORTH, "Shantay", TransportType.TRANSPORT, false, "Go-through", "Shantay pass", 4031);
 		Transport southUnkah = new Transport(new WorldPoint(3193, 2843, 0), new WorldPoint(3196, 2843, 0),
 			"Unkah", TransportType.TRANSPORT, false, "Go-through", "Shantay pass", 41326);
 
-		// Northbound is always free
-		assertTrue(ShantayPassAccess.requirementsSatisfied(northMain, false, 0, 0));
-		// Southbound blocked with nothing
-		assertFalse(ShantayPassAccess.requirementsSatisfied(southMain, false, 0, 0));
-		assertFalse(ShantayPassAccess.requirementsSatisfied(southMain, false, 0, 4));
-		// Southbound allowed with carried pass, 5 coins at main pass, or Elite Diary
-		assertTrue(ShantayPassAccess.requirementsSatisfied(southMain, false, 1, 0));
-		assertTrue(ShantayPassAccess.requirementsSatisfied(southMain, false, 0, 5));
-		assertTrue(ShantayPassAccess.requirementsSatisfied(southMain, true, 0, 0));
+		// Northbound is always free (even without waterskin)
+		assertTrue(ShantayPassAccess.requirementsSatisfied(northMain, false, 0, 0, false));
+		// Southbound blocked without filled waterskin even with pass, coins, or Elite Desert Diary
+		assertFalse(ShantayPassAccess.requirementsSatisfied(southMain, false, 1, 0, false));
+		assertFalse(ShantayPassAccess.requirementsSatisfied(southMain, false, 0, 5, false));
+		assertFalse(ShantayPassAccess.requirementsSatisfied(southMain, true, 0, 0, false));
+		assertFalse(ShantayPassAccess.requirementsSatisfied(southUnkah, true, 1, 0, false));
+		// Southbound blocked with waterskin but no pass/coins/diary
+		assertFalse(ShantayPassAccess.requirementsSatisfied(southMain, false, 0, 0, true));
+		assertFalse(ShantayPassAccess.requirementsSatisfied(southMain, false, 0, 4, true));
+		// Southbound allowed with filled waterskin + carried pass, 5 coins at main pass, or Elite Diary
+		assertTrue(ShantayPassAccess.requirementsSatisfied(southMain, false, 1, 0, true));
+		assertTrue(ShantayPassAccess.requirementsSatisfied(southMain, false, 0, 5, true));
+		assertTrue(ShantayPassAccess.requirementsSatisfied(southMain, true, 0, 0, true));
 		// Ruins of Unkah pass (41326) has no Shantay vendor beside it, so coins alone do not satisfy it
-		assertFalse(ShantayPassAccess.requirementsSatisfied(southUnkah, false, 0, 5));
-		assertTrue(ShantayPassAccess.requirementsSatisfied(southUnkah, false, 1, 0));
-		assertTrue(ShantayPassAccess.requirementsSatisfied(southUnkah, true, 0, 0));
+		assertFalse(ShantayPassAccess.requirementsSatisfied(southUnkah, false, 0, 5, true));
+		assertTrue(ShantayPassAccess.requirementsSatisfied(southUnkah, false, 1, 0, true));
+		assertTrue(ShantayPassAccess.requirementsSatisfied(southUnkah, true, 0, 0, true));
 	}
 
 	@Test
@@ -85,13 +91,17 @@ class ShantayPassAccessTest
 		Transport southMain = new Transport(NORTH, SOUTH, "Shantay", TransportType.TRANSPORT, false, "Go-through", "Shantay pass", 4031);
 		AtomicReference<NewMenuEntry> invoked = new AtomicReference<>();
 
-		try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class))
+		try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+			MockedStatic<Rs2Inventory> inventory = mockStatic(Rs2Inventory.class))
 		{
 			microbot.when(Microbot::getClientThread).thenReturn(thread);
 			microbot.when(() -> Microbot.doInvoke(any(NewMenuEntry.class), any(Rectangle.class))).thenAnswer(call -> {
 				invoked.set(call.getArgument(0));
 				return null;
 			});
+			inventory.when(() -> Rs2Inventory.hasItem(
+				ItemID.WATER_SKIN4, ItemID.WATER_SKIN3, ItemID.WATER_SKIN2, ItemID.WATER_SKIN1))
+				.thenReturn(true);
 
 			ShantayPassAccess.Warning warning = ShantayPassAccess.warning(client);
 			assertEquals(565, warning.group);
@@ -102,6 +112,52 @@ class ShantayPassAccessTest
 			assertEquals((565 << 16) | 17, invoked.get().getParam1());
 			assertEquals(1, invoked.get().getIdentifier());
 			assertEquals("Yes", invoked.get().getOption());
+		}
+	}
+
+	@Test
+	void refusesShantayDesertWarningWithoutFilledWaterskin()
+	{
+		Client client = mock(Client.class);
+		Player player = mock(Player.class);
+		ClientThread thread = mock(ClientThread.class);
+		Widget yes = mock(Widget.class);
+		when(yes.getId()).thenReturn((565 << 16) | 17);
+		when(yes.getIndex()).thenReturn(-1);
+		when(yes.isHidden()).thenReturn(false);
+		when(yes.isIf3()).thenReturn(true);
+		when(yes.getActions()).thenReturn(new String[]{"Yes"});
+		when(yes.getText()).thenReturn("Yes");
+		when(yes.getBounds()).thenReturn(new Rectangle(200, 260, 80, 22));
+		when(client.getWidget(565, 17)).thenReturn(yes);
+		when(client.getGameState()).thenReturn(GameState.LOGGED_IN);
+		when(client.getLocalPlayer()).thenReturn(player);
+		when(player.getWorldLocation()).thenReturn(NORTH);
+		when(thread.runOnClientThreadOptional(any())).thenAnswer(call -> {
+			Callable<?> c = call.getArgument(0);
+			return Optional.ofNullable(c.call());
+		});
+
+		Transport southMain = new Transport(NORTH, SOUTH, "Shantay", TransportType.TRANSPORT, false, "Go-through", "Shantay pass", 4031);
+		AtomicReference<NewMenuEntry> invoked = new AtomicReference<>();
+
+		try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+			MockedStatic<Rs2Inventory> inventory = mockStatic(Rs2Inventory.class))
+		{
+			microbot.when(Microbot::getClientThread).thenReturn(thread);
+			microbot.when(() -> Microbot.doInvoke(any(NewMenuEntry.class), any(Rectangle.class))).thenAnswer(call -> {
+				invoked.set(call.getArgument(0));
+				return null;
+			});
+			inventory.when(() -> Rs2Inventory.hasItem(
+				ItemID.WATER_SKIN4, ItemID.WATER_SKIN3, ItemID.WATER_SKIN2, ItemID.WATER_SKIN1))
+				.thenReturn(false);
+
+			ShantayPassAccess.Warning warning = ShantayPassAccess.warning(client);
+			assertEquals(565, warning.group);
+			assertNotNull(warning.selection);
+			assertFalse(ShantayPassAccess.acceptWarning(client, southMain, warning));
+			assertNull(invoked.get());
 		}
 	}
 

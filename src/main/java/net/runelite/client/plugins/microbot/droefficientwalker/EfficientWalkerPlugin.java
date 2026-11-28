@@ -455,6 +455,11 @@ public class EfficientWalkerPlugin extends Plugin
 
         if (walker.getStatus() == EfficientWalker.Status.BLOCKED)
         {
+            String reason = walker.getFailureReason();
+            if (ShantayPassAccess.MISSING_WATERSKIN_MESSAGE.equals(reason))
+            {
+                Microbot.status = reason;
+            }
             clearQuestAutomation();
             pendingWorldMapWalk = null;
             return;
