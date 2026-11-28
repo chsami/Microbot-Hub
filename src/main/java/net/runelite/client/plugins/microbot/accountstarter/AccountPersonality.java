@@ -64,28 +64,10 @@ public final class AccountPersonality {
         Path file = dir.resolve("salt");
         byte[] b = new byte[16];
         RANDOM.nextBytes(b);
-        Path tmp = Files.createTempFile(dir, "salt", ".tmp");
-        try {
-            Files.write(tmp, hex(b).getBytes(StandardCharsets.UTF_8));
-            Files.move(tmp, file);
+        if (publish(dir, "salt", hex(b), file)) {
             return hex(b);
-        } catch (FileAlreadyExistsException exists) {
-        } finally {
-            Files.deleteIfExists(tmp);
         }
-        String text = "";
-        for (int i = 0; i < 10; i++) {
-            text = Files.readString(file).trim();
-            if (!text.isEmpty()) {
-                break;
-            }
-            try {
-                Thread.sleep(50);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                return null;
-            }
-        }
+        String text = Files.readString(file).trim();
         if (SALT.matcher(text).matches()) {
             return text;
         }
@@ -98,20 +80,24 @@ public final class AccountPersonality {
     private static Long readOrCreateSeed(Path dir, String key) throws IOException {
         Files.createDirectories(dir);
         Path file = dir.resolve(key + ".json");
-        if (Files.exists(file)) {
-            return readSeed(file);
-        }
         Record rec = new Record();
         rec.seed = RANDOM.nextLong();
         rec.created = System.currentTimeMillis();
-        Path tmp = Files.createTempFile(dir, key, ".tmp");
+        return publish(dir, key, GSON.toJson(rec), file) ? rec.seed : readSeed(file);
+    }
+
+    /**
+     * Writes {@code text} to {@code file} only if no other client got there first, and says whether this call won.
+     * A hard link fails atomically when the target exists, unlike Files.move, which on Linux checks then renames.
+     */
+    private static boolean publish(Path dir, String prefix, String text, Path file) throws IOException {
+        Path tmp = Files.createTempFile(dir, prefix, ".tmp");
         try {
-            Files.write(tmp, GSON.toJson(rec).getBytes(StandardCharsets.UTF_8));
-            // no REPLACE_EXISTING: another client of this account may have won the race
-            Files.move(tmp, file);
-            return rec.seed;
+            Files.write(tmp, text.getBytes(StandardCharsets.UTF_8));
+            Files.createLink(file, tmp);
+            return true;
         } catch (FileAlreadyExistsException lost) {
-            return readSeed(file);
+            return false;
         } finally {
             Files.deleteIfExists(tmp);
         }

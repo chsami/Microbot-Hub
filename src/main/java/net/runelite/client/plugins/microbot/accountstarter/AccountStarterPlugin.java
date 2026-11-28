@@ -28,7 +28,7 @@ import javax.inject.Inject;
 )
 @Slf4j
 public class AccountStarterPlugin extends Plugin {
-    static final String version = "1.0.0";
+    static final String version = "1.0.1";
     static final String PREFIX = "<html>[<font color=#FF8FB1>irk</font>] ";
 
     @Inject
