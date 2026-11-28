@@ -142,6 +142,11 @@ public final class BossFight
 	private int ticksLogged;
 	private boolean warnedSlowBow;
 	private String holdReason;
+	static final int RUN_MIN_ENERGY = 3;
+	static final long RUN_RETRY_MS = 1800;
+	private volatile boolean runOn = true;
+	private volatile int runEnergy;
+	private long lastRunToggleMs;
 
 	/** New run / new fight: forget everything. Any thread. */
 	public void reset()
@@ -439,6 +444,8 @@ public final class BossFight
 		doseSlot = dSlot;
 		doseId = dId;
 		clientRef = client;
+		runOn = client.getVarpValue(173) == 1;
+		runEnergy = client.getEnergy() / 100;
 		o.swung = swung;
 		o.attacking = p.getInteracting() == boss;
 		o.prayersDisabled = disabledMsg;
@@ -573,6 +580,7 @@ public final class BossFight
 			}
 			send(clicks, plan, o.tick, ht);
 			warnStalls();
+			keepRunOn();
 		}
 		catch (InterruptedException e)
 		{
@@ -621,6 +629,23 @@ public final class BossFight
 		{
 			log.accept("FIGHT", "WARN prepare: " + e);
 		}
+	}
+
+	static boolean shouldRestoreRun(boolean runOn, int energy, long nowMs, long lastToggleMs)
+	{
+		return !runOn && energy >= RUN_MIN_ENERGY && nowMs - lastToggleMs > RUN_RETRY_MS;
+	}
+
+	private void keepRunOn()
+	{
+		long now = System.currentTimeMillis();
+		if (!shouldRestoreRun(runOn, runEnergy, now, lastRunToggleMs))
+		{
+			return;
+		}
+		lastRunToggleMs = now;
+		net.runelite.client.plugins.microbot.util.player.Rs2Player.toggleRunEnergy(true);
+		log.accept("FIGHT", "run on (energy " + runEnergy + "%)");
 	}
 
 	private String holdReason()
@@ -857,7 +882,7 @@ public final class BossFight
 				t = QuickClicks.walk(clientRef, new WorldPoint(originX + c.x, originY + c.y, plane));
 				if (t == null)
 				{
-					return Rs2Walker.walkFastCanvas(new WorldPoint(originX + c.x, originY + c.y, plane), false);
+					return Rs2Walker.walkFastCanvas(new WorldPoint(originX + c.x, originY + c.y, plane), true);
 				}
 				break;
 			case ATTACK:
@@ -925,7 +950,7 @@ public final class BossFight
 			{
 				WorldPoint wp = new WorldPoint(originX + c.x, originY + c.y, plane);
 				// The tile is nearly always in view (we step at most 2 tiles); otherwise Microbot's walker.
-				return QuickClicks.sendQuick(QuickClicks.walk(clientRef, wp)) || Rs2Walker.walkFastCanvas(wp, false);
+				return QuickClicks.sendQuick(QuickClicks.walk(clientRef, wp)) || Rs2Walker.walkFastCanvas(wp, true);
 			}
 			case ATTACK:
 				return QuickClicks.sendQuick(QuickClicks.attack(clientRef, bossIndex));
