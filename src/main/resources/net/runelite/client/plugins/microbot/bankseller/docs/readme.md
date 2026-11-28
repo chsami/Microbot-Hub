@@ -6,7 +6,7 @@ Will obliterate any tradeable item from your bank - In other worlds will sell an
 
 - **Always protects starting items**: snapshots the item types in your inventory and equipped gear before any banking or GE actions. Those types and matching bank copies are never sold. Noted and unnoted forms share protection; different charge variants keep their own identities. Starting inventory may be banked to free space; worn gear is never deposited. There is no toggle.
 - **Empty-start support**: a genuinely empty inventory or fully unequipped character can have no item container. After a stable login, the plugin verifies complete empty slots in the inventory/equipment tabs (including ring and ammo) before proceeding. If the bank or GE is already open and hides these tabs, it closes only that panel first. Missing or partially loaded data stops the plugin safely before anything is banked or sold.
-- **Banks first**: deposits your whole inventory, then withdraws every tradeable item from the bank as notes
+- **Banks first**: deposits your whole inventory, then withdraws every tradeable item from the bank as notes. Notes still in the inventory after the free GE slots fill up are offered as soon as a slot opens, without another bank trip
 - **Sells full stacks**: the entire quantity of an item is sold in a single Grand Exchange offer
 - **Works on F2P trade-restricted accounts**: items the Grand Exchange refuses to sell (e.g. trade-restricted items on new F2P accounts) are detected instantly from the offer screen and skipped - the plugin clicks straight through to the next item without ever closing the GE window, puts refused items back in the bank and carries on
 - **Instant-sell pricing**: every offer is listed at 50% of the actively traded price so it fills immediately
@@ -30,7 +30,7 @@ The plugin will loop Withdrawing and Selling items till neither the bank & Inven
 
 ## Technical Details
 
-- **Plugin Version**: 1.0.6
+- **Plugin Version**: 1.0.7
 - **Author**: KSP
 - **Minimum Client Version**: 2.6.25
 - **Dependencies**: N/A

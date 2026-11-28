@@ -24,7 +24,7 @@ import java.awt.*;
         isExternal = PluginConstants.IS_EXTERNAL
 )
 public class CannonballSmelterPlugin extends Plugin {
-        public static final String version = "1.1.1";
+        public static final String version = "1.1.2";
 
         @Inject
         private CannonballSmelterConfig config;

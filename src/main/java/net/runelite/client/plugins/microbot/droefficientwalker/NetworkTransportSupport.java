@@ -178,6 +178,7 @@ final class NetworkTransportSupport
     // let the NPC interaction server-walk the final few tiles instead of waiting on the catalogue
     // origin or letting the generic object executor see Elkoy's synthetic id=-1 edge.
     private static final int ELKOY_INTERACT_RADIUS = 6;
+    private static final int TRANSPORT_NPC_HANDOFF_RADIUS = 4;
     private static final int ELKOY_NPC_WALK_RADIUS = 20;
     private static final long ELKOY_LOAD_WAIT_MS = 4_000L;
     private static final long ELKOY_LANDING_WAIT_MS = 10_000L;
@@ -1640,12 +1641,15 @@ final class NetworkTransportSupport
                 && target.equalsIgnoreCase(existingTarget == null ? "" : existingTarget);
         });
 
+        // The crossing exists only after Shilo Village (varp 116 > 14), as in transports.tsv;
+        // without it accounts lacking the quest route into Shilo and stall at the cart.
+        List<Object> shiloQuestComplete = List.of(requirementCtor.newInstance(116, 14, '>'));
         int added = 0;
         for (WorldPoint origin : eastOrigins)
         {
             Object edge = transportCtor.newInstance(origin, westLanding, action, target, brokenCartId,
                 Collections.emptyList(), Collections.emptyList(), Collections.emptyList(),
-                Collections.emptyList(), Collections.emptyList(), false, new int[0]);
+                shiloQuestComplete, Collections.emptyList(), false, new int[0]);
             merged.add(0, edge);
             added++;
         }
@@ -1653,7 +1657,7 @@ final class NetworkTransportSupport
         {
             Object edge = transportCtor.newInstance(origin, eastLanding, action, target, brokenCartId,
                 Collections.emptyList(), Collections.emptyList(), Collections.emptyList(),
-                Collections.emptyList(), Collections.emptyList(), false, new int[0]);
+                shiloQuestComplete, Collections.emptyList(), false, new int[0]);
             merged.add(0, edge);
             added++;
         }
@@ -1673,6 +1677,16 @@ final class NetworkTransportSupport
             && origin.getY() >= 2950 && origin.getY() <= 2954
             && destination.equals(new WorldPoint(2880, 2952, 0));
         return eastToWest || westToEast;
+    }
+
+    private static final WorldPoint BRIMHAVEN_BACKDOOR_LANDING = new WorldPoint(2734, 9478, 0);
+
+    static boolean isUngatedBrimhavenBackdoor(Transport source)
+    {
+        // Both directions exist only after the rope is tied; the shared copies lack that check.
+        return source.getObjectId() == 66 && BRIMHAVEN_BACKDOOR_LANDING.equals(source.getDestination())
+            || source.getObjectId() == 30201 && BRIMHAVEN_BACKDOOR_LANDING.equals(source.getOrigin())
+                && source.getVarbits().isEmpty();
     }
 
     private List<Transport> loadSharedCatalog()
@@ -1708,6 +1722,9 @@ final class NetworkTransportSupport
                     // Only Sticky Swamp's outbound copies bypass its working Mycelium
                     // destination handler and repeatedly click Use without choosing a stop.
                     if (StickySwampExit.replaces(source)) continue;
+                    // The client's shared Brimhaven back-door rows use the plain rope (66) with no
+                    // unlock check; engine data carries the real rope (30200, varbit 5629 > 0).
+                    if (isUngatedBrimhavenBackdoor(source)) continue;
                     if (SlayerDungeonTransports.isSupersededTransport(source.getObjectId(), source.getOrigin())) continue;
                     // Charters and their deck exits have one dedicated executor. Shared
                     // copies would bypass its arrival checks and failure blacklist.
@@ -5174,6 +5191,8 @@ final class NetworkTransportSupport
             // A nearby ladder/portal can be in the next room. Let the native walker
             // open intervening doors and execute earlier obstacles before taking ownership.
             if (transport.getOrigin() != null && !sharedApproachReachable(player, transport)) return false;
+            if (awaitTransportNpc(transport.getType(), player, transport.getOrigin(),
+                () -> sharedTransportTargetLoaded(transport))) return false;
             actionStartedAt = System.currentTimeMillis();
             actionFuture = actionExecutor().submit(() -> executeSharedTransport(transport));
             return true;
@@ -5183,7 +5202,7 @@ final class NetworkTransportSupport
             if (System.currentTimeMillis() - actionStartedAt < EXECUTION_TIMEOUT_MS) return true;
             cancelFuture();
             clearCompleteRoute();
-            failedSharedEdges.add(sharedEdgeKey(transport));
+            suppressSharedEdge(transport, true);
             WorldPoint goal = engineDestination();
             currentSharedTransport = null;
             resetExecution(false);
@@ -5196,12 +5215,18 @@ final class NetworkTransportSupport
         ExecutionResult result = consumeFutureResult();
         WorldPoint goal = engineDestination();
         if(result==ExecutionResult.BANK_OPEN){currentSharedTransport=null;resetExecution(false);return true;}
+        if (result == ExecutionResult.INTERRUPTED)
+        {
+            currentSharedTransport = null;
+            resetExecution(false);
+            return true;
+        }
         if (result != ExecutionResult.SUCCESS)
         {
             stickySwampBankRetry = stickySwampBankJourney && StickySwampExit.zipline(transport)
                 && StickySwampExit.bankTarget(goal);
             clearCompleteRoute();
-            failedSharedEdges.add(sharedEdgeKey(transport));
+            suppressSharedEdge(transport, false);
             debug("shared transport failed and was suppressed for the session: {} {} -> {}",
                 transport.getType(), transport.getOrigin(), transport.getDestination());
         }
@@ -5210,6 +5235,59 @@ final class NetworkTransportSupport
         installedKey = null;
         if (goal != null) replanTarget = goal;
         return true;
+    }
+
+    static boolean awaitTransportNpc(TransportType type, WorldPoint player, WorldPoint origin, BooleanSupplier targetLoaded)
+    {
+        return (type == TransportType.NPC || type == TransportType.SHIP || type == TransportType.BOAT)
+            && origin != null && !near(player, origin, TRANSPORT_NPC_HANDOFF_RADIUS) && !targetLoaded.getAsBoolean();
+    }
+
+    private boolean sharedTransportTargetLoaded(Transport transport)
+    {
+        return transport.getType() != TransportType.NPC && findCatalogObject(transport) != null
+            || findTransportNpc(transport) != null;
+    }
+
+    private static Rs2NpcModel findTransportNpc(Transport transport)
+    {
+        Rs2NpcModel npc = Rs2Npc.getNpc(transport.getObjectId());
+        if (npc == null && transport.getName() != null) npc = Rs2Npc.getNpc(transport.getName());
+        return npc;
+    }
+
+    private void suppressSharedEdge(Transport transport, boolean timedOut)
+    {
+        boolean newlySuppressed = failedSharedEdges.add(sharedEdgeKey(transport));
+        if (transport.getType() != TransportType.CANOE) return;
+        for (Transport source : sharedCatalog)
+        {
+            if (source.getType() == TransportType.CANOE && Objects.equals(source.getOrigin(), transport.getOrigin()))
+                newlySuppressed |= failedSharedEdges.add(sharedEdgeKey(source));
+        }
+        if (newlySuppressed)
+            Microbot.log(canoeStationSuppressedMessage(canoeStationName(transport.getOrigin(), sharedCatalog), timedOut));
+    }
+
+    static String canoeStationName(WorldPoint station, List<Transport> catalog)
+    {
+        if (station == null) return null;
+        return catalog.stream()
+            .filter(source -> source.getType() == TransportType.CANOE && source.getDestination() != null
+                && source.getDisplayInfo() != null && !source.getDisplayInfo().isEmpty()
+                && source.getDestination().distanceTo(station) <= 15)
+            .min(Comparator.comparingInt(source -> source.getDestination().distanceTo(station)))
+            .map(Transport::getDisplayInfo)
+            .orElse(null);
+    }
+
+    static String canoeStationSuppressedMessage(String station, boolean timedOut)
+    {
+        return "Efficient Walker: the canoe trip" + (station == null ? "" : " from " + station)
+            + (timedOut ? " took too long" : " did not finish")
+            + ", so the walker will skip canoes from " + (station == null ? "that station" : station)
+            + " until you hop worlds or log out."
+            + " Canoes need an axe and 12 Woodcutting; longer trips need 27, 42 or 57 Woodcutting.";
     }
 
     private boolean sharedApproachReachable(WorldPoint player, Transport transport)
@@ -5324,6 +5402,21 @@ final class NetworkTransportSupport
                 handle.setAccessible(true);
                 started = Boolean.TRUE.equals(handle.invoke(null, edge));
             }
+            else if (transport.getType() == TransportType.CANOE)
+            {
+                Class<?> executor = Class.forName("net.runelite.client.plugins.microbot.droefficientwalker.support.Rs2WalkerTransports");
+                Method handle = executor.getDeclaredMethod(method, Transport.class);
+                handle.setAccessible(true);
+                BooleanSupplier landed = () -> sharedTransportLanded(playerLocation(), transport);
+                CanoeTrip.Outcome outcome = CanoeTrip.travel(landed,
+                    () -> sharedCanStartFrom(playerLocation(), transport),
+                    () -> !Thread.currentThread().isInterrupted() && !Microbot.pauseAllScripts.get()
+                        && !net.runelite.client.plugins.microbot.util.input.InputArbiter.isHuman(),
+                    () -> invokeCanoeStep(handle, transport),
+                    () -> awaitSharedLanding(transport, landed, sharedLandingTimeout(transport)));
+                if (outcome == CanoeTrip.Outcome.INTERRUPTED) return ExecutionResult.INTERRUPTED;
+                return outcome == CanoeTrip.Outcome.LANDED ? ExecutionResult.SUCCESS : ExecutionResult.FAILED;
+            }
             else if (method != null)
             {
                 Class<?> executor = Class.forName("net.runelite.client.plugins.microbot.droefficientwalker.support.Rs2WalkerTransports");
@@ -5344,6 +5437,18 @@ final class NetworkTransportSupport
             debug("shared transport execution error type={} {} -> {}: {}", transport.getType(),
                 transport.getOrigin(), transport.getDestination(), ex.getMessage());
             return ExecutionResult.FAILED;
+        }
+    }
+
+    private static boolean invokeCanoeStep(Method handle, Transport transport)
+    {
+        try
+        {
+            return Boolean.TRUE.equals(handle.invoke(null, transport));
+        }
+        catch (ReflectiveOperationException ex)
+        {
+            throw new IllegalStateException(ex);
         }
     }
 
@@ -5524,8 +5629,7 @@ final class NetworkTransportSupport
                 }
                 else
                 {
-                    Rs2NpcModel npc = Rs2Npc.getNpc(transport.getObjectId());
-                    if (npc == null && transport.getName() != null) npc = Rs2Npc.getNpc(transport.getName());
+                    Rs2NpcModel npc = findTransportNpc(transport);
                     if (npc == null) return false;
                     String action = Rs2Npc.getAvailableAction(npc, Collections.singletonList(transport.getAction()));
                     if (action.isEmpty()) action = Rs2Npc.getAvailableAction(npc, List.of("Travel", "Talk-to", "Quick-Travel"));
@@ -5830,6 +5934,7 @@ final class NetworkTransportSupport
     private enum ExecutionResult
     {
         BANK_OPEN,
+        INTERRUPTED,
         SUCCESS,
         FAILED,
         CHARTER_MENU_UNAVAILABLE,

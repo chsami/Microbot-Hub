@@ -324,18 +324,18 @@ public class BankSellerScript extends Script {
                     return;
                 }
 
-                if (waitingForOfferSlot) {
-                    if (Rs2GrandExchange.getAvailableSlotsCount() == 0) {
-                        return;
-                    }
-                    waitingForOfferSlot = false;
-                    if (hasSellableInventoryItems()) {
-                        sellInventory();
-                        return;
-                    }
+                BankSellerPassPolicy.Action nextAction = BankSellerPassPolicy.nextAction(waitingForOfferSlot,
+                        Rs2GrandExchange.getAvailableSlotsCount(),
+                        hasSellableInventoryItems());
+                if (nextAction == BankSellerPassPolicy.Action.WAIT_FOR_SLOT) {
+                    return;
+                }
+                waitingForOfferSlot = false;
+                if (nextAction == BankSellerPassPolicy.Action.SELL_INVENTORY) {
+                    sellInventory();
+                    return;
                 }
 
-                // Always bank first: deposit everything, then pull out every sellable item as notes
                 boolean bankHasSellables = bankAndWithdrawAll();
 
                 if (!hasSellableInventoryItems()) {

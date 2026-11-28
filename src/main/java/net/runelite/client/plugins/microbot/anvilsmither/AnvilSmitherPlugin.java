@@ -13,10 +13,10 @@ import javax.inject.Inject;
 
 @PluginDescriptor(
         name = AnvilSmitherPlugin.PREFIX + "Anvil Smither",
-        authors = {"StickToTheScript", "chsami", "Igor", "George M", "irkedMATT"},
+        authors = {"irkedMATT"},
         version = AnvilSmitherPlugin.version,
-        description = "Smiths bars into items at an anvil next to a bank: Varrock west or Prifddinas south. Banks every load, and makes Sailing keel parts too.",
-        tags = {"smithing", "anvil", "varrock", "prifddinas", "bars", "keel parts", "sailing", "irked"},
+        description = "Smiths bars next to a bank in Varrock or Prifddinas, and makes Sailing keel parts.",
+        tags = {"smithing", "varrock", "sailing", "irked"},
         cardUrl = "https://chsami.github.io/Microbot-Hub/AnvilSmitherPlugin/assets/card.png",
         iconUrl = "https://chsami.github.io/Microbot-Hub/AnvilSmitherPlugin/assets/icon.png",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -26,7 +26,7 @@ import javax.inject.Inject;
 
 @Slf4j
 public class AnvilSmitherPlugin extends Plugin {
-    static final String version = "1.0.0";
+    static final String version = "1.0.1";
     static final String PREFIX = "<html>[<font color=#FF8FB1>irk</font>] ";
     @Inject
     private AnvilSmitherConfig config;

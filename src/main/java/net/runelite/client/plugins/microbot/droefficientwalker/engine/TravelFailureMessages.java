@@ -79,6 +79,8 @@ final class TravelFailureMessages {
             return "Could not find a reachable bank. Move closer to a bank and retry.";
          case "no-clickable-walk-target":
             return "Could not select the next walking tile. Make sure the minimap is visible, then retry.";
+         case "walk-clicks-not-moving":
+            return "Your character did not move after repeated walk clicks. Close any open interface (such as the world map), wait until you are no longer frozen or stunned, check that nothing is blocking your path, then retry.";
          case "player-state-unavailable":
             return "Could not read your location. Wait until you are fully logged in, then retry.";
          case "collision-unavailable":

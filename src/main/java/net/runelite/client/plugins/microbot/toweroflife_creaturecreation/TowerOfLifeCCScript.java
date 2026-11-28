@@ -1,5 +1,6 @@
 package net.runelite.client.plugins.microbot.toweroflife_creaturecreation;
 
+import net.runelite.api.NPC;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.VarbitID;
@@ -272,11 +273,11 @@ public class TowerOfLifeCCScript extends Script {
                 switch (_config.SelectedCreature())
                 {
                     case UNICOW:
-                        HandleCreature(unicowLootParams, ItemID.COW_HIDE, ItemID.UNICORN_HORN);
+                        HandleCreature(ToLCreature.UNICOW, unicowLootParams, ItemID.COW_HIDE, ItemID.UNICORN_HORN);
                         break;
 
                     case SPIDINE:
-                        HandleCreature(spidineLootParams, ItemID.RAW_SARDINE, ItemID.RED_SPIDERS_EGGS);
+                        HandleCreature(ToLCreature.SPIDINE, spidineLootParams, ItemID.RAW_SARDINE, ItemID.RED_SPIDERS_EGGS);
                         break;
                 }
                 break;
@@ -382,7 +383,7 @@ public class TowerOfLifeCCScript extends Script {
         }
     }
 
-    void HandleCreature(LootingParameters params, int disposableItem, int secondaryItem)
+    void HandleCreature(ToLCreature creature, LootingParameters params, int disposableItem, int secondaryItem)
     {
         if (Rs2GroundItem.lootItemsBasedOnNames(params))
         {
@@ -405,7 +406,7 @@ public class TowerOfLifeCCScript extends Script {
                 //Rs2Inventory.useItemOnObject(secondaryItem, altarObjectId);
                 //Rs2Inventory.waitForInventoryChanges(3000);
                 Microbot.getRs2TileObjectCache().query().interact(altarObjectId, "Activate");
-                sleepUntil(() -> { summonedCreature = findSummonedCreature();
+                sleepUntil(() -> { summonedCreature = findSummonedCreature(creature);
                     return summonedCreature != null;
                 }, 5000);
                 //Microbot.log("Summoned creature");
@@ -423,7 +424,7 @@ public class TowerOfLifeCCScript extends Script {
         }
         else if (!Rs2Combat.inCombat())
         {
-            if (summonedCreature != null && !summonedCreature.getNpc().isDead())
+            if (isSummonedCreaturePresent() && !summonedCreature.getNpc().isDead())
             {
                 summonedCreature.click("Attack");
             }
@@ -435,11 +436,24 @@ public class TowerOfLifeCCScript extends Script {
         }
     }
 
-    Rs2NpcModel findSummonedCreature()
+    Rs2NpcModel findSummonedCreature(ToLCreature creature)
     {
         return Microbot.getRs2NpcCache().query()
                 .where(npc -> npc.getNpc() != null
+                        && npc.getNpc().getId() == creature.getNpcId()
                         && (npc.getNpc().getInteracting() == null || npc.getNpc().getInteracting() == Microbot.getClient().getLocalPlayer()))
                 .nearestOnClientThread();
+    }
+
+    boolean isSummonedCreaturePresent()
+    {
+        if (summonedCreature == null || summonedCreature.getNpc() == null)
+        {
+            return false;
+        }
+        NPC target = summonedCreature.getNpc();
+        return Microbot.getRs2NpcCache().query()
+                .where(npc -> npc.getNpc() == target)
+                .first() != null;
     }
 }
