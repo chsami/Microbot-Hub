@@ -61,7 +61,7 @@ import java.util.List;
 @Slf4j
 @PluginDescriptor(
         name = PluginDescriptor.See1Duck + " Kitten Tracker",
-        description = "Automates the kitten growth process and provides notifications",
+        description = "Automates kitten growth (feeds raw karambwanji or other raw/cooked fish up to tuna from your inventory) and provides notifications",
         tags = {"cat", "kitten", "duck", "s1d", "see1duck", "microbot"},
         version = KittenPlugin.version,
         minClientVersion = "2.0.13",
@@ -71,7 +71,7 @@ import java.util.List;
         isExternal = PluginConstants.IS_EXTERNAL
 )
 public class KittenPlugin extends Plugin {
-    public static final String version = "1.3.1";
+    public static final String version = "1.3.2";
     private static final int VAR_PLAYER_FOLLOWER = 447;
     private static final int WIDGET_ID_DIALOG_NOTIFICATION_GROUP_ID = 229;
     private static final int WIDGET_ID_DIALOG_PLAYER_TEXT = 6;

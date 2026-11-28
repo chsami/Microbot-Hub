@@ -5,6 +5,7 @@ import net.runelite.api.gameval.ItemID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
+import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 
 import java.util.concurrent.TimeUnit;
 
@@ -31,7 +32,7 @@ public class KittenScript extends Script {
 
     private void handleKittenNeeds(KittenConfig config) {
         if (config.kittenHungryOverlay() 
-            && Rs2Inventory.contains(ItemID.TBWT_RAW_KARAMBWANJI)
+            && Rs2Inventory.contains(FeedKittenEvent.KITTEN_FOOD)
             && (KittenPlugin.HUNGRY_FIRST_WARNING_TIME_LEFT_IN_SECONDS * 1000) >= kittenPlugin.getTimeBeforeHungry()) {
             feedKitten();
         }
@@ -43,7 +44,9 @@ public class KittenScript extends Script {
     }
 
     private void feedKitten() {
-        Microbot.getRs2NpcCache().query().withName("Kitten").toListOnClientThread().stream().findFirst().ifPresent(kitten -> Rs2Inventory.useItemOnNpc(ItemID.TBWT_RAW_KARAMBWANJI, kitten.getNpc()));
+        Rs2ItemModel food = FeedKittenEvent.findKittenFood();
+        if (food == null) return;
+        FeedKittenEvent.feedKitten(food);
         sleep(1000, 2000);
     }
 
