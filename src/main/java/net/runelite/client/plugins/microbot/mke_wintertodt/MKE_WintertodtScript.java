@@ -2043,11 +2043,18 @@ public class MKE_WintertodtScript extends Script {
         }
 
         /*  If time is almost over just finish up     */
-        if (estimatedSecondsLeft < 15)
+        if (isRoundFinishing(gameState))
         {
             if (gameState.hasItemsToBurn) {
+                State previousState = state;
+                if (state == State.FLETCH_LOGS) {
+                    deselectSelectedItem();
+                    setLockState(State.FLETCH_LOGS, false);
+                }
                 if (shouldBurnLogs(gameState)) {
-                    Microbot.log("Time is almost over and we have items to burn, lets just burn them!");
+                    if (previousState != State.BURN_LOGS) {
+                        Microbot.log("Time is almost over and we have items to burn, lets just burn them!");
+                    }
                     return;
                 }
             }
@@ -3152,7 +3159,21 @@ public class MKE_WintertodtScript extends Script {
             return false;
         }
         changeState(State.BURN_LOGS, false);  // Don't lock - allows natural state transitions
-        return true;
+        return state == State.BURN_LOGS;
+    }
+
+    private static boolean isRoundFinishing(GameState gameState) {
+        if (estimatedSecondsLeft < 15) {
+            return true;
+        }
+        if (state == State.BURN_LOGS && gameState.hasRootsToFletch && config.fletchRoots()) {
+            return true;
+        }
+        return isOutOfTimeToFeed(currentBurnableCount, estimatedSecondsLeft, avgFeedMs);
+    }
+
+    static boolean isOutOfTimeToFeed(int itemsHeld, double secondsLeft, double feedMs) {
+        return itemsHeld > 0 && itemsHeld * feedMs / 1000.0 >= secondsLeft - SAFETY_BUFFER_SEC;
     }
 
     /**
