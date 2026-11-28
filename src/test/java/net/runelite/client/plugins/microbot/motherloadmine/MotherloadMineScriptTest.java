@@ -174,9 +174,25 @@ public final class MotherloadMineScriptTest {
     @Test
     void setupLoadFailureNamesTheSetupAndTheFailedPart() {
         assertEquals("Could not load inventory setup 'MLM': some equipment items are missing from your bank. Bank the missing items, or turn off Enable Inventory Setup.",
-                MotherloadMineScript.inventorySetupLoadFailedMessage("MLM", false, true));
-        assertTrue(MotherloadMineScript.inventorySetupLoadFailedMessage("MLM", true, false).contains("some inventory items"));
-        assertTrue(MotherloadMineScript.inventorySetupLoadFailedMessage("MLM", false, false).contains("some equipment and inventory items"));
+                MotherloadMineScript.inventorySetupLoadFailedMessage("MLM", false, true, Collections.emptyList()));
+        assertTrue(MotherloadMineScript.inventorySetupLoadFailedMessage("MLM", true, false, null).contains("some inventory items"));
+        assertTrue(MotherloadMineScript.inventorySetupLoadFailedMessage("MLM", false, false, Collections.emptyList()).contains("some equipment and inventory items"));
+    }
+
+    @Test
+    void setupLoadFailureNamesTheMissingItemWhenTheLoaderReportsIt() {
+        assertEquals("Could not load inventory setup 'MLM': Stamina potion(4) is missing from your bank. Bank more, or turn off Enable Inventory Setup.",
+                MotherloadMineScript.inventorySetupLoadFailedMessage("MLM", true, false, Arrays.asList("Stamina potion(4)", "Stamina potion(4)")));
+        assertEquals("Could not load inventory setup 'MLM': Gem bag, Stamina potion(4) are missing from your bank. Bank more, or turn off Enable Inventory Setup.",
+                MotherloadMineScript.inventorySetupLoadFailedMessage("MLM", false, false, Arrays.asList("Gem bag", "Stamina potion(4)")));
+    }
+
+    @Test
+    void noUsablePickaxeMessageSaysTheCarriedPickaxeWasBankedOnlyWhenItWas() {
+        assertEquals("Your inventory setup 'MLM' has no pickaxe your Mining level can use, so your carried pickaxe was put in the bank. Add a usable pickaxe to the setup, or turn off Enable Inventory Setup.",
+                MotherloadMineScript.noUsablePickaxeInSetupMessage("MLM", true));
+        assertEquals("Your inventory setup 'MLM' has no pickaxe your Mining level can use. Add a usable pickaxe to the setup, or turn off Enable Inventory Setup.",
+                MotherloadMineScript.noUsablePickaxeInSetupMessage("MLM", false));
     }
 
     @Test

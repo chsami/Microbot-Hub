@@ -14,6 +14,7 @@ import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.EquipmentInventorySlot;
@@ -46,6 +47,7 @@ import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.antiban.enums.Activity;
 import net.runelite.client.plugins.microbot.util.antiban.enums.ActivityIntensity;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
+import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
 import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.depositbox.Rs2DepositBox;
@@ -312,10 +314,25 @@ public class MotherloadMineScript extends Script
         return !hasRequiredTools || (useInventorySetup && !inventorySetupChecked);
     }
 
-    static String inventorySetupLoadFailedMessage(String setupName, boolean equipmentMatch, boolean inventoryMatch)
+    static String inventorySetupLoadFailedMessage(String setupName, boolean equipmentMatch, boolean inventoryMatch, List<String> missingItems)
     {
+        List<String> names = missingItems == null ? Collections.emptyList() : missingItems.stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        if (!names.isEmpty())
+        {
+            return "Could not load inventory setup '" + setupName + "': " + String.join(", ", names) + (names.size() == 1 ? " is" : " are") + " missing from your bank. Bank more, or turn off Enable Inventory Setup.";
+        }
         String part = !equipmentMatch && !inventoryMatch ? "equipment and inventory" : !equipmentMatch ? "equipment" : "inventory";
         return "Could not load inventory setup '" + setupName + "': some " + part + " items are missing from your bank. Bank the missing items, or turn off Enable Inventory Setup.";
+    }
+
+    static String noUsablePickaxeInSetupMessage(String setupName, boolean carriedPickaxeWasBanked)
+    {
+        return "Your inventory setup '" + setupName + "' has no pickaxe your Mining level can use"
+                + (carriedPickaxeWasBanked ? ", so your carried pickaxe was put in the bank" : "")
+                + ". Add a usable pickaxe to the setup, or turn off Enable Inventory Setup.";
     }
 
     private boolean hasRequiredTools()
@@ -653,27 +670,39 @@ public class MotherloadMineScript extends Script
 				Microbot.stopPlugin(plugin);
 				return;
 			}
-			Rs2InventorySetup mlmInventorySetup = new Rs2InventorySetup(config.getInventorySetup(), mainScheduledFuture);
+			final List<String> missingSetupItems = new ArrayList<>();
+			Rs2InventorySetup mlmInventorySetup = new Rs2InventorySetup(config.getInventorySetup(), mainScheduledFuture)
+				.withMissingSupplyHandler(missingSetupItems::add);
 			boolean doesEquipmentMatch = true;
 			boolean doesInventoryMatch = true;
+			final boolean hadPickaxe = Pickaxe.hasItem();
 
-			if (!mlmInventorySetup.doesEquipmentMatch()) {
-				doesEquipmentMatch = mlmInventorySetup.loadEquipment();
-			}
+			if (!mlmInventorySetup.doesEquipmentMatch() || !mlmInventorySetup.doesInventoryMatch()) {
+				ensureLowerFloor();
+				if (!Rs2Bank.openBank()) {
+					log.info("Could not open the bank to load inventory setup '{}', walking to the Motherlode Mine bank chest", config.getInventorySetup().getName());
+					Rs2Bank.walkToBank(BankLocation.MOTHERLOAD);
+					return;
+				}
 
-			if (!mlmInventorySetup.doesInventoryMatch()) {
-				doesInventoryMatch = mlmInventorySetup.loadInventory();
+				if (!mlmInventorySetup.doesEquipmentMatch()) {
+					doesEquipmentMatch = mlmInventorySetup.loadEquipment();
+				}
+
+				if (!mlmInventorySetup.doesInventoryMatch()) {
+					doesInventoryMatch = mlmInventorySetup.loadInventory();
+				}
 			}
 
 			if (!doesEquipmentMatch || !doesInventoryMatch) {
-				Microbot.showMessage(inventorySetupLoadFailedMessage(config.getInventorySetup().getName(), doesEquipmentMatch, doesInventoryMatch));
-                log.warn("Inventory setup failed (equipmentMatch={}, inventoryMatch={}), stopping plugin",
-                        doesEquipmentMatch, doesInventoryMatch);
+				Microbot.showMessage(inventorySetupLoadFailedMessage(config.getInventorySetup().getName(), doesEquipmentMatch, doesInventoryMatch, missingSetupItems));
+                log.warn("Inventory setup failed (equipmentMatch={}, inventoryMatch={}, missing={}), stopping plugin",
+                        doesEquipmentMatch, doesInventoryMatch, missingSetupItems);
 				Microbot.stopPlugin(plugin);
 				return;
 			}
 			if (!Pickaxe.hasItem()) {
-				Microbot.showMessage("Your inventory setup '" + config.getInventorySetup().getName() + "' has no pickaxe you can use. Add one to the setup, or turn off Enable Inventory Setup.");
+				Microbot.showMessage(noUsablePickaxeInSetupMessage(config.getInventorySetup().getName(), hadPickaxe));
 				log.warn("Inventory setup has no usable pickaxe, stopping plugin");
 				Microbot.stopPlugin(plugin);
 				return;
