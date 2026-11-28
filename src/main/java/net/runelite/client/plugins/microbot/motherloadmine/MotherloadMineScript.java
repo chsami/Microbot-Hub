@@ -35,6 +35,7 @@ import net.runelite.client.plugins.microbot.api.player.Rs2PlayerCache;
 import net.runelite.client.plugins.microbot.api.player.models.Rs2PlayerModel;
 import net.runelite.client.plugins.microbot.api.tileobject.Rs2TileObjectCache;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
+import net.runelite.client.plugins.microbot.inventorysetups.InventorySetupsItem;
 import net.runelite.client.plugins.microbot.motherloadmine.enums.MLMMiningSpot;
 import net.runelite.client.plugins.microbot.motherloadmine.enums.MLMStatus;
 import net.runelite.client.plugins.microbot.motherloadmine.enums.Pickaxe;
@@ -84,6 +85,7 @@ public class MotherloadMineScript extends Script
     private static final int UPPER_FLOOR_HEIGHT = -490;
     private static final int SACK_LARGE_SIZE = 189;
     private static final int SACK_SIZE = 108;
+    private static final int[] ORE_IDS = {ItemID.RUNITE_ORE, ItemID.ADAMANTITE_ORE, ItemID.MITHRIL_ORE, ItemID.GOLD_ORE, ItemID.COAL};
     public static MLMStatus status = MLMStatus.IDLE;
     public static Rs2TileObjectModel oreVein;
     public static MLMMiningSpot miningSpot = MLMMiningSpot.IDLE;
@@ -103,6 +105,7 @@ public class MotherloadMineScript extends Script
 	private int idleThreshold = 0;
 	private boolean pickedUpHammer = false;
 	private boolean checkedBankForBetterPickaxe = false;
+	private boolean inventorySetupChecked = false;
     private MLMStatus lastLoggedStatus = null;
 
 	@Inject
@@ -133,6 +136,7 @@ public class MotherloadMineScript extends Script
 		shouldRepairWaterwheel = false;
 		emptySackWorkflowActive = false;
 		checkedBankForBetterPickaxe = false;
+		inventorySetupChecked = false;
     }
 
     private void executeTaskSafely()
@@ -263,9 +267,10 @@ public class MotherloadMineScript extends Script
     private void determineStatusFromInventory()
     {
         updateSackSize();
-        if (!hasRequiredTools())
+        boolean hasRequiredTools = hasRequiredTools();
+        if (needsInventorySetup(hasRequiredTools, config.useInventorySetup(), inventorySetupChecked))
         {
-            log.info("Missing required tools, running inventory setup");
+            if (!hasRequiredTools) log.info("Missing required tools, running inventory setup");
             setupInventory();
             return;
         }
@@ -300,6 +305,11 @@ public class MotherloadMineScript extends Script
             return;
         }
         status = MLMStatus.MINING;
+    }
+
+    static boolean needsInventorySetup(boolean hasRequiredTools, boolean useInventorySetup, boolean inventorySetupChecked)
+    {
+        return !hasRequiredTools || (useInventorySetup && !inventorySetupChecked);
     }
 
     private boolean hasRequiredTools()
@@ -414,6 +424,7 @@ public class MotherloadMineScript extends Script
 		shouldEmptySack = false;
 		shouldRepairWaterwheel = false;
 		emptySackWorkflowActive = false;
+		inventorySetupChecked = false;
 		Rs2Antiban.takeMicroBreakByChance();
 		status = MLMStatus.IDLE;
         log.info("Emptying sack workflow complete");
@@ -453,10 +464,7 @@ public class MotherloadMineScript extends Script
 
     private boolean hasOreInInventory()
     {
-        return Rs2Inventory.contains(
-                ItemID.RUNITE_ORE, ItemID.ADAMANTITE_ORE, ItemID.MITHRIL_ORE,
-                ItemID.GOLD_ORE, ItemID.COAL
-        );
+        return Rs2Inventory.contains(ORE_IDS);
     }
 
     private boolean hasGemsInInventory() {
@@ -633,6 +641,12 @@ public class MotherloadMineScript extends Script
 			}
 
 		} else {
+			if (config.getInventorySetup() == null) {
+				Microbot.showMessage("Enable Inventory Setup is on but no inventory setup is selected. Please select one in the plugin settings.");
+				log.warn("Inventory setup enabled without a selected setup, stopping plugin");
+				Microbot.stopPlugin(plugin);
+				return;
+			}
 			Rs2InventorySetup mlmInventorySetup = new Rs2InventorySetup(config.getInventorySetup(), mainScheduledFuture);
 			boolean doesEquipmentMatch = true;
 			boolean doesInventoryMatch = true;
@@ -652,6 +666,7 @@ public class MotherloadMineScript extends Script
 				Microbot.stopPlugin(plugin);
 				return;
 			}
+			inventorySetupChecked = true;
 		}
 
 		Rs2Bank.closeBank();
@@ -1070,9 +1085,27 @@ public class MotherloadMineScript extends Script
 			if (Rs2Gembag.hasGemBag()) {
 				_itemsToKeep.add("gem bag");
 			}
+			if (config.useInventorySetup() && config.getInventorySetup() != null) {
+				_itemsToKeep.addAll(setupItemNames(config.getInventorySetup().getInventory()));
+			}
 			itemsToKeep = _itemsToKeep;
 		}
 		return itemsToKeep;
+	}
+
+	static List<String> setupItemNames(List<InventorySetupsItem> setupItems) {
+		List<String> names = new ArrayList<>();
+		if (setupItems == null) return names;
+		for (InventorySetupsItem item : setupItems) {
+			if (InventorySetupsItem.isEmptySlot(item) || item.getId() == ItemID.PAYDIRT || isOre(item.getId())) continue;
+			String name = item.getName();
+			if (name != null && !name.isBlank() && !names.contains(name)) names.add(name);
+		}
+		return names;
+	}
+
+	private static boolean isOre(int itemId) {
+		return Arrays.stream(ORE_IDS).anyMatch(id -> id == itemId);
 	}
 
     @Override

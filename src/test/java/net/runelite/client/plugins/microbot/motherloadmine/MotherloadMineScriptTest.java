@@ -2,7 +2,10 @@ package net.runelite.client.plugins.microbot.motherloadmine;
 
 import net.runelite.api.Player;
 import net.runelite.api.coords.WorldPoint;
+import net.runelite.api.gameval.ItemID;
 import net.runelite.client.plugins.microbot.api.player.models.Rs2PlayerModel;
+import net.runelite.client.plugins.microbot.inventorysetups.InventorySetupsItem;
+import net.runelite.client.plugins.microbot.inventorysetups.InventorySetupsStackCompareID;
 import net.runelite.client.plugins.microbot.motherloadmine.enums.MLMMiningSpot;
 import net.runelite.client.plugins.microbot.util.antiban.enums.Activity;
 import org.junit.jupiter.api.Test;
@@ -153,6 +156,38 @@ public final class MotherloadMineScriptTest {
         assertTrue(MotherloadMineScript.canGetHammer(true, true, 0));
         assertTrue(MotherloadMineScript.canGetHammer(false, false, 0));
         assertTrue(MotherloadMineScript.canGetHammer(false, true, 1));
+    }
+
+    @Test
+    void enabledInventorySetupIsCheckedOnceEvenWhenAPickaxeIsCarried() {
+        assertTrue(MotherloadMineScript.needsInventorySetup(true, true, false));
+        assertFalse(MotherloadMineScript.needsInventorySetup(true, true, true));
+    }
+
+    @Test
+    void disabledInventorySetupOnlyRunsWithoutAPickaxe() {
+        assertFalse(MotherloadMineScript.needsInventorySetup(true, false, false));
+        assertTrue(MotherloadMineScript.needsInventorySetup(false, false, false));
+        assertTrue(MotherloadMineScript.needsInventorySetup(false, true, true));
+    }
+
+    @Test
+    void depositKeepsSetupItemsButNotEmptySlotsPayDirtOrOre() {
+        List<InventorySetupsItem> setupItems = Arrays.asList(
+                setupItem(ItemID.JEWL_NECKLACE_OF_SKILLS_6, "Skills necklace(6)", true),
+                setupItem(-1, "", false),
+                null,
+                setupItem(ItemID.PAYDIRT, "Pay-dirt", false),
+                setupItem(ItemID.COAL, "Coal", false),
+                setupItem(ItemID.GEM_BAG, "Gem bag", false),
+                setupItem(ItemID.GEM_BAG, "Gem bag", false));
+
+        assertEquals(Arrays.asList("Skills necklace", "Gem bag"), MotherloadMineScript.setupItemNames(setupItems));
+        assertTrue(MotherloadMineScript.setupItemNames(null).isEmpty());
+    }
+
+    private static InventorySetupsItem setupItem(int id, String name, boolean fuzzy) {
+        return new InventorySetupsItem(id, name, 1, fuzzy, InventorySetupsStackCompareID.None, false, -1);
     }
 
     @Test
