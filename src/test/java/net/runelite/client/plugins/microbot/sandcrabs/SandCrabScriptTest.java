@@ -16,8 +16,10 @@ import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -124,5 +126,61 @@ class SandCrabScriptTest {
 
             assertEquals(State.WALK_BACK, script.state);
         }
+    }
+
+    @Test
+    void resetAggroCountsAsDoneOnceFarFromStartWhenResetTileIsUnreachable() {
+        SandCrabScript script = new SandCrabScript();
+        script.startLocation = new WorldPoint(1749, 3469, 0);
+        script.state = State.RESET_AGGRO;
+
+        try (MockedStatic<Rs2Player> rs2Player = mockStatic(Rs2Player.class);
+             MockedStatic<Rs2Walker> rs2Walker = mockStatic(Rs2Walker.class)) {
+            rs2Player.when(Rs2Player::getWorldLocation).thenReturn(new WorldPoint(1747, 3510, 0));
+
+            script.resetAggro(mock(SandCrabPlugin.class));
+
+            rs2Walker.verifyNoInteractions();
+            assertEquals(State.WALK_BACK, script.state);
+        }
+    }
+
+    @Test
+    void resetAggroKeepsWalkingWhileStillNearStart() {
+        SandCrabScript script = new SandCrabScript();
+        script.startLocation = new WorldPoint(1749, 3469, 0);
+        script.state = State.RESET_AGGRO;
+
+        try (MockedStatic<Rs2Player> rs2Player = mockStatic(Rs2Player.class);
+             MockedStatic<Rs2Walker> rs2Walker = mockStatic(Rs2Walker.class)) {
+            rs2Player.when(Rs2Player::getWorldLocation).thenReturn(new WorldPoint(1749, 3485, 0));
+            rs2Walker.when(() -> Rs2Walker.walkTo(any(WorldPoint.class), anyInt())).thenReturn(false);
+
+            script.resetAggro(mock(SandCrabPlugin.class));
+
+            rs2Walker.verify(() -> Rs2Walker.walkTo(new WorldPoint(1749, 3509, 0), 4));
+            assertEquals(State.RESET_AGGRO, script.state);
+        }
+    }
+
+    @Test
+    void restartClearsStateLeftFromPreviousRun() {
+        ScheduledExecutorService executor = mock(ScheduledExecutorService.class);
+        SandCrabScript script = new SandCrabScript() {{
+            scheduledExecutorService = executor;
+        }};
+        script.state = State.RESET_AGGRO;
+        script.afkTimer = 15;
+        script.hijackTimer = 12;
+        script.startLocation = new WorldPoint(1747, 3510, 0);
+        script.initSandCrabLocations.get(0).scanned = true;
+
+        script.run(mock(SandCrabConfig.class), mock(SandCrabPlugin.class));
+
+        assertEquals(State.FIGHT, script.state);
+        assertEquals(0, script.afkTimer);
+        assertEquals(0, script.hijackTimer);
+        assertNull(script.startLocation);
+        assertFalse(script.initSandCrabLocations.get(0).scanned);
     }
 }

@@ -28,6 +28,8 @@ import java.util.stream.Collectors;
 
 public class SandCrabScript extends Script {
 
+    static final int RESET_AGGRO_DISTANCE = 30;
+
     public int afkTimer = 0;
     public int hijackTimer = 0;
     private boolean DisableInventorySetup;
@@ -57,11 +59,17 @@ public class SandCrabScript extends Script {
 
     public boolean run(SandCrabConfig config, SandCrabPlugin plugin) {
         startLocation = null;
+        state = State.FIGHT;
+        afkTimer = 0;
+        hijackTimer = 0;
+        timesHopped = 0;
+        currentScanLocation = null;
         if (config.threeNpcs()) {
             sandCrabLocations = initSandCrabLocations.stream().filter(x -> x.hasThreeNpcs).collect(Collectors.toList());
         } else {
             sandCrabLocations = initSandCrabLocations.stream().collect(Collectors.toList());
         }
+        resetScanLocations();
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
                 if (!Microbot.isLoggedIn()) return;
@@ -266,6 +274,11 @@ public class SandCrabScript extends Script {
         WorldPoint playerLocation = Rs2Player.getWorldLocation();
         WorldPoint start = startLocation;
         if (playerLocation == null || start == null) return;
+
+        if (playerLocation.distanceTo(start) > RESET_AGGRO_DISTANCE) {
+            state = State.WALK_BACK;
+            return;
+        }
 
         boolean walkedFarEnough = false;
         if (playerLocation.getX() > 1805) {
