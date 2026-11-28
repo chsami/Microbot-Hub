@@ -57,8 +57,8 @@ public class HerbrunScript extends Script {
     private enum LocationPhase { HERB, FLOWER, ALLOTMENT, DONE }
     private LocationPhase currentPhase = LocationPhase.HERB;
 
-    private static final Set<String> ALLOTMENT_FLOWER_REGIONS = Set.of(
-            "Ardougne", "Catherby", "Civitas illa Fortis", "Falador", "Kourend", "Morytania"
+    static final Set<String> ALLOTMENT_FLOWER_REGIONS = Set.of(
+            "Ardougne", "Catherby", "Civitas illa Fortis", "Falador", "Farming Guild", "Kourend", "Morytania"
     );
 
     @Inject
@@ -269,7 +269,7 @@ public class HerbrunScript extends Script {
         }
     }
 
-    private static final int[] ALLOTMENT_PATCH_IDS = {
+    static final int[] ALLOTMENT_PATCH_IDS = {
             ObjectID.FARMING_VEG_PATCH_1, ObjectID.FARMING_VEG_PATCH_2,
             ObjectID.FARMING_VEG_PATCH_3, ObjectID.FARMING_VEG_PATCH_4,
             ObjectID.FARMING_VEG_PATCH_5, ObjectID.FARMING_VEG_PATCH_6,
@@ -436,7 +436,7 @@ public class HerbrunScript extends Script {
 
     // --- Flower patch handling ---
 
-    private static final int[] FLOWER_PATCH_IDS = {
+    static final int[] FLOWER_PATCH_IDS = {
             ObjectID.FARMING_FLOWER_PATCH_1, ObjectID.FARMING_FLOWER_PATCH_2,
             ObjectID.FARMING_FLOWER_PATCH_3, ObjectID.FARMING_FLOWER_PATCH_4,
             ObjectID.FARMING_FLOWER_PATCH_5, ObjectID.FARMING_FLOWER_PATCH_6,
@@ -964,7 +964,7 @@ public class HerbrunScript extends Script {
         return seedsWithdrawn > 0;
     }
 
-    private int countEnabledAllotmentFlowerLocations() {
+    int countEnabledAllotmentFlowerLocations() {
         int count = 0;
         if (config.enableArdougne()) count++;
         if (config.enableCatherby()) count++;
@@ -972,6 +972,7 @@ public class HerbrunScript extends Script {
         if (config.enableFalador()) count++;
         if (config.enableHosidius()) count++;
         if (config.enableMorytania()) count++;
+        if (config.enableGuild()) count++;
         return count;
     }
 
