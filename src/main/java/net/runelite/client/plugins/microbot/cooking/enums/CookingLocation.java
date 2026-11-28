@@ -12,8 +12,11 @@ import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 
-import java.util.HashMap;
+import java.util.AbstractMap;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.function.ToIntFunction;
 
 @Getter
 @RequiredArgsConstructor
@@ -59,7 +62,12 @@ public enum CookingLocation
 
 	public static CookingLocation findNearestCookingLocation(CookingItem item)
 	{
-		Map<Integer, CookingLocation> distanceMap = new HashMap<>();
+		if (!Microbot.isLoggedIn() || Rs2Player.getWorldLocation() == null)
+		{
+			return null;
+		}
+
+		List<CookingLocation> candidates = new ArrayList<>();
 
 		for (CookingLocation location : values())
 		{
@@ -74,15 +82,43 @@ public enum CookingLocation
 				continue;
 			}
 
-			int distance = Rs2Player.distanceTo(location.getCookingObjectWorldPoint());
-			distanceMap.put(distance, location);
+			candidates.add(location);
 		}
 
-		return distanceMap.entrySet()
-			.stream()
-			.min(Map.Entry.comparingByKey())
-			.map(Map.Entry::getValue)
-			.orElse(null);
+		Map.Entry<CookingLocation, Integer> nearest = nearest(candidates, location -> Microbot.isLoggedIn()
+			? Rs2Player.distanceTo(location.getCookingObjectWorldPoint())
+			: Integer.MAX_VALUE);
+
+		if (nearest == null || !Microbot.isLoggedIn())
+		{
+			return null;
+		}
+
+		Microbot.log("Nearest cooking location: " + nearest.getKey().name() + " (distance " + nearest.getValue() + ")");
+		return nearest.getKey();
+	}
+
+	static Map.Entry<CookingLocation, Integer> nearest(List<CookingLocation> candidates, ToIntFunction<CookingLocation> distance)
+	{
+		CookingLocation nearest = null;
+		int nearestDistance = Integer.MAX_VALUE;
+
+		for (CookingLocation location : candidates)
+		{
+			int locationDistance = distance.applyAsInt(location);
+			if (locationDistance == Integer.MAX_VALUE)
+			{
+				return null;
+			}
+
+			if (nearest == null || locationDistance < nearestDistance)
+			{
+				nearest = location;
+				nearestDistance = locationDistance;
+			}
+		}
+
+		return nearest == null ? null : new AbstractMap.SimpleImmutableEntry<>(nearest, nearestDistance);
 	}
 
 	public boolean hasRequirements()
