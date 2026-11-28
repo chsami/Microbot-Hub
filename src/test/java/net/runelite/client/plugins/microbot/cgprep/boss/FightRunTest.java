@@ -12,31 +12,41 @@ import org.junit.jupiter.api.Test;
 
 class FightRunTest
 {
+	private static final int DEFAULT_THRESHOLD = 1000;
+
 	@Test
-	void runOffWithEnergyIsTurnedBackOn()
+	void runOffWithEnergyAboveThresholdIsTurnedBackOn()
 	{
-		assertTrue(BossFight.shouldRestoreRun(false, 50, 10_000, 0));
-		assertTrue(BossFight.shouldRestoreRun(false, BossFight.RUN_MIN_ENERGY, 10_000, 0));
+		assertTrue(BossFight.shouldRestoreRun(false, 5000, DEFAULT_THRESHOLD, 10_000, 0));
+		assertTrue(BossFight.shouldRestoreRun(false, DEFAULT_THRESHOLD + 1, DEFAULT_THRESHOLD, 10_000, 0));
 	}
 
 	@Test
 	void runAlreadyOnIsLeftAlone()
 	{
-		assertFalse(BossFight.shouldRestoreRun(true, 100, 10_000, 0));
+		assertFalse(BossFight.shouldRestoreRun(true, 10_000, DEFAULT_THRESHOLD, 10_000, 0));
 	}
 
 	@Test
-	void noEnergyIsLeftAlone()
+	void energyAtOrBelowClientThresholdIsLeftAlone()
 	{
-		assertFalse(BossFight.shouldRestoreRun(false, BossFight.RUN_MIN_ENERGY - 1, 10_000, 0));
+		assertFalse(BossFight.shouldRestoreRun(false, DEFAULT_THRESHOLD, DEFAULT_THRESHOLD, 10_000, 0));
+		assertFalse(BossFight.shouldRestoreRun(false, 300, DEFAULT_THRESHOLD, 10_000, 0));
+	}
+
+	@Test
+	void negativeThresholdStillNeedsSomeEnergy()
+	{
+		assertFalse(BossFight.shouldRestoreRun(false, 0, -1, 10_000, 0));
+		assertTrue(BossFight.shouldRestoreRun(false, 1, -1, 10_000, 0));
 	}
 
 	@Test
 	void retriesWaitBetweenClicks()
 	{
 		long last = 10_000;
-		assertFalse(BossFight.shouldRestoreRun(false, 50, last + BossFight.RUN_RETRY_MS, last));
-		assertTrue(BossFight.shouldRestoreRun(false, 50, last + BossFight.RUN_RETRY_MS + 1, last));
+		assertFalse(BossFight.shouldRestoreRun(false, 5000, DEFAULT_THRESHOLD, last + BossFight.RUN_RETRY_MS, last));
+		assertTrue(BossFight.shouldRestoreRun(false, 5000, DEFAULT_THRESHOLD, last + BossFight.RUN_RETRY_MS + 1, last));
 	}
 
 	@Test

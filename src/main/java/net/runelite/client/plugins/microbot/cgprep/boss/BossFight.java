@@ -142,11 +142,11 @@ public final class BossFight
 	private int ticksLogged;
 	private boolean warnedSlowBow;
 	private String holdReason;
-	static final int RUN_MIN_ENERGY = 3;
 	static final long RUN_RETRY_MS = 1800;
 	private volatile boolean runOn = true;
 	private volatile int runEnergy;
 	private long lastRunToggleMs;
+	private boolean runRestoreSent;
 
 	/** New run / new fight: forget everything. Any thread. */
 	public void reset()
@@ -165,6 +165,7 @@ public final class BossFight
 			model = new FightModel();
 			brain = new HunllefBrain(brainConfig);
 			exec.reset();
+			runRestoreSent = false;
 		});
 		lastObs = null;
 		lastPlan = null;
@@ -445,7 +446,7 @@ public final class BossFight
 		doseId = dId;
 		clientRef = client;
 		runOn = client.getVarpValue(173) == 1;
-		runEnergy = client.getEnergy() / 100;
+		runEnergy = client.getEnergy();
 		o.swung = swung;
 		o.attacking = p.getInteracting() == boss;
 		o.prayersDisabled = disabledMsg;
@@ -631,21 +632,37 @@ public final class BossFight
 		}
 	}
 
-	static boolean shouldRestoreRun(boolean runOn, int energy, long nowMs, long lastToggleMs)
+	static boolean shouldRestoreRun(boolean runOn, int rawEnergy, int rawThreshold, long nowMs, long lastToggleMs)
 	{
-		return !runOn && energy >= RUN_MIN_ENERGY && nowMs - lastToggleMs > RUN_RETRY_MS;
+		return !runOn && rawEnergy > Math.max(0, rawThreshold) && nowMs - lastToggleMs > RUN_RETRY_MS;
 	}
 
 	private void keepRunOn()
 	{
+		if (runOn)
+		{
+			if (runRestoreSent)
+			{
+				runRestoreSent = false;
+				log.accept("FIGHT", "run on (energy " + runEnergy / 100 + "%)");
+			}
+			return;
+		}
 		long now = System.currentTimeMillis();
-		if (!shouldRestoreRun(runOn, runEnergy, now, lastRunToggleMs))
+		if (!shouldRestoreRun(false, runEnergy, Microbot.runEnergyThreshold, now, lastRunToggleMs))
 		{
 			return;
 		}
 		lastRunToggleMs = now;
-		net.runelite.client.plugins.microbot.util.player.Rs2Player.toggleRunEnergy(true);
-		log.accept("FIGHT", "run on (energy " + runEnergy + "%)");
+		if (net.runelite.client.plugins.microbot.util.player.Rs2Player.toggleRunEnergy(true))
+		{
+			runRestoreSent = false;
+			log.accept("FIGHT", "run on (energy " + runEnergy / 100 + "%)");
+		}
+		else
+		{
+			runRestoreSent = true;
+		}
 	}
 
 	private String holdReason()
