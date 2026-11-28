@@ -27,6 +27,8 @@ import net.runelite.client.plugins.microbot.accountstarter.model.VoucherReward;
 public final class Planner {
     private static final Skill[] LAMP_ORDER = {Skill.FISHING, Skill.WOODCUTTING, Skill.MINING};
     private static final String ALT_REASON = "Warrior/Wizard/Ranger paths are not supported yet";
+    public static final String REJOIN = "rejoin Adventure Paths at Adventurer Jon";
+    public static final String OPTED_OUT = "account is not taking part in Adventure Paths: turn on Rejoin Adventure Paths, or talk to Adventurer Jon and rejoin";
 
     private Planner() {}
 
@@ -77,8 +79,13 @@ public final class Planner {
                                 ToIntFunction<ApTask> tilesFromHere) {
         if (!s.isLoggedIn()) return d(Kind.WAIT, null, null, "not logged in", Collections.emptyMap());
         Progress p = s.getProgress();
-        if (!p.isParticipating()) return d(Kind.STOP, null, null, "account is not taking part in Adventure Paths", Collections.emptyMap());
+        // ironmen cannot see Jon, so rejoining is never an option for them
         if (p.isIronman()) return d(Kind.STOP, null, null, "ironmen cannot do Adventure Paths", Collections.emptyMap());
+        if (!p.isParticipating()) {
+            return s.isOptInAllowed()
+                    ? d(Kind.CLAIM_AT_JON, null, null, REJOIN, Collections.emptyMap())
+                    : d(Kind.STOP, null, null, OPTED_OUT, Collections.emptyMap());
+        }
 
         boolean kitToOpen = s.carried(ApTask.STARTER_KIT_ID) > 0;
         if ((kitToOpen || !s.isStarterKitClaimed() && s.isBankKnown()) && c.getChosen().stream().anyMatch(x -> x.path() == ApPath.COMBAT)) {

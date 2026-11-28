@@ -29,6 +29,10 @@ import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 @Slf4j
 public final class JonActivity implements Activity {
     public static final String OPTED_OUT = "account opted out of Adventure Paths";
+    public static final String NOT_REJOINED = "Adventurer Jon did not take the account back into Adventure Paths; rejoin by hand";
+    static final String REJOINED = "rejoined Adventure Paths";
+    // the participation varbit can lag the dialogue by a tick or two
+    static final long REJOIN_CONFIRM_MS = 5000;
     static final String TOO_FULL = "inventory too full for Jon's rewards";
     private static final int MAX_FAILURES = 3;
     private static final int MAX_UNKNOWN = 2;
@@ -48,6 +52,8 @@ public final class JonActivity implements Activity {
     private final boolean burying;
 
     private boolean started;
+    private boolean rejoin;
+    private long rejoinAskedAt;
     private boolean needBank;
     private JonReply claimed;
     private final Set<Integer> usedLater;
@@ -82,7 +88,11 @@ public final class JonActivity implements Activity {
     public Outcome tick(AccountSnapshot s) {
         if (!started) {
             started = true;
-            needBank = s.getFreeSlots() < slotsWanted(s);
+            rejoin = !s.getProgress().isParticipating();
+            needBank = !rejoin && s.getFreeSlots() < slotsWanted(s);
+        }
+        if (rejoinAskedAt > 0) {
+            return confirmRejoin(s.getProgress().isParticipating(), rejoinAskedAt, System.currentTimeMillis());
         }
         if (needBank) {
             return bank(s);
@@ -101,7 +111,8 @@ public final class JonActivity implements Activity {
             return fail("Adventurer Jon not found");
         }
         Global.sleep((int) pace.reactionMs(random));
-        if (!jon.click(kit ? "Talk-to" : "Claim")) {
+        // an opted-out account is only offered to rejoin through Talk-to
+        if (!jon.click(kit || rejoin ? "Talk-to" : "Claim")) {
             return fail("could not click Adventurer Jon");
         }
         if (!Global.sleepUntil(Rs2Dialogue::isInDialogue, 5000)) {
@@ -118,6 +129,14 @@ public final class JonActivity implements Activity {
         }
         store.save(accountKey, state);
         return settle(reply);
+    }
+
+    /** Stops only once the participation varbit has had time to update and still reads 0. */
+    static Outcome confirmRejoin(boolean participating, long askedAt, long now) {
+        if (participating) {
+            return Outcome.done(REJOINED);
+        }
+        return now - askedAt < REJOIN_CONFIRM_MS ? Outcome.cont() : Outcome.failed(NOT_REJOINED);
     }
 
     @Override
@@ -150,8 +169,12 @@ public final class JonActivity implements Activity {
                 needBank = true;
                 return Outcome.cont();
             case NOT_PARTICIPATING:
-                // allowOptIn already answered "Yes please" in the dialogue; talk again to get the real reply
-                return config.allowOptIn() ? fail("rejoined Adventure Paths") : Outcome.failed(OPTED_OUT);
+                if (!config.allowOptIn()) {
+                    return Outcome.failed(OPTED_OUT);
+                }
+                // the dialogue answered "Yes please" and confirmed; check the varbit before going on
+                rejoinAskedAt = System.currentTimeMillis();
+                return Outcome.cont();
             default:
                 return ++unknowns >= MAX_UNKNOWN ? Outcome.parked("Adventurer Jon's reply was not recognised") : Outcome.cont();
         }
@@ -194,7 +217,12 @@ public final class JonActivity implements Activity {
         if (Rs2Dialogue.hasDialogueOption("Yes please")) {
             return Rs2Dialogue.clickOption(config.allowOptIn() ? "Yes please" : "No thanks");
         }
-        if (JonReply.parse(Rs2Dialogue.getQuestion()) == JonReply.OPT_OUT_PROMPT) {
+        String question = Rs2Dialogue.getQuestion();
+        // "Yes please" is followed by a second "Opt into Adventure Paths?" menu that needs a plain "Yes"
+        if (config.allowOptIn() && question != null && question.toLowerCase().contains("opt into adventure paths")) {
+            return Rs2Dialogue.clickOption("Yes", true);
+        }
+        if (JonReply.parse(question) == JonReply.OPT_OUT_PROMPT) {
             return Rs2Dialogue.clickOption("No", true);
         }
         return Rs2Dialogue.clickOption(kit ? "starter kits" : "claim my Adventure Path rewards");

@@ -544,7 +544,7 @@ public class AccountStarterScript extends Script {
                 return;
             }
             default:
-                if (JonActivity.OPTED_OUT.equals(o.getReason())) {
+                if (JonActivity.OPTED_OUT.equals(o.getReason()) || JonActivity.NOT_REJOINED.equals(o.getReason())) {
                     stop(o.getReason());
                     return;
                 }
@@ -580,7 +580,7 @@ public class AccountStarterScript extends Script {
     private AccountSnapshot read() {
         AccountSnapshot base = reader.read(Rs2Bank.getBankLiveEpoch() > 0);
         AccountSnapshot s = base.toBuilder()
-                .foodBlocked(System.currentTimeMillis() < foodBlockedUntil).shopsAllowed(config.buyAtVarrockShops()).foodStock(habits.getFoodStock()).protectedSkills(choices().getProtectedSkills()).wantsFood(wantsFood)
+                .foodBlocked(System.currentTimeMillis() < foodBlockedUntil).shopsAllowed(config.buyAtVarrockShops()).optInAllowed(config.allowOptIn()).foodStock(habits.getFoodStock()).protectedSkills(choices().getProtectedSkills()).wantsFood(wantsFood)
                 .mudfootToDo(base.isMudfootToDo() && (config.doMudfoot() || config.questOnly()) && !questGaveUp).build();
         if (wantsFood && Needs.edible(s) > 0) wantsFood = false;
         lastSnapshot = s;

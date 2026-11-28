@@ -28,6 +28,8 @@ public class AccountSnapshot {
     boolean mudfootToDo;
     boolean harlanReady;
     boolean shopsAllowed;
+    /** The Rejoin Adventure Paths setting: an opted-out account goes to Jon instead of stopping. */
+    boolean optInAllowed;
     /** By unnoted id; already counted in inventory, but noted items cannot be eaten, worn or used. */
     @Builder.Default Map<Integer, Integer> notedInventory = Collections.emptyMap();
     @Builder.Default int foodStock = 10;

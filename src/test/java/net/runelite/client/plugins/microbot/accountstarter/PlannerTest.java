@@ -110,7 +110,28 @@ class PlannerTest {
         Progress p = new Progress(Collections.emptyMap(), Collections.emptyMap(), Collections.emptySet(), false, false, false);
         Decision d = next(snap().progress(p).build(), everything(), PacingMode.SMART);
         assertEquals(Kind.STOP, d.getKind());
-        assertEquals("account is not taking part in Adventure Paths", d.getReason());
+        assertEquals(Planner.OPTED_OUT, d.getReason());
+    }
+
+    @Test
+    void optedOutWithRejoinOnGoesToJon() {
+        Progress p = new Progress(Collections.emptyMap(), Collections.emptyMap(), Collections.emptySet(), false, false, false);
+        for (Choices c : new Choices[]{everything(), skiller()}) {
+            // the rejoin comes before the starter kit or anything else
+            Decision d = next(snap().starterKitClaimed(false).progress(p).optInAllowed(true).build(), c, PacingMode.SMART);
+            assertEquals(Kind.CLAIM_AT_JON, d.getKind());
+            assertEquals(Planner.REJOIN, d.getReason());
+        }
+        Progress back = new Progress(Collections.emptyMap(), Collections.emptyMap(), Collections.emptySet(), true, false, false);
+        assertNotEquals(Planner.REJOIN, next(snap().progress(back).optInAllowed(true).build(), skiller(), PacingMode.SMART).getReason());
+    }
+
+    @Test
+    void ironmanStopsEvenWithRejoinOn() {
+        Progress p = new Progress(Collections.emptyMap(), Collections.emptyMap(), Collections.emptySet(), false, false, true);
+        Decision d = next(snap().progress(p).optInAllowed(true).build(), everything(), PacingMode.SMART);
+        assertEquals(Kind.STOP, d.getKind());
+        assertEquals("ironmen cannot do Adventure Paths", d.getReason());
     }
 
     @Test
