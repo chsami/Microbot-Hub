@@ -13,7 +13,7 @@ final class DroSlayerBankSupplies {
 
     static boolean isAntifire(String name) {
         return name != null && name.trim().toLowerCase(Locale.ROOT)
-                .matches("(?:extended )?(?:super )?antifire(?: mix)?\\([1-4]\\)");
+                .matches("(?:extended )?(?:super )?antifire(?: potion| mix)?\\([1-4]\\)");
     }
 
     static boolean needsAntifire(List<DroSlayerTaskRequirements.Requirement> requirements) {

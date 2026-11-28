@@ -246,9 +246,9 @@ public final class DroSlayerTaskRequirements {
     private static Requirement antifireRequirement() {
         String[] accepted = potionVariants(1,
                 "Extended super antifire",
-                "Super antifire",
+                "Super antifire potion",
                 "Extended antifire",
-                "Antifire");
+                "Antifire potion");
         return Requirement.inventory("dragonfire protection potion", "Extended super antifire(4)", 1, accepted);
     }
 
