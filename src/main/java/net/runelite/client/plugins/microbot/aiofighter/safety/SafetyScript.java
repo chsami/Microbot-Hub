@@ -15,10 +15,10 @@ import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
+import org.slf4j.event.Level;
 
 import java.util.Collection;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Level;
 
 import static net.runelite.client.plugins.microbot.Microbot.log;
 
@@ -69,7 +69,7 @@ public class SafetyScript extends Script {
     }
 
     public void stopAndLog(String reason) {
-        log(reason, Level.WARNING);
+        log(reason, Level.WARN);
         // Avoid competing with BankerScript's walker while it is already controlling movement.
         if (!isBankingOrWalking() && !Rs2Player.isMoving()) {
             Rs2Bank.walkToBank();

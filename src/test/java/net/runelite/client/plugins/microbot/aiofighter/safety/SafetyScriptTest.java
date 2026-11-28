@@ -1,17 +1,29 @@
 package net.runelite.client.plugins.microbot.aiofighter.safety;
 
+import net.runelite.client.plugins.Plugin;
+import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.aiofighter.AIOFighterConfig;
+import net.runelite.client.plugins.microbot.aiofighter.AIOFighterPlugin;
+import net.runelite.client.plugins.microbot.aiofighter.enums.State;
 import net.runelite.client.plugins.microbot.inventorysetups.InventorySetup;
 import net.runelite.client.plugins.microbot.inventorysetups.InventorySetupsItem;
+import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.misc.Rs2Food;
+import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
+import org.slf4j.event.Level;
 
 import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 public final class SafetyScriptTest {
@@ -71,5 +83,26 @@ public final class SafetyScriptTest {
     @Test
     void bankingOffDoesNotRestockFood() {
         assertFalse(SafetyScript.bankRestocksFood(config(false, true), "Melee", foodSetups()));
+    }
+
+    @Test
+    void lowHealthReasonWithPercentSignStillLogsOutAndStops() {
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<AIOFighterPlugin> plugin = mockStatic(AIOFighterPlugin.class);
+             MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class);
+             MockedStatic<Rs2Bank> bank = mockStatic(Rs2Bank.class)) {
+            plugin.when(AIOFighterPlugin::getState).thenReturn(State.COMBAT);
+            player.when(Rs2Player::isMoving).thenReturn(false);
+            Plugin aioFighter = mock(Plugin.class);
+            microbot.when(() -> Microbot.getPlugin(AIOFighterPlugin.class.getName())).thenReturn(aioFighter);
+
+            new SafetyScript().stopAndLog("Low health: 20%");
+
+            microbot.verify(() -> Microbot.log("Low health: 20%", Level.WARN));
+            microbot.verify(() -> Microbot.log(eq("Low health: 20%"), any(Object[].class)), never());
+            bank.verify(Rs2Bank::walkToBank);
+            player.verify(Rs2Player::logout);
+            microbot.verify(() -> Microbot.stopPlugin(aioFighter));
+        }
     }
 }
